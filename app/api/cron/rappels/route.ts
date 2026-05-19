@@ -16,15 +16,18 @@ export async function GET(req: NextRequest) {
   const d = demain;
   const demainStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, email_rappel_contenu, email_expediteur, email_expediteur_nom");
   const { data: rdvs } = await admin
     .from("rendez_vous")
-    .select("id, date_heure, salons(nom), clients(prenom, email), rendez_vous_prestations(prestations(nom))")
+    .select("id, date_heure, salon_id, salons(nom), clients(prenom, email), rendez_vous_prestations(prestations(nom))")
     .eq("statut", "confirme")
     .gte("date_heure", `${demainStr}T00:00:00`)
     .lte("date_heure", `${demainStr}T23:59:59`);
 
   let sent = 0;
   for (const rdv of rdvs || []) {
+    const salonCfg = (salonSettings || []).find(s => s.salon_id === rdv.salon_id);
+    if (salonCfg?.email_rappel_active === false) continue;
     const client = rdv.clients as unknown as { prenom: string; email: string | null } | null;
     if (!client?.email) continue;
 
@@ -39,8 +42,10 @@ export async function GET(req: NextRequest) {
     await sendEmail({
       to: client.email,
       toName: client.prenom,
-      subject: `Rappel : votre rendez-vous demain — ${salon?.nom || "rdvous"}`,
-      html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations }),
+      subject: salonCfg?.email_rappel_objet || `Rappel : votre rendez-vous demain — ${salon?.nom || "rdvous"}`,
+      html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: salonCfg?.email_rappel_contenu || undefined }),
+      fromName: salonCfg?.email_expediteur_nom || salon?.nom || "rdvous",
+      fromEmail: salonCfg?.email_expediteur || undefined,
     });
     sent++;
   }

@@ -224,13 +224,19 @@ function Section({ titre, children, style }: { titre: string; children: React.Re
   );
 }
 
+function formatDateFR(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 function Champ({ label, value, onChange, editing, type = "text" }: { label: string; value: string; onChange: (v: string) => void; editing: boolean; type?: string }) {
+  const display = type === "date" && value ? formatDateFR(value) : (value || "—");
   return (
     <div>
       <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 4 }}>{label}</label>
       {editing
         ? <input type={type} value={value} onChange={e => onChange(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }} />
-        : <div style={{ fontSize: 13, color: value ? "#222" : "#ccc" }}>{value || "—"}</div>
+        : <div style={{ fontSize: 13, color: value ? "#222" : "#ccc" }}>{display}</div>
       }
     </div>
   );

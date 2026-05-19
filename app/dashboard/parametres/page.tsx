@@ -5,12 +5,12 @@ import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_confirmation_active: boolean; email_confirmation_objet: string; email_confirmation_contenu: string; email_rappel_active: boolean; email_rappel_objet: string; email_rappel_contenu: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
 
 export default function ParametresPage() {
   const salon = useSalon();
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5 });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", email_confirmation_contenu: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", email_rappel_contenu: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5 });
   const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0" });
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
@@ -128,13 +128,45 @@ export default function ParametresPage() {
         </div>
       </Section>
 
+      <Section titre="Emails automatiques" style={{ marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Champ label="Nom de l'expéditeur" value={settings.email_expediteur_nom} onChange={v => setSettings(s => ({ ...s, email_expediteur_nom: v }))} />
+          <Champ label="Email expéditeur" value={settings.email_expediteur} onChange={v => setSettings(s => ({ ...s, email_expediteur: v }))} type="email" />
+        </div>
+        <div style={{ height: 1, background: "#f0f0f0" }} />
+        <Toggle
+          label="Confirmation de rendez-vous"
+          description="Envoie un email au client dès qu'un RDV est créé"
+          value={settings.email_confirmation_active}
+          onChange={v => setSettings(s => ({ ...s, email_confirmation_active: v }))}
+          couleur={m.couleur}
+        />
+        {settings.email_confirmation_active && (
+          <>
+            <Champ label="Objet" value={settings.email_confirmation_objet} onChange={v => setSettings(s => ({ ...s, email_confirmation_objet: v }))} />
+            <ChampTextarea label="Contenu" value={settings.email_confirmation_contenu} onChange={v => setSettings(s => ({ ...s, email_confirmation_contenu: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
+          </>
+        )}
+        <div style={{ height: 1, background: "#f0f0f0" }} />
+        <Toggle
+          label="Rappel 24h avant"
+          description="Envoie un rappel la veille à 9h UTC pour les RDVs confirmés"
+          value={settings.email_rappel_active}
+          onChange={v => setSettings(s => ({ ...s, email_rappel_active: v }))}
+          couleur={m.couleur}
+        />
+        {settings.email_rappel_active && (
+          <>
+            <Champ label="Objet" value={settings.email_rappel_objet} onChange={v => setSettings(s => ({ ...s, email_rappel_objet: v }))} />
+            <ChampTextarea label="Contenu" value={settings.email_rappel_contenu} onChange={v => setSettings(s => ({ ...s, email_rappel_contenu: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
+          </>
+        )}
+      </Section>
+
       <Section titre="Relances clients" style={{ marginTop: 16 }}>
         <Champ label="Délai avant relance (mois)" value={String(settings.delai_relance_mois)} onChange={v => setSettings(s => ({ ...s, delai_relance_mois: Number(v) }))} type="number" />
-        <Champ label="Email expéditeur" value={settings.email_expediteur} onChange={v => setSettings(s => ({ ...s, email_expediteur: v }))} type="email" />
-        <div>
-          <label style={labelStyle}>Message (utilisez {"{prenom}"} pour personnaliser)</label>
-          <textarea value={settings.message_relance} onChange={e => setSettings(s => ({ ...s, message_relance: e.target.value }))} rows={3} style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box", resize: "vertical" }} />
-        </div>
+        <Champ label="Objet de l'email" value={settings.email_relance_objet} onChange={v => setSettings(s => ({ ...s, email_relance_objet: v }))} />
+        <ChampTextarea label="Contenu" value={settings.message_relance} onChange={v => setSettings(s => ({ ...s, message_relance: v }))} hint="{prenom}" />
       </Section>
 
       <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
@@ -160,6 +192,36 @@ function Champ({ label, value, onChange, type = "text" }: { label: string; value
     <div>
       <label style={labelStyle}>{label}</label>
       <input type={type} value={value ?? ""} onChange={e => onChange(e.target.value)} style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+    </div>
+  );
+}
+
+function ChampTextarea({ label, value, onChange, hint }: { label: string; value: string; onChange: (v: string) => void; hint?: string }) {
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+        <label style={labelStyle}>{label}</label>
+        {hint && <span style={{ fontSize: 11, color: "#bbb" }}>Variables : {hint}</span>}
+      </div>
+      <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box", resize: "vertical" }} />
+    </div>
+  );
+}
+
+function Toggle({ label, description, value, onChange, couleur }: { label: string; description: string; value: boolean; onChange: (v: boolean) => void; couleur: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#333" }}>{label}</div>
+        <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{description}</div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        style={{ flexShrink: 0, width: 44, height: 24, borderRadius: 12, border: "none", background: value ? couleur : "#ddd", cursor: "pointer", position: "relative", transition: "background 0.2s" }}
+      >
+        <div style={{ position: "absolute", top: 3, left: value ? 23 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+      </button>
     </div>
   );
 }
