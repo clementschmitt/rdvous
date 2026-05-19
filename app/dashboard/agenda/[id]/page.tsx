@@ -39,6 +39,9 @@ export default function RDVDetailPage() {
   const [editingCapsules, setEditingCapsules] = useState(false);
   const [savingCapsules, setSavingCapsules] = useState(false);
 
+  const [cagnotteInput, setCagnotteInput] = useState(0);
+  const [editingCagnotte, setEditingCagnotte] = useState(false);
+
   useEffect(() => {
     if (!salon) return;
     load();
@@ -52,9 +55,11 @@ export default function RDVDetailPage() {
       .eq("id", id)
       .single();
     if (!data) { router.push("/dashboard/agenda"); return; }
-    setRdv(data as unknown as RDV);
+    const parsed = data as unknown as RDV;
+    setRdv(parsed);
     setNotes(data.notes || "");
-    const client = (data as unknown as RDV).clients;
+    setCagnotteInput(parsed.montant_cagnotte_utilise || 0);
+    const client = parsed.clients;
     if (client) setCapsules(parseCapsules(client.champs_metier?.mesures_capsules));
   }
 
@@ -102,6 +107,26 @@ export default function RDVDetailPage() {
     setEditingCapsules(false);
     load();
     setSavingCapsules(false);
+  }
+
+  async function saveCagnotte() {
+    if (!rdv?.clients) return;
+    setSaving(true);
+    const supabase = createSupabase();
+    const oldAmount = rdv.montant_cagnotte_utilise || 0;
+    const newAmount = cagnotteInput;
+    const diff = newAmount - oldAmount;
+    await supabase.from("rendez_vous").update({ montant_cagnotte_utilise: newAmount }).eq("id", id);
+    if (diff !== 0) {
+      await supabase.from("clients").update({ cagnotte: rdv.clients.cagnotte - diff }).eq("id", rdv.clients.id);
+      await supabase.from("cagnotte_mouvements").insert({
+        salon_id: salon!.id, client_id: rdv.clients.id,
+        montant: Math.abs(diff), type: diff > 0 ? "utilisation" : "remboursement", reference_id: id,
+      });
+    }
+    setEditingCagnotte(false);
+    load();
+    setSaving(false);
   }
 
   async function changeStatut(statut: string) {
@@ -258,6 +283,56 @@ export default function RDVDetailPage() {
             </>
           )}
         </div>
+
+        {rdv.clients && rdv.statut !== "annule" && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#aaa", textTransform: "uppercase" }}>Cagnotte</div>
+              {!editingCagnotte
+                ? <button onClick={() => { setCagnotteInput(rdv.montant_cagnotte_utilise || 0); setEditingCagnotte(true); }} style={btnGhost}>Modifier</button>
+                : <div style={{ display: "flex", gap: 6 }}>
+                    <button onClick={() => setEditingCagnotte(false)} style={btnGhost}>Annuler</button>
+                    <button onClick={saveCagnotte} disabled={saving} style={{ ...btnGhost, borderColor: m.couleur, color: m.couleur }}>{saving ? "..." : "Enregistrer"}</button>
+                  </div>
+              }
+            </div>
+            <div style={{ background: "#f9f9f9", borderRadius: 8, padding: "10px 14px", fontSize: 13 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: editingCagnotte ? 10 : 0, color: "#666" }}>
+                <span>Solde disponible</span>
+                <span style={{ fontWeight: 600, color: rdv.clients.cagnotte > 0 ? "#27ae60" : "#999" }}>
+                  {(rdv.clients.cagnotte + (rdv.montant_cagnotte_utilise || 0)).toFixed(2)} €
+                </span>
+              </div>
+              {editingCagnotte ? (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="number" min={0}
+                      max={Math.min(rdv.clients.cagnotte + (rdv.montant_cagnotte_utilise || 0), tarifTotal)}
+                      step={0.5}
+                      value={cagnotteInput}
+                      onChange={e => setCagnotteInput(Math.min(Number(e.target.value), Math.min(rdv.clients!.cagnotte + (rdv.montant_cagnotte_utilise || 0), tarifTotal)))}
+                      style={{ flex: 1, padding: "7px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13 }}
+                    />
+                    <span style={{ fontSize: 13, color: "#999" }}>€ déduits</span>
+                    <button onClick={() => setCagnotteInput(Math.min(rdv.clients!.cagnotte + (rdv.montant_cagnotte_utilise || 0), tarifTotal))} style={{ ...btnGhost, fontSize: 11 }}>Max</button>
+                  </div>
+                  {cagnotteInput > 0 && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: "#666" }}>
+                      À payer : <b style={{ color: m.couleur }}>{(tarifTotal - cagnotteInput).toFixed(2)} €</b> (au lieu de {tarifTotal} €)
+                    </div>
+                  )}
+                </div>
+              ) : rdv.montant_cagnotte_utilise > 0 ? (
+                <div style={{ marginTop: 6, fontSize: 13, color: m.couleur, fontWeight: 600 }}>
+                  − {rdv.montant_cagnotte_utilise.toFixed(2)} € déduits
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: "#bbb", marginTop: 4 }}>Aucune déduction</div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#aaa", marginBottom: 8, textTransform: "uppercase" }}>Notes</div>
