@@ -80,6 +80,13 @@ function NouveauRDVContent() {
       await supabase.from("cagnotte_mouvements").insert({ salon_id: salon!.id, client_id: clientId, montant: -cagnotteAUtiliser, type: "utilisation", reference_id: rdv.id });
     }
 
+    // Fire-and-forget — ne bloque pas la navigation
+    fetch("/api/email/confirmation", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rdv_id: rdv.id }),
+    });
+
     router.push(`/dashboard/agenda/${rdv.id}`);
   }
 

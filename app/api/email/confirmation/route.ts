@@ -1,0 +1,38 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { sendEmail, templateConfirmation } from "@/lib/email";
+
+export async function POST(req: NextRequest) {
+  const { rdv_id } = await req.json();
+  if (!rdv_id) return NextResponse.json({ error: "rdv_id requis" }, { status: 400 });
+
+  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+
+  const { data: rdv } = await admin
+    .from("rendez_vous")
+    .select("date_heure, salon_id, clients(prenom, email), rendez_vous_prestations(prestations(nom, duree_minutes, tarif)), salons(nom)")
+    .eq("id", rdv_id)
+    .single();
+
+  if (!rdv) return NextResponse.json({ ok: false });
+
+  const client = rdv.clients as unknown as { prenom: string; email: string | null } | null;
+  if (!client?.email) return NextResponse.json({ ok: false, reason: "no email" });
+
+  const salon = rdv.salons as unknown as { nom: string } | null;
+  const prestations = (rdv.rendez_vous_prestations as unknown as { prestations: { nom: string; duree_minutes: number; tarif: number } | null }[])
+    .map(rp => rp.prestations)
+    .filter(Boolean) as { nom: string; duree_minutes: number; tarif: number }[];
+
+  const dateStr = new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const heureStr = rdv.date_heure.slice(11, 16);
+
+  await sendEmail({
+    to: client.email,
+    toName: client.prenom,
+    subject: `Confirmation de votre rendez-vous — ${salon?.nom || "rdvous"}`,
+    html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations }),
+  });
+
+  return NextResponse.json({ ok: true });
+}
