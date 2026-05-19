@@ -5,6 +5,7 @@ import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
 
 function normaliserPrenom(prenom: string): string {
   return prenom.trim()
@@ -125,15 +126,31 @@ export default function NouveauClientPage() {
 
         {m.champsClient.length > 0 && (
           <Section titre="Informations métier">
-            {m.champsClient.map(champ => (
-              <Champ
-                key={champ.key}
-                label={champ.label}
-                value={champsMetier[champ.key] || ""}
-                onChange={v => setChampsMetier(prev => ({ ...prev, [champ.key]: v }))}
-                type={champ.type === "number" ? "number" : "text"}
-              />
-            ))}
+            {m.champsClient.map(champ => {
+              if (champ.key === "mesures_capsules") {
+                const caps = parseCapsules(champsMetier[champ.key]);
+                return (
+                  <div key={champ.key}>
+                    <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 8 }}>Mesures capsules</label>
+                    <CapsulesMesures
+                      value={caps}
+                      onChange={v => setChampsMetier(prev => ({ ...prev, mesures_capsules: v as unknown as string }))}
+                      editing={true}
+                      couleur={m.couleur}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <Champ
+                  key={champ.key}
+                  label={champ.label}
+                  value={champsMetier[champ.key] || ""}
+                  onChange={v => setChampsMetier(prev => ({ ...prev, [champ.key]: v }))}
+                  type={champ.type === "number" ? "number" : "text"}
+                />
+              );
+            })}
           </Section>
         )}
 

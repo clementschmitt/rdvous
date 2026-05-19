@@ -5,6 +5,7 @@ import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
 type RDV = {
@@ -34,7 +35,7 @@ export default function RDVDetailPage() {
   const [allPrestations, setAllPrestations] = useState<Prestation[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const [capsulesValue, setCapsulesValue] = useState("");
+  const [capsules, setCapsules] = useState<Capsules>({ g: [0,0,0,0,0], d: [0,0,0,0,0] });
   const [editingCapsules, setEditingCapsules] = useState(false);
   const [savingCapsules, setSavingCapsules] = useState(false);
 
@@ -54,7 +55,7 @@ export default function RDVDetailPage() {
     setRdv(data as unknown as RDV);
     setNotes(data.notes || "");
     const client = (data as unknown as RDV).clients;
-    if (client) setCapsulesValue(client.champs_metier?.mesures_capsules || "");
+    if (client) setCapsules(parseCapsules(client.champs_metier?.mesures_capsules));
   }
 
   async function startEditPrestations() {
@@ -96,7 +97,7 @@ export default function RDVDetailPage() {
     setSavingCapsules(true);
     const supabase = createSupabase();
     await supabase.from("clients").update({
-      champs_metier: { ...(rdv.clients.champs_metier || {}), mesures_capsules: capsulesValue },
+      champs_metier: { ...(rdv.clients.champs_metier || {}), mesures_capsules: capsules },
     }).eq("id", rdv.clients.id);
     setEditingCapsules(false);
     load();
@@ -199,9 +200,9 @@ export default function RDVDetailPage() {
         )}
 
         {salon.metier === "manucure" && rdv.clients && (
-          <div style={{ padding: "12px 14px", background: `${m.couleur}08`, border: `1px solid ${m.couleur}20`, borderRadius: 8, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: editingCapsules ? 8 : 4 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: m.couleur, textTransform: "uppercase", letterSpacing: 0.5 }}>Mesures capsules</div>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#aaa", textTransform: "uppercase" }}>Mesures capsules</div>
               {!editingCapsules
                 ? <button onClick={() => setEditingCapsules(true)} style={btnGhost}>Modifier</button>
                 : <div style={{ display: "flex", gap: 6 }}>
@@ -210,10 +211,7 @@ export default function RDVDetailPage() {
                   </div>
               }
             </div>
-            {editingCapsules
-              ? <input value={capsulesValue} onChange={e => setCapsulesValue(e.target.value)} placeholder="Ex: G: 4/5/5/4/4 — D: 5/5/5/5/4" style={{ width: "100%", padding: "7px 10px", border: `1px solid ${m.couleur}40`, borderRadius: 6, fontSize: 13, boxSizing: "border-box", background: "#fff" }} />
-              : <div style={{ fontSize: 13, color: capsulesValue ? "#333" : "#bbb" }}>{capsulesValue || "Aucune mesure enregistrée"}</div>
-            }
+            <CapsulesMesures value={capsules} onChange={setCapsules} editing={editingCapsules} couleur={m.couleur} />
           </div>
         )}
 

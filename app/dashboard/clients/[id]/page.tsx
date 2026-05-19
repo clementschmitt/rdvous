@@ -5,6 +5,7 @@ import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
+import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
 
 type Client = {
   id: string; prenom: string; nom: string; telephone: string | null; email: string | null;
@@ -150,16 +151,32 @@ export default function ClientDetailPage() {
 
       {m.champsClient.length > 0 && (
         <Section titre="Informations métier" style={{ marginTop: 12 }}>
-          {m.champsClient.map(champ => (
-            <Champ
-              key={champ.key}
-              label={champ.label}
-              value={form.champs_metier?.[champ.key] || ""}
-              onChange={v => setForm(prev => ({ ...prev, champs_metier: { ...(prev.champs_metier || {}), [champ.key]: v } }))}
-              editing={editing}
-              type={champ.type === "number" ? "number" : "text"}
-            />
-          ))}
+          {m.champsClient.map(champ => {
+            if (champ.key === "mesures_capsules") {
+              const caps = parseCapsules(form.champs_metier?.[champ.key]);
+              return (
+                <div key={champ.key}>
+                  <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 8 }}>Mesures capsules</label>
+                  <CapsulesMesures
+                    value={caps}
+                    onChange={v => setForm(prev => ({ ...prev, champs_metier: { ...(prev.champs_metier || {}), mesures_capsules: v as unknown as string } }))}
+                    editing={editing}
+                    couleur={m.couleur}
+                  />
+                </div>
+              );
+            }
+            return (
+              <Champ
+                key={champ.key}
+                label={champ.label}
+                value={form.champs_metier?.[champ.key] || ""}
+                onChange={v => setForm(prev => ({ ...prev, champs_metier: { ...(prev.champs_metier || {}), [champ.key]: v } }))}
+                editing={editing}
+                type={champ.type === "number" ? "number" : "text"}
+              />
+            );
+          })}
         </Section>
       )}
 
