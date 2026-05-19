@@ -1,0 +1,235 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useSalon } from "@/lib/salon-context";
+import { METIERS } from "@/lib/metiers";
+import { createSupabase } from "@/lib/supabase";
+import { useRouter, useParams } from "next/navigation";
+import Link from "next/link";
+
+type Client = {
+  id: string; prenom: string; nom: string; telephone: string | null; email: string | null;
+  date_naissance: string | null; adresse: string | null; code_postal: string | null; ville: string | null;
+  notes: string | null; preferences: string | null; champs_metier: Record<string, string>;
+  cagnotte: number; nb_visites: number; code_parrainage: string; parrain_id: string | null;
+};
+type RDV = { id: string; date_heure: string; statut: string; rendez_vous_prestations: { prestations: { nom: string; tarif: number } | null }[] };
+type Settings = { nb_visites_fidelite: number; montant_recompense: number };
+
+export default function ClientDetailPage() {
+  const salon = useSalon();
+  const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
+
+  const [client, setClient] = useState<Client | null>(null);
+  const [rdvs, setRdvs] = useState<RDV[]>([]);
+  const [settings, setSettings] = useState<Settings>({ nb_visites_fidelite: 10, montant_recompense: 10 });
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<Partial<Client>>({});
+  const [saving, setSaving] = useState(false);
+  const [rdvPage, setRdvPage] = useState(0);
+
+  const RDV_PER_PAGE = 10;
+
+  useEffect(() => {
+    if (!salon) return;
+    load();
+  }, [salon, id]);
+
+  async function load() {
+    const supabase = createSupabase();
+    const [cRes, rdvRes, sRes] = await Promise.all([
+      supabase.from("clients").select("*").eq("id", id).single(),
+      supabase.from("rendez_vous").select("id, date_heure, statut, rendez_vous_prestations(prestations(nom, tarif))").eq("client_id", id).order("date_heure", { ascending: false }),
+      supabase.from("app_settings").select("nb_visites_fidelite, montant_recompense").eq("salon_id", salon!.id).single(),
+    ]);
+    if (!cRes.data) { router.push("/dashboard/clients"); return; }
+    setClient(cRes.data as Client);
+    setForm(cRes.data as Client);
+    setRdvs((rdvRes.data || []) as unknown as RDV[]);
+    if (sRes.data) setSettings(sRes.data as Settings);
+  }
+
+  async function handleSave() {
+    if (!client) return;
+    setSaving(true);
+    const supabase = createSupabase();
+    const { error } = await supabase.from("clients").update({
+      prenom: form.prenom, nom: form.nom, telephone: form.telephone || null, email: form.email || null,
+      date_naissance: form.date_naissance || null, adresse: form.adresse || null,
+      code_postal: form.code_postal || null, ville: form.ville || null,
+      notes: form.notes || null, preferences: form.preferences || null,
+      champs_metier: form.champs_metier || {},
+    }).eq("id", id);
+    if (!error) { setEditing(false); load(); }
+    setSaving(false);
+  }
+
+  async function handleDelete() {
+    if (!confirm("Supprimer ce·tte client·e ? Cette action est irréversible.")) return;
+    const supabase = createSupabase();
+    await supabase.from("clients").delete().eq("id", id);
+    router.push("/dashboard/clients");
+  }
+
+  if (!salon || !client) return <div style={{ padding: 40, color: "#bbb" }}>Chargement...</div>;
+  const m = METIERS[salon.metier];
+
+  const progression = Math.min(client.nb_visites % settings.nb_visites_fidelite, settings.nb_visites_fidelite);
+  const pct = Math.round((progression / settings.nb_visites_fidelite) * 100);
+
+  const rdvsPage = rdvs.slice(rdvPage * RDV_PER_PAGE, (rdvPage + 1) * RDV_PER_PAGE);
+
+  const STATUT_COLORS: Record<string, string> = { confirme: "#2980b9", termine: "#27ae60", annule: "#e74c3c" };
+  const STATUT_LABELS: Record<string, string> = { confirme: "Confirmé", termine: "Terminé", annule: "Annulé" };
+
+  function set(field: keyof Client, value: string) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
+
+  return (
+    <div style={{ padding: 32, maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+        <Link href="/dashboard/clients" style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← {m.labelClients}</Link>
+        <div style={{ display: "flex", gap: 8 }}>
+          {editing ? (
+            <>
+              <button onClick={() => setEditing(false)} style={btnGhost}>Annuler</button>
+              <button onClick={handleSave} disabled={saving} style={{ ...btnPrimary, background: m.couleur }}>{saving ? "..." : "Enregistrer"}</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setEditing(true)} style={btnGhost}>Modifier</button>
+              <button onClick={handleDelete} style={{ ...btnGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>Supprimer</button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
+        <div style={{ width: 56, height: 56, borderRadius: "50%", background: `${m.couleur}20`, color: m.couleur, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 20 }}>
+          {client.prenom[0]}{client.nom[0]}
+        </div>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{client.prenom} {client.nom}</h1>
+          <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>Code parrainage : <b>{client.code_parrainage}</b></div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+        <div style={{ background: client.cagnotte > 0 ? `${m.couleur}12` : "#f9f9f9", border: `1px solid ${client.cagnotte > 0 ? m.couleur : "#e0e0e0"}`, borderRadius: 10, padding: "16px 20px" }}>
+          <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>Cagnotte</div>
+          <div style={{ fontSize: 24, fontWeight: 700, color: client.cagnotte > 0 ? m.couleur : "#bbb" }}>{client.cagnotte.toFixed(2)} €</div>
+        </div>
+        <div style={{ background: "#f9f9f9", border: "1px solid #e0e0e0", borderRadius: 10, padding: "16px 20px" }}>
+          <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>Fidélité — {progression} / {settings.nb_visites_fidelite} visites</div>
+          <div style={{ height: 8, background: "#e0e0e0", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: m.couleur, borderRadius: 4, transition: "width 0.4s" }} />
+          </div>
+          <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>Récompense à {settings.nb_visites_fidelite} visites : {settings.montant_recompense} €</div>
+        </div>
+      </div>
+
+      <Section titre="Identité">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Champ label="Prénom" value={form.prenom || ""} onChange={v => set("prenom", v)} editing={editing} />
+          <Champ label="Nom" value={form.nom || ""} onChange={v => set("nom", v)} editing={editing} />
+        </div>
+        <Champ label="Téléphone" value={form.telephone || ""} onChange={v => set("telephone", v)} editing={editing} />
+        <Champ label="Email" value={form.email || ""} onChange={v => set("email", v)} editing={editing} type="email" />
+        <Champ label="Date de naissance" value={form.date_naissance || ""} onChange={v => set("date_naissance", v)} editing={editing} type="date" />
+      </Section>
+
+      <Section titre="Adresse" style={{ marginTop: 12 }}>
+        <Champ label="Adresse" value={form.adresse || ""} onChange={v => set("adresse", v)} editing={editing} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+          <Champ label="Code postal" value={form.code_postal || ""} onChange={v => set("code_postal", v)} editing={editing} />
+          <Champ label="Ville" value={form.ville || ""} onChange={v => set("ville", v)} editing={editing} />
+        </div>
+      </Section>
+
+      {m.champsClient.length > 0 && (
+        <Section titre="Informations métier" style={{ marginTop: 12 }}>
+          {m.champsClient.map(champ => (
+            <Champ
+              key={champ.key}
+              label={champ.label}
+              value={form.champs_metier?.[champ.key] || ""}
+              onChange={v => setForm(prev => ({ ...prev, champs_metier: { ...(prev.champs_metier || {}), [champ.key]: v } }))}
+              editing={editing}
+              type={champ.type === "number" ? "number" : "text"}
+            />
+          ))}
+        </Section>
+      )}
+
+      <Section titre="Notes & préférences" style={{ marginTop: 12 }}>
+        <ChampTextarea label="Préférences" value={form.preferences || ""} onChange={v => set("preferences", v)} editing={editing} />
+        <ChampTextarea label="Notes internes" value={form.notes || ""} onChange={v => set("notes", v)} editing={editing} />
+      </Section>
+
+      <Section titre={`Historique RDV (${rdvs.length})`} style={{ marginTop: 12 }}>
+        {rdvs.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#bbb" }}>Aucun rendez-vous</div>
+        ) : (
+          <>
+            {rdvsPage.map(rdv => {
+              const tarif = rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.tarif || 0), 0);
+              const prestNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
+              return (
+                <Link key={rdv.id} href={`/dashboard/agenda/${rdv.id}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: "1px solid #f0f0f0", textDecoration: "none", color: "inherit" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, width: 90, flexShrink: 0 }}>{new Date(rdv.date_heure).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })}</div>
+                  <div style={{ flex: 1, fontSize: 13, color: "#555" }}>{prestNoms || "—"}</div>
+                  {tarif > 0 && <div style={{ fontSize: 13, fontWeight: 600 }}>{tarif} €</div>}
+                  <span style={{ fontSize: 11, fontWeight: 600, color: STATUT_COLORS[rdv.statut] || "#999", background: `${STATUT_COLORS[rdv.statut]}18`, padding: "2px 8px", borderRadius: 10 }}>{STATUT_LABELS[rdv.statut] || rdv.statut}</span>
+                </Link>
+              );
+            })}
+            {rdvs.length > RDV_PER_PAGE && (
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button onClick={() => setRdvPage(p => Math.max(0, p - 1))} disabled={rdvPage === 0} style={btnGhost}>‹ Préc</button>
+                <button onClick={() => setRdvPage(p => p + 1)} disabled={(rdvPage + 1) * RDV_PER_PAGE >= rdvs.length} style={btnGhost}>Suiv ›</button>
+              </div>
+            )}
+          </>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+function Section({ titre, children, style }: { titre: string; children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 10, padding: 20, boxShadow: "0 1px 3px rgba(0,0,0,0.05)", ...style }}>
+      <h3 style={{ margin: "0 0 14px", fontSize: 12, fontWeight: 600, color: "#aaa", textTransform: "uppercase", letterSpacing: 0.5 }}>{titre}</h3>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>{children}</div>
+    </div>
+  );
+}
+
+function Champ({ label, value, onChange, editing, type = "text" }: { label: string; value: string; onChange: (v: string) => void; editing: boolean; type?: string }) {
+  return (
+    <div>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 4 }}>{label}</label>
+      {editing
+        ? <input type={type} value={value} onChange={e => onChange(e.target.value)} style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13, boxSizing: "border-box" }} />
+        : <div style={{ fontSize: 13, color: value ? "#222" : "#ccc" }}>{value || "—"}</div>
+      }
+    </div>
+  );
+}
+
+function ChampTextarea({ label, value, onChange, editing }: { label: string; value: string; onChange: (v: string) => void; editing: boolean }) {
+  return (
+    <div>
+      <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#999", marginBottom: 4 }}>{label}</label>
+      {editing
+        ? <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13, boxSizing: "border-box", resize: "vertical" }} />
+        : <div style={{ fontSize: 13, color: value ? "#222" : "#ccc", whiteSpace: "pre-wrap" }}>{value || "—"}</div>
+      }
+    </div>
+  );
+}
+
+const btnGhost: React.CSSProperties = { padding: "7px 14px", background: "none", border: "1px solid #ddd", borderRadius: 7, fontSize: 13, cursor: "pointer", color: "#555" };
+const btnPrimary: React.CSSProperties = { padding: "7px 14px", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#fff" };

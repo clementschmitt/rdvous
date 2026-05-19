@@ -1,0 +1,15 @@
+export const T = {
+  bg: "#fafaf9",
+  white: "#FFFFFF",
+  border: "#e8e0db",
+  text: "#1a1a1a",
+  muted: "#9b8a85",
+  faint: "#c4b5af",
+  shadow: "0 1px 3px rgba(0,0,0,0.06)",
+  shadowMd: "0 4px 16px rgba(0,0,0,0.08)",
+  radius: 4,
+  radiusSm: 2,
+  heading: "'Cormorant Garamond', Georgia, serif",
+  body: "'Inter', system-ui, sans-serif",
+  ls: { fontSize: "10px", letterSpacing: "0.1em", textTransform: "uppercase" as const },
+} as const;
