@@ -57,12 +57,29 @@ function NouveauRDVContent() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!clientId) { setError("Sélectionnez un·e client·e."); return; }
+    if (!clientId) { setError("Sélectionnez un client."); return; }
     if (selectedPrests.length === 0) { setError("Sélectionnez au moins une prestation."); return; }
     setLoading(true);
     setError("");
 
     const supabase = createSupabase();
+
+    // Gate plan free : max 30 RDV/mois
+    if ((salon!.plan || "free") === "free") {
+      const debut = new Date(); debut.setDate(1); debut.setHours(0, 0, 0, 0);
+      const fin = new Date(debut); fin.setMonth(fin.getMonth() + 1);
+      const { count } = await supabase
+        .from("rendez_vous")
+        .select("id", { count: "exact", head: true })
+        .eq("salon_id", salon!.id)
+        .gte("date_heure", debut.toISOString())
+        .lt("date_heure", fin.toISOString());
+      if ((count ?? 0) >= 30) {
+        setError("Limite de 30 rendez-vous/mois atteinte. Passez à l'offre Indépendant pour continuer.");
+        setLoading(false);
+        return;
+      }
+    }
     const { data: rdv, error: rdvErr } = await supabase
       .from("rendez_vous")
       .insert({ salon_id: salon!.id, client_id: clientId, date_heure: `${date}T${heure}:00`, montant_cagnotte_utilise: cagnotteAUtiliser, notes: notes || null })

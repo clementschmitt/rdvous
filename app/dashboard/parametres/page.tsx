@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
+import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
 type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_confirmation_active: boolean; email_confirmation_objet: string; email_confirmation_contenu: string; email_rappel_active: boolean; email_rappel_objet: string; email_rappel_contenu: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
@@ -16,6 +17,8 @@ export default function ParametresPage() {
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
     if (!salon) return;
@@ -58,6 +61,33 @@ export default function ParametresPage() {
     load();
   }
 
+  async function startCheckout() {
+    setBillingLoading(true);
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/stripe/checkout", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ interval: billingInterval, salon_id: salon!.id }),
+    });
+    const { url } = await res.json();
+    if (url) window.location.href = url;
+    setBillingLoading(false);
+  }
+
+  async function openPortal() {
+    setBillingLoading(true);
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/stripe/portal", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}` },
+    });
+    const { url } = await res.json();
+    if (url) window.location.href = url;
+    setBillingLoading(false);
+  }
+
   async function saveSettings() {
     setSavingSettings(true);
     const supabase = createSupabase();
@@ -69,10 +99,59 @@ export default function ParametresPage() {
 
   if (!salon) return null;
   const m = METIERS[salon.metier];
+  const plan = (salon.plan || "free") as Plan;
+  const isFree = plan === "free";
 
   return (
     <div style={{ padding: 32, maxWidth: 760, margin: "0 auto" }}>
       <h1 style={{ margin: "0 0 28px", fontSize: 22, fontWeight: 700 }}>Paramètres</h1>
+
+      {/* ── Abonnement ── */}
+      <Section titre="Abonnement">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>Plan {PLAN_LABELS[plan]}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20, background: isFree ? "#f0f0f0" : m.couleur + "22", color: isFree ? "#999" : m.couleur }}>
+                {PLAN_PRICES[plan]}
+              </span>
+            </div>
+            {isFree && (
+              <div style={{ fontSize: 12, color: "#999" }}>
+                Limité à 30 rendez-vous/mois · Fidélité et cagnotte non disponibles
+              </div>
+            )}
+            {!isFree && (
+              <div style={{ fontSize: 12, color: "#999" }}>
+                Accès complet · Rappels email · Fidélité & cagnotte inclus
+              </div>
+            )}
+          </div>
+          {isFree ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
+              <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3 }}>
+                <button onClick={() => setBillingInterval("monthly")}
+                  style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "monthly" ? "#fff" : "transparent", color: billingInterval === "monthly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "monthly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+                  Mensuel — 19€
+                </button>
+                <button onClick={() => setBillingInterval("yearly")}
+                  style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "yearly" ? "#fff" : "transparent", color: billingInterval === "yearly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "yearly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+                  Annuel — 190€ <span style={{ color: m.couleur }}>-2 mois offerts</span>
+                </button>
+              </div>
+              <button onClick={startCheckout} disabled={billingLoading}
+                style={{ padding: "10px 22px", background: m.couleur, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                {billingLoading ? "Chargement…" : `Passer à l'offre Indépendant`}
+              </button>
+            </div>
+          ) : (
+            <button onClick={openPortal} disabled={billingLoading}
+              style={{ padding: "10px 22px", background: "#fff", color: "#555", border: "1px solid #ddd", borderRadius: 10, fontSize: 13, cursor: "pointer" }}>
+              {billingLoading ? "Chargement…" : "Gérer mon abonnement"}
+            </button>
+          )}
+        </div>
+      </Section>
 
       <Section titre="Prestations">
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>

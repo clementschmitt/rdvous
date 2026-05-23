@@ -30,14 +30,19 @@ export async function POST(req: NextRequest) {
   const dateStr = new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const heureStr = rdv.date_heure.slice(11, 16);
 
-  await sendEmail({
-    to: client.email,
-    toName: client.prenom,
-    subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salon?.nom || "rdvous"}`,
-    html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: settings?.email_confirmation_contenu || undefined }),
-    fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
-    fromEmail: settings?.email_expediteur || undefined,
-  });
-
-  return NextResponse.json({ ok: true });
+  try {
+    await sendEmail({
+      to: client.email,
+      toName: client.prenom,
+      subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salon?.nom || "rdvous"}`,
+      html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: settings?.email_confirmation_contenu || undefined }),
+      fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
+      fromEmail: settings?.email_expediteur || undefined,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("Confirmation email failed:", msg);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
 }

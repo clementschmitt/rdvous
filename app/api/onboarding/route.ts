@@ -38,7 +38,9 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const slug = slugify(nom);
+  let slug = slugify(nom);
+  const { count } = await admin.from("salons").select("id", { count: "exact", head: true }).eq("slug", slug);
+  if ((count ?? 0) > 0) slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
 
   const { data: salon, error } = await admin
     .from("salons")

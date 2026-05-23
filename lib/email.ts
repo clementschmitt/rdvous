@@ -13,14 +13,16 @@ export async function sendEmail({ to, toName, subject, html, fromName, fromEmail
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      sender: { name: fromName || "rdvous", email: fromEmail || "noreply@rdvous.fr" },
+      sender: { name: fromName || "rdvous", email: fromEmail || process.env.BREVO_SENDER_EMAIL || "clement.flance@gmail.com" },
       to: [{ email: to, name: toName }],
       subject,
       htmlContent: html,
     }),
   });
   if (!res.ok) {
-    console.error("Brevo error:", res.status, await res.text());
+    const errText = await res.text();
+    console.error("Brevo error:", res.status, errText);
+    throw new Error(`Brevo ${res.status}: ${errText}`);
   }
 }
 

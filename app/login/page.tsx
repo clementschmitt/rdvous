@@ -41,7 +41,10 @@ export default function LoginPage() {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required style={inputStyle} />
             </div>
             <div>
-              <label style={labelStyle}>Mot de passe</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <label style={labelStyle}>Mot de passe</label>
+                <Link href="/reset-password" style={{ fontSize: 11, color: T.muted, textDecoration: "none" }}>Mot de passe oublié ?</Link>
+              </div>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} />
             </div>
             {error && <p style={{ color: "#B91C1C", fontSize: 13, margin: 0 }}>{error}</p>}

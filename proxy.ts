@@ -25,7 +25,14 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
-  const isPublic = pathname === "/" || pathname.startsWith("/book");
+  const isPublic =
+    pathname === "/" ||
+    pathname.startsWith("/book") ||
+    pathname.startsWith("/pro") ||
+    pathname.startsWith("/recherche") ||
+    pathname.startsWith("/s/") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/update-password");
   const isApi = pathname.startsWith("/api");
 
   if (isApi || isPublic) return supabaseResponse;
