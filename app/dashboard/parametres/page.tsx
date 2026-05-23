@@ -19,6 +19,10 @@ export default function ParametresPage() {
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdMessage, setPwdMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!salon) return;
@@ -86,6 +90,23 @@ export default function ParametresPage() {
     const { url } = await res.json();
     if (url) window.location.href = url;
     setBillingLoading(false);
+  }
+
+  async function changePassword() {
+    if (newPassword.length < 6) { setPwdMessage({ ok: false, text: "6 caractères minimum." }); return; }
+    if (newPassword !== confirmPassword) { setPwdMessage({ ok: false, text: "Les mots de passe ne correspondent pas." }); return; }
+    setPwdLoading(true);
+    setPwdMessage(null);
+    const supabase = createSupabase();
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      setPwdMessage({ ok: false, text: error.message });
+    } else {
+      setPwdMessage({ ok: true, text: "Mot de passe mis à jour." });
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setPwdLoading(false);
   }
 
   async function saveSettings() {
@@ -246,6 +267,30 @@ export default function ParametresPage() {
         <Champ label="Délai avant relance (mois)" value={String(settings.delai_relance_mois)} onChange={v => setSettings(s => ({ ...s, delai_relance_mois: Number(v) }))} type="number" />
         <Champ label="Objet de l'email" value={settings.email_relance_objet} onChange={v => setSettings(s => ({ ...s, email_relance_objet: v }))} />
         <ChampTextarea label="Contenu" value={settings.message_relance} onChange={v => setSettings(s => ({ ...s, message_relance: v }))} hint="{prenom}" />
+      </Section>
+
+      <Section titre="Sécurité" style={{ marginTop: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Nouveau mot de passe</label>
+            <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="6 caractères minimum" style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <label style={labelStyle}>Confirmer le mot de passe</label>
+            <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Répétez le mot de passe" style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
+          </div>
+        </div>
+        {pwdMessage && (
+          <div style={{ fontSize: 13, color: pwdMessage.ok ? "#27ae60" : "#e74c3c", fontWeight: 500 }}>
+            {pwdMessage.text}
+          </div>
+        )}
+        <div>
+          <button onClick={changePassword} disabled={pwdLoading || !newPassword}
+            style={{ padding: "9px 20px", background: newPassword ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newPassword ? "pointer" : "not-allowed" }}>
+            {pwdLoading ? "Mise à jour…" : "Changer le mot de passe"}
+          </button>
+        </div>
       </Section>
 
       <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
