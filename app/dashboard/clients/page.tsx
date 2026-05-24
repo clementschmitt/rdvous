@@ -40,8 +40,14 @@ export default function ClientsPage() {
   }
 
   return (
-    <div style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+    <div className="clients-wrap" style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .clients-wrap { padding: 20px 16px !important; }
+          .clients-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+        }
+      `}</style>
+      <div className="clients-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontFamily: T.heading, fontSize: 30, fontWeight: 600, color: T.text, letterSpacing: "-0.3px" }}>{m.labelClients}</h1>
         <Link
           href="/dashboard/clients/nouveau"

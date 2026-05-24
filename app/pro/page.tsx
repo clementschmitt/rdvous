@@ -58,9 +58,9 @@ const PLANS = [
     cta: "Commencer gratuitement", ctaBg: "#fff", ctaColor: C.dark, ctaBorder: C.border,
   },
   {
-    nom: "Indépendant", prix: "19€", duree: "/mois", badge: "Le plus populaire",
+    nom: "Indépendant", prix: "19€", duree: "/mois", badge: "Prix de lancement",
     badgeColor: C.gold, highlight: true,
-    desc: "Pensé pour les indépendants et petites structures.",
+    desc: "Offre de lancement — profitez-en avant que le prix augmente.",
     items: ["Agenda intelligent & illimité", "Prise de RDV en ligne", "Emails & rappels automatiques", "Fiches clients personnalisées", "Fidélité & parrainage", "Visibilité locale", "Adapté à votre métier", "Support inclus"],
     cta: "Commencer", ctaBg: C.dark, ctaColor: "#fff", ctaBorder: "transparent",
   },
@@ -154,23 +154,61 @@ function FAQItem({ q, r }: { q: string; r: string }) {
 
 /* ── PAGE ── */
 export default function ProPage() {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"hidden" }}>
+    <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip" }}>
+      <style>{`
+        .pro-hamburger { display: none; }
+        @media (max-width: 640px) {
+          .pro-nav { padding: 0 16px !important; }
+          .pro-nav-links { display: none !important; }
+          .pro-hamburger { display: block !important; }
+          .pro-section { padding-left: 20px !important; padding-right: 20px !important; padding-top: 60px !important; padding-bottom: 60px !important; }
+          .pro-hero { padding: 48px 20px 60px !important; }
+          .pro-hero-mockup { display: none !important; }
+          .pro-hero-actions { flex-direction: column !important; }
+          .pro-grid-3 { grid-template-columns: 1fr !important; }
+          .pro-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+          .pro-grid-plans { grid-template-columns: 1fr !important; }
+          .pro-grid-2 { grid-template-columns: 1fr !important; }
+          .pro-cta-inner { padding: 40px 24px !important; }
+          .pro-footer { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+        @media (min-width: 641px) and (max-width: 960px) {
+          .pro-section { padding-left: 30px !important; padding-right: 30px !important; }
+          .pro-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+          .pro-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
+          .pro-grid-plans { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
 
       {/* ── NAV ── */}
-      <nav style={{ position:"sticky", top:0, zIndex:200, background:"rgba(250,248,245,0.93)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
-        <Link href="/" style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, color:C.text, textDecoration:"none", letterSpacing:"0.03em" }}>rdvous</Link>
-        <div style={{ display:"flex", alignItems:"center", gap:24 }}>
-          <a href="#tarifs" style={{ fontSize:13, color:C.muted, textDecoration:"none" }}>Tarifs</a>
-          <Link href="/login" style={{ fontSize:13, color:C.muted, textDecoration:"none" }}>Connexion</Link>
-          <Link href="/login" style={{ fontSize:13, fontWeight:700, color:"#fff", background:C.dark, padding:"9px 22px", borderRadius:10, textDecoration:"none" }}>
-            Essayer gratuitement
-          </Link>
-        </div>
-      </nav>
+      <div style={{ position:"sticky", top:0, zIndex:200 }}>
+        <nav className="pro-nav" style={{ background:"rgba(250,248,245,0.93)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
+          <Link href="/" style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, color:C.text, textDecoration:"none", letterSpacing:"0.03em" }}>rdvous</Link>
+          <div className="pro-nav-links" style={{ display:"flex", alignItems:"center", gap:24 }}>
+            <a href="#tarifs" style={{ fontSize:13, color:C.muted, textDecoration:"none" }}>Tarifs</a>
+            <Link href="/login" style={{ fontSize:13, color:C.muted, textDecoration:"none" }}>Connexion</Link>
+            <Link href="/login" style={{ fontSize:13, fontWeight:700, color:"#fff", background:C.dark, padding:"9px 22px", borderRadius:10, textDecoration:"none" }}>
+              Essayer gratuitement
+            </Link>
+          </div>
+          <button className="pro-hamburger" onClick={() => setMenuOpen(o => !o)}
+            style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text, padding:"4px 8px", lineHeight:1 }}>
+            {menuOpen ? "✕" : "☰"}
+          </button>
+        </nav>
+        {menuOpen && (
+          <div style={{ background:"rgba(250,248,245,0.98)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"4px 24px 12px", display:"flex", flexDirection:"column" }}>
+            <a href="#tarifs" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:C.muted, textDecoration:"none", borderBottom:`1px solid ${C.border}`, display:"block" }}>Tarifs</a>
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:C.muted, textDecoration:"none", borderBottom:`1px solid ${C.border}`, display:"block" }}>Connexion</Link>
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:C.text, textDecoration:"none", display:"block" }}>Essayer gratuitement →</Link>
+          </div>
+        )}
+      </div>
 
       {/* ── HERO ── */}
-      <section style={{ padding:"80px 60px 100px", maxWidth:1200, margin:"0 auto", display:"flex", alignItems:"center", gap:60, flexWrap:"wrap" }}>
+      <section className="pro-hero" style={{ padding:"80px 60px 100px", maxWidth:1200, margin:"0 auto", display:"flex", alignItems:"center", gap:60, flexWrap:"wrap" }}>
         {/* Texte */}
         <div style={{ flex:"1 1 400px", minWidth:0 }}>
           <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${C.sage}18`, border:`1px solid ${C.sage}40`, borderRadius:24, padding:"6px 16px", fontSize:12, fontWeight:700, color:C.sage, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:28 }}>
@@ -184,7 +222,7 @@ export default function ProPage() {
           <p style={{ fontSize:17, color:C.muted, lineHeight:1.75, maxWidth:480, margin:"0 0 40px" }}>
             RDVOUS aide les professionnels indépendants à gérer leurs rendez-vous, fidéliser leurs clients et gagner en visibilité locale — sans commissions abusives ni frais cachés.
           </p>
-          <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+          <div className="pro-hero-actions" style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
             <Link href="/login" style={{ padding:"14px 32px", background:C.dark, color:"#fff", borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>
               Essayer gratuitement
             </Link>
@@ -201,13 +239,13 @@ export default function ProPage() {
           </div>
         </div>
         {/* Dashboard mockup */}
-        <div style={{ flex:"0 0 auto" }}>
+        <div className="pro-hero-mockup" style={{ flex:"0 0 auto" }}>
           <DashboardMockup />
         </div>
       </section>
 
       {/* ── PAIN POINTS ── */}
-      <section style={{ background:C.warm, padding:"80px 60px" }}>
+      <section className="pro-section" style={{ background:C.warm, padding:"80px 60px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
           <div style={{ textAlign:"center", marginBottom:52 }}>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, margin:"0 0 14px", color:C.text }}>
@@ -217,7 +255,7 @@ export default function ProPage() {
               RDVOUS a été conçu par des gens qui comprennent les contraintes réelles d'un indépendant du bien-être.
             </p>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:20 }}>
+          <div className="pro-grid-3" style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:20 }}>
             {PAIN_POINTS.map(p => (
               <div key={p.pb} style={{ background:"#fff", borderRadius:18, padding:28, border:`1px solid ${C.border}` }}>
                 <div style={{ fontSize:28, marginBottom:14 }}>{p.icon}</div>
@@ -230,7 +268,7 @@ export default function ProPage() {
       </section>
 
       {/* ── ADAPTÉ AU MÉTIER ── */}
-      <section style={{ padding:"80px 60px" }}>
+      <section className="pro-section" style={{ padding:"80px 60px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
           <div style={{ textAlign:"center", marginBottom:52 }}>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, margin:"0 0 14px", color:C.text }}>
@@ -240,7 +278,7 @@ export default function ProPage() {
               Ce n'est pas un logiciel générique. Chaque activité a ses outils, ses champs, sa logique propre.
             </p>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:16 }}>
+          <div className="pro-grid-3" style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:16 }}>
             {METIERS_LIST.map(m => (
               <div key={m.label} style={{ background:"#fff", borderRadius:18, padding:24, border:`1px solid ${C.border}`, transition:"box-shadow 0.2s, transform 0.2s" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow="0 12px 40px rgba(100,80,60,0.12)"; (e.currentTarget as HTMLDivElement).style.transform="translateY(-3px)"; }}
@@ -264,14 +302,14 @@ export default function ProPage() {
       </section>
 
       {/* ── FEATURES ── */}
-      <section style={{ background:C.warm, padding:"80px 60px" }}>
+      <section className="pro-section" style={{ background:C.warm, padding:"80px 60px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
           <div style={{ textAlign:"center", marginBottom:52 }}>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, margin:"0 0 14px", color:C.text }}>
               Tout ce dont vous avez besoin.
             </h2>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:16 }}>
+          <div className="pro-grid-4" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:16 }}>
             {FEATURES.map(f => (
               <div key={f.titre} style={{ background:"#fff", borderRadius:16, padding:"22px 20px", border:`1px solid ${C.border}` }}>
                 <div style={{ fontSize:24, marginBottom:12 }}>{f.icon}</div>
@@ -284,7 +322,7 @@ export default function ProPage() {
       </section>
 
       {/* ── TARIFS ── */}
-      <section id="tarifs" style={{ padding:"80px 60px" }}>
+      <section id="tarifs" className="pro-section" style={{ padding:"80px 60px" }}>
         <div style={{ maxWidth:960, margin:"0 auto" }}>
           <div style={{ textAlign:"center", marginBottom:52 }}>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, margin:"0 0 14px", color:C.text }}>
@@ -292,7 +330,7 @@ export default function ProPage() {
             </h2>
             <p style={{ fontSize:15, color:C.muted }}>Sans commissions abusives. Sans frais cachés.</p>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:20 }}>
+          <div className="pro-grid-plans" style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:20 }}>
             {PLANS.map(p => (
               <div key={p.nom} style={{ background: p.highlight ? C.dark : "#fff", borderRadius:20, padding:"32px 28px", border: p.highlight ? "none" : `1px solid ${C.border}`, position:"relative", boxShadow: p.highlight ? "0 20px 60px rgba(26,22,20,0.25)" : "none", opacity: (p as any).comingSoon ? 0.85 : 1 }}>
                 {p.badge && (
@@ -305,6 +343,11 @@ export default function ProPage() {
                   <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:44, fontWeight:600, color: p.highlight ? "#fff" : (p as any).comingSoon ? C.light : C.text, lineHeight:1 }}>{p.prix}</span>
                   {p.duree && <span style={{ fontSize:14, color: p.highlight ? "rgba(255,255,255,0.5)" : C.light }}>{p.duree}</span>}
                 </div>
+                {p.highlight && (
+                  <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:`${C.gold}22`, border:`1px solid ${C.gold}50`, borderRadius:8, padding:"4px 10px", fontSize:11, fontWeight:700, color:C.gold, marginBottom:12 }}>
+                    ⚡ Prix de lancement
+                  </div>
+                )}
                 <div style={{ fontSize:13, color: p.highlight ? "rgba(255,255,255,0.55)" : C.muted, marginBottom:28, lineHeight:1.5 }}>{p.desc}</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:10, marginBottom:32 }}>
                   {p.items.map(item => (
@@ -325,8 +368,8 @@ export default function ProPage() {
       </section>
 
       {/* ── POURQUOI DIFFÉRENT ── */}
-      <section style={{ background:C.warm, padding:"80px 60px" }}>
-        <div style={{ maxWidth:900, margin:"0 auto", display:"grid", gridTemplateColumns:"1fr 1fr", gap:60, alignItems:"center" }}>
+      <section className="pro-section" style={{ background:C.warm, padding:"80px 60px" }}>
+        <div className="pro-grid-2" style={{ maxWidth:900, margin:"0 auto", display:"grid", gridTemplateColumns:"1fr 1fr", gap:60, alignItems:"center" }}>
           <div>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(26px,3.5vw,38px)", fontWeight:500, margin:"0 0 24px", color:C.text }}>
               Pourquoi RDVOUS<br />est <span style={{ color:C.gold, fontStyle:"italic" }}>différent</span> ?
@@ -357,12 +400,12 @@ export default function ProPage() {
       </section>
 
       {/* ── TÉMOIGNAGES ── */}
-      <section style={{ padding:"80px 60px" }}>
+      <section className="pro-section" style={{ padding:"80px 60px" }}>
         <div style={{ maxWidth:1000, margin:"0 auto" }}>
           <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,40px)", fontWeight:500, textAlign:"center", margin:"0 0 52px", color:C.text }}>
             Ils font confiance à RDVOUS.
           </h2>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:24 }}>
+          <div className="pro-grid-3" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:24 }}>
             {TEMOIGNAGES.map(t => (
               <div key={t.prenom} style={{ background:"#fff", borderRadius:20, padding:28, border:`1px solid ${C.border}` }}>
                 <div style={{ display:"flex", gap:2, marginBottom:16 }}>
@@ -380,7 +423,7 @@ export default function ProPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section style={{ background:C.warm, padding:"80px 60px" }}>
+      <section className="pro-section" style={{ background:C.warm, padding:"80px 60px" }}>
         <div style={{ maxWidth:720, margin:"0 auto" }}>
           <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,40px)", fontWeight:500, textAlign:"center", margin:"0 0 48px", color:C.text }}>
             Questions fréquentes.
@@ -390,8 +433,8 @@ export default function ProPage() {
       </section>
 
       {/* ── CTA FINAL ── */}
-      <section style={{ padding:"80px 60px" }}>
-        <div style={{ maxWidth:760, margin:"0 auto", background:C.dark, borderRadius:24, padding:"60px 56px", textAlign:"center", position:"relative", overflow:"hidden" }}>
+      <section className="pro-section" style={{ padding:"80px 60px" }}>
+        <div className="pro-cta-inner" style={{ maxWidth:760, margin:"0 auto", background:C.dark, borderRadius:24, padding:"60px 56px", textAlign:"center", position:"relative", overflow:"hidden" }}>
           <div aria-hidden style={{ position:"absolute", top:-60, right:-60, width:280, height:280, borderRadius:"50%", background:`${C.gold}10` }} />
           <div aria-hidden style={{ position:"absolute", bottom:-40, left:-40, width:200, height:200, borderRadius:"50%", background:`${C.sage}08` }} />
           <div style={{ position:"relative", zIndex:2 }}>
@@ -399,7 +442,7 @@ export default function ProPage() {
               Prêt à simplifier<br />votre quotidien ?
             </h2>
             <p style={{ fontSize:15, color:"rgba(255,255,255,0.5)", margin:"0 0 36px" }}>
-              7 jours gratuits. Sans carte bancaire. Sans engagement.
+              Démarrez gratuitement. Passez en illimité à 19€/mois — prix de lancement.
             </p>
             <Link href="/login" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
               Commencer gratuitement
@@ -409,7 +452,7 @@ export default function ProPage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ borderTop:`1px solid ${C.border}`, padding:"32px 60px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
+      <footer className="pro-footer" style={{ borderTop:`1px solid ${C.border}`, padding:"32px 60px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
         <Link href="/" style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, fontWeight:600, color:C.text, textDecoration:"none" }}>rdvous</Link>
         <div style={{ display:"flex", gap:24 }}>
           <Link href="/"      style={{ fontSize:13, color:C.light, textDecoration:"none" }}>Trouver un salon</Link>

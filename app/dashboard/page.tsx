@@ -94,7 +94,14 @@ export default function DashboardPage() {
   const formatDuree = (min: number) => { const h = Math.floor(min / 60), mm = min % 60; return h === 0 ? `${mm}min` : mm ? `${h}h${mm}` : `${h}h`; };
 
   return (
-    <main style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto" }}>
+    <main className="dash-main" style={{ padding: "40px", maxWidth: "1200px", margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .dash-main { padding: 20px 16px !important; }
+          .dash-ca-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
+          .dash-main-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <div style={{ marginBottom: "36px" }}>
         <p style={{ ...ls, color: m.couleurMuted, margin: "0 0 6px" }}>
           {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
@@ -105,7 +112,7 @@ export default function DashboardPage() {
       </div>
 
       {/* CA */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+      <div className="dash-ca-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
         {([
           { label: "CA cette semaine", value: caWeek, key: "week" as const },
           { label: "CA ce mois", value: caMonth, key: "month" as const },
@@ -126,7 +133,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Grille 2 colonnes */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "24px" }}>
+      <div className="dash-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "24px" }}>
 
         {/* Planning du jour */}
         <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "32px" }}>

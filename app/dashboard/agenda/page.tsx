@@ -46,6 +46,7 @@ export default function AgendaPage() {
   const [semaine, setSemaine] = useState(() => getMonday(new Date()));
   const [moisCourant, setMoisCourant] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [rdvs, setRdvs] = useState<RDV[]>([]);
+  const [jourDate, setJourDate] = useState(() => new Date());
 
   const loadSemaine = useCallback(async (lundi: Date) => {
     if (!salon) return;
@@ -82,6 +83,13 @@ export default function AgendaPage() {
     else loadMois(moisCourant);
   }, [salon, vue, semaine, moisCourant, loadSemaine, loadMois]);
 
+  useEffect(() => {
+    const monday = getMonday(jourDate);
+    if (toDateStr(monday) !== toDateStr(semaine)) {
+      setSemaine(monday);
+    }
+  }, [jourDate]);
+
   if (!salon) return null;
   const m = METIERS[salon.metier];
   const today = toDateStr(new Date());
@@ -89,10 +97,69 @@ export default function AgendaPage() {
   const rdvsForDay = (day: Date) => rdvs.filter(r => r.date_heure.slice(0, 10) === toDateStr(day));
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(semaine, i));
 
+  const jourRdvs = rdvsForDay(jourDate);
+  const jourLabel = jourDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const isJourToday = toDateStr(jourDate) === today;
+
   return (
-    <div style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
-      {/* Toolbar */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+    <div className="agenda-wrap" style={{ padding: "32px 40px", maxWidth: 1200, margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .agenda-wrap { padding: 16px !important; }
+          .agenda-toolbar { display: none !important; }
+          .agenda-desktop { display: none !important; }
+          .agenda-mobile { display: flex !important; }
+        }
+        @media (min-width: 641px) {
+          .agenda-mobile { display: none !important; }
+        }
+      `}</style>
+
+      {/* ── Toolbar mobile ── */}
+      <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Agenda</h1>
+          <Link href="/dashboard/agenda/nouveau" style={{ padding: "8px 16px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+            + RDV
+          </Link>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => setJourDate(d => addDays(d, -1))} style={navBtn}>‹</button>
+          <div style={{ flex: 1, textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#333", textTransform: "capitalize" }}>{jourLabel}</div>
+            {!isJourToday && (
+              <button onClick={() => setJourDate(new Date())} style={{ fontSize: 11, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>Aujourd'hui</button>
+            )}
+          </div>
+          <button onClick={() => setJourDate(d => addDays(d, 1))} style={navBtn}>›</button>
+        </div>
+      </div>
+
+      {/* Liste RDVs du jour — mobile */}
+      <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 10 }}>
+        {jourRdvs.length === 0 ? (
+          <div style={{ textAlign: "center", color: "#bbb", padding: "40px 0", fontSize: 14 }}>Aucun rendez-vous ce jour</div>
+        ) : jourRdvs.map(rdv => {
+          const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0);
+          const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
+          return (
+            <div key={rdv.id} onClick={() => router.push(`/dashboard/agenda/${rdv.id}`)}
+              style={{ background: "#fff", border: `1px solid ${m.couleur}25`, borderLeft: `4px solid ${m.couleur}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: m.couleur, marginBottom: 2 }}>{formatHeure(rdv.date_heure)}</div>
+                  <div style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 600 }}>{rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}</div>
+                  <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{prestaNoms || "—"}{duree ? ` · ${formatDuree(duree)}` : ""}</div>
+                </div>
+                <span style={{ color: "#ccc", fontSize: 18 }}>›</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Toolbar desktop */}
+      <div className="agenda-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Agenda</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ display: "flex", border: "1px solid #e0e0e0", borderRadius: 7, overflow: "hidden" }}>
@@ -117,6 +184,9 @@ export default function AgendaPage() {
           </Link>
         </div>
       </div>
+
+      {/* Vues desktop */}
+      <div className="agenda-desktop">
 
       {/* Vue semaine — cartes */}
       {vue === "semaine" && (
@@ -168,6 +238,8 @@ export default function AgendaPage() {
           <MoisGrid moisCourant={moisCourant} rdvsForDay={rdvsForDay} couleur={m.couleur} today={today} router={router} />
         </div>
       )}
+
+      </div>{/* fin agenda-desktop */}
     </div>
   );
 }

@@ -34,6 +34,7 @@ const WHY = [
 ];
 
 export default function HomePage() {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [nom, setNom]           = useState("");
   const [ville, setVille]       = useState("");
   const [resultats, setResultats] = useState<Salon[]>([]);
@@ -82,18 +83,51 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:"#faf8f5", fontFamily:"'Inter',system-ui,sans-serif", color:"#1a1614", overflowX:"hidden" }}>
+    <div style={{ minHeight:"100vh", background:"#faf8f5", fontFamily:"'Inter',system-ui,sans-serif", color:"#1a1614", overflowX:"clip" }}>
+      <style>{`
+        .rdv-hamburger { display: none; }
+        @media (max-width: 640px) {
+          .rdv-nav { padding: 0 16px !important; }
+          .rdv-nav-links { display: none !important; }
+          .rdv-hamburger { display: block !important; }
+          .rdv-section { padding-left: 20px !important; padding-right: 20px !important; padding-top: 60px !important; padding-bottom: 60px !important; }
+          .rdv-search-bar { flex-direction: column !important; }
+          .rdv-search-nom { border-right: none !important; border-bottom: 1px solid rgba(200,180,160,0.3) !important; }
+          .rdv-search-btn { margin: 0 !important; border-radius: 0 0 10px 10px !important; padding: 13px 28px !important; }
+          .rdv-cat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .rdv-etab-grid { grid-template-columns: 1fr !important; }
+          .rdv-why-grid { grid-template-columns: 1fr !important; }
+          .rdv-cta-pro-inner { flex-direction: column !important; padding: 32px 24px !important; align-items: flex-start !important; }
+          .rdv-footer { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+        @media (min-width: 641px) and (max-width: 960px) {
+          .rdv-cat-grid { grid-template-columns: repeat(3, 1fr) !important; }
+          .rdv-etab-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
 
       {/* ── NAV ── */}
-      <nav style={{ position:"sticky", top:0, zIndex:200, background:"rgba(250,248,245,0.92)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
-        <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, letterSpacing:"0.03em", color:"#1a1614" }}>rdvous</span>
-        <div style={{ display:"flex", alignItems:"center", gap:20 }}>
-          <Link href="/login"  style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Connexion</Link>
-          <Link href="/pro"    style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none" }}>
-            Inscrire mon salon
-          </Link>
-        </div>
-      </nav>
+      <div style={{ position:"sticky", top:0, zIndex:200 }}>
+        <nav className="rdv-nav" style={{ background:"rgba(250,248,245,0.92)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
+          <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, letterSpacing:"0.03em", color:"#1a1614" }}>rdvous</span>
+          <div className="rdv-nav-links" style={{ display:"flex", alignItems:"center", gap:20 }}>
+            <Link href="/login" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Connexion</Link>
+            <Link href="/pro" style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none" }}>
+              Inscrire mon salon
+            </Link>
+          </div>
+          <button className="rdv-hamburger" onClick={() => setMenuOpen(o => !o)}
+            style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#1a1614", padding:"4px 8px", lineHeight:1 }}>
+            {menuOpen ? "✕" : "☰"}
+          </button>
+        </nav>
+        {menuOpen && (
+          <div style={{ background:"rgba(250,248,245,0.98)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"4px 24px 12px", display:"flex", flexDirection:"column" }}>
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:"#6a5a4a", textDecoration:"none", borderBottom:"1px solid rgba(200,180,160,0.15)", display:"block" }}>Connexion</Link>
+            <Link href="/pro" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:"#1a1614", textDecoration:"none", display:"block" }}>Inscrire mon salon →</Link>
+          </div>
+        )}
+      </div>
 
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"88vh", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
@@ -127,8 +161,8 @@ export default function HomePage() {
 
           {/* Barre de recherche glassmorphism */}
           <div ref={searchRef} style={{ position:"relative" }}>
-            <div style={{ display:"flex", gap:0, background:"rgba(255,255,255,0.75)", backdropFilter:"blur(20px)", border:"1px solid rgba(255,255,255,0.9)", borderRadius:18, padding:8, boxShadow:"0 20px 60px rgba(100,80,60,0.15), 0 2px 8px rgba(100,80,60,0.08)" }}>
-              <div style={{ flex:2, display:"flex", alignItems:"center", gap:10, padding:"8px 16px", borderRight:"1px solid rgba(200,180,160,0.3)" }}>
+            <div className="rdv-search-bar" style={{ display:"flex", gap:0, background:"rgba(255,255,255,0.75)", backdropFilter:"blur(20px)", border:"1px solid rgba(255,255,255,0.9)", borderRadius:18, padding:8, boxShadow:"0 20px 60px rgba(100,80,60,0.15), 0 2px 8px rgba(100,80,60,0.08)" }}>
+              <div className="rdv-search-nom" style={{ flex:2, display:"flex", alignItems:"center", gap:10, padding:"8px 16px", borderRight:"1px solid rgba(200,180,160,0.3)" }}>
                 <span style={{ fontSize:16, opacity:0.5 }}>🔍</span>
                 <input
                   value={nom}
@@ -157,7 +191,7 @@ export default function HomePage() {
                   )}
                 </button>
               </div>
-              <button onClick={() => { if(nom||ville) rechercher(); setShowResults(true); }}
+              <button className="rdv-search-btn" onClick={() => { if(nom||ville) rechercher(); setShowResults(true); }}
                 style={{ padding:"0 28px", background:"#1a1614", color:"#fff", border:"none", borderRadius:"0 12px 12px 0", fontSize:14, fontWeight:600, cursor:"pointer", flexShrink:0, fontFamily:"inherit", alignSelf:"stretch", margin:"-8px -8px -8px 8px" }}>
                 Rechercher
               </button>
@@ -201,7 +235,7 @@ export default function HomePage() {
       </section>
 
       {/* ── CATÉGORIES ── */}
-      <section style={{ padding:"80px 40px" }}>
+      <section className="rdv-section" style={{ padding:"80px 40px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
           <div style={{ textAlign:"center", marginBottom:48 }}>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(30px,4vw,44px)", fontWeight:500, margin:"0 0 12px", color:"#1a1614" }}>
@@ -209,7 +243,7 @@ export default function HomePage() {
             </h2>
             <p style={{ fontSize:15, color:"#8a7a6a", margin:0 }}>Des professionnels pour chaque besoin.</p>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:16 }}>
+          <div className="rdv-cat-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:16 }}>
             {CATEGORIES.map(cat => (
               <div key={cat.label}
                 style={{ background:cat.gradient, borderRadius:20, padding:"28px 20px 24px", cursor:"pointer", transition:"transform 0.2s, box-shadow 0.2s", overflow:"hidden", position:"relative" }}
@@ -226,7 +260,7 @@ export default function HomePage() {
       </section>
 
       {/* ── AUTOUR DE VOUS ── */}
-      <section style={{ padding:"0 40px 80px" }}>
+      <section className="rdv-section" style={{ padding:"0 40px 80px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:40 }}>
             <div>
@@ -237,7 +271,7 @@ export default function HomePage() {
             </div>
             <Link href="#" style={{ fontSize:13, color:"#8a6a3a", fontWeight:600, textDecoration:"none" }}>Tout voir →</Link>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:20 }}>
+          <div className="rdv-etab-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:20 }}>
             {MOCK_ETABLISSEMENTS.map(e => (
               <div key={e.nom} style={{ background:"#fff", borderRadius:20, overflow:"hidden", boxShadow:"0 2px 12px rgba(100,80,60,0.08)", border:"1px solid rgba(200,180,160,0.2)", cursor:"pointer", transition:"transform 0.2s, box-shadow 0.2s" }}
                 onMouseEnter={el => { (el.currentTarget as HTMLDivElement).style.transform="translateY(-4px)"; (el.currentTarget as HTMLDivElement).style.boxShadow="0 16px 40px rgba(100,80,60,0.15)"; }}
@@ -265,12 +299,12 @@ export default function HomePage() {
       </section>
 
       {/* ── POURQUOI RDVOUS ── */}
-      <section style={{ background:"#f0ece5", padding:"80px 40px" }}>
+      <section className="rdv-section" style={{ background:"#f0ece5", padding:"80px 40px" }}>
         <div style={{ maxWidth:900, margin:"0 auto" }}>
           <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, textAlign:"center", margin:"0 0 56px", color:"#1a1614" }}>
             Pourquoi RDVOUS ?
           </h2>
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:32 }}>
+          <div className="rdv-why-grid" style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:32 }}>
             {WHY.map(w => (
               <div key={w.titre} style={{ textAlign:"center" }}>
                 <div style={{ width:64, height:64, borderRadius:20, background:"#fff", boxShadow:"0 4px 20px rgba(100,80,60,0.1)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, margin:"0 auto 20px" }}>
@@ -285,7 +319,7 @@ export default function HomePage() {
       </section>
 
       {/* ── SECTION ÉMOTIONNELLE ── */}
-      <section style={{ position:"relative", overflow:"hidden", padding:"100px 40px", background:"linear-gradient(135deg,#2d1f1a 0%,#3d2a20 40%,#2a2030 100%)" }}>
+      <section className="rdv-section" style={{ position:"relative", overflow:"hidden", padding:"100px 40px", background:"linear-gradient(135deg,#2d1f1a 0%,#3d2a20 40%,#2a2030 100%)" }}>
         <div aria-hidden style={{ position:"absolute", top:-80, left:-80, width:400, height:400, borderRadius:"50%", background:"rgba(201,160,96,0.08)" }} />
         <div aria-hidden style={{ position:"absolute", bottom:-60, right:-40, width:320, height:320, borderRadius:"50%", background:"rgba(168,200,160,0.06)" }} />
         <div style={{ maxWidth:680, margin:"0 auto", textAlign:"center", position:"relative", zIndex:2 }}>
@@ -305,8 +339,8 @@ export default function HomePage() {
       </section>
 
       {/* ── CTA PRO ── */}
-      <section style={{ padding:"72px 40px" }}>
-        <div style={{ maxWidth:800, margin:"0 auto", background:"#faf0e6", border:"1px solid rgba(200,160,96,0.3)", borderRadius:24, padding:"48px 56px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:32, flexWrap:"wrap" }}>
+      <section className="rdv-section" style={{ padding:"72px 40px" }}>
+        <div className="rdv-cta-pro-inner" style={{ maxWidth:800, margin:"0 auto", background:"#faf0e6", border:"1px solid rgba(200,160,96,0.3)", borderRadius:24, padding:"48px 56px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:32, flexWrap:"wrap" }}>
           <div>
             <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.1em", textTransform:"uppercase", color:"#c9a060", marginBottom:12 }}>Pour les professionnels</div>
             <h3 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:30, fontWeight:500, color:"#1a1614", margin:"0 0 10px" }}>
@@ -323,7 +357,7 @@ export default function HomePage() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer style={{ borderTop:"1px solid rgba(200,180,160,0.3)", padding:"32px 40px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
+      <footer className="rdv-footer" style={{ borderTop:"1px solid rgba(200,180,160,0.3)", padding:"32px 40px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
         <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, fontWeight:600, color:"#1a1614" }}>rdvous</span>
         <div style={{ display:"flex", gap:24 }}>
           <Link href="/pro"   style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Professionnels</Link>

@@ -124,12 +124,20 @@ export default function ParametresPage() {
   const isFree = plan === "free";
 
   return (
-    <div style={{ padding: 32, maxWidth: 760, margin: "0 auto" }}>
+    <div className="params-wrap" style={{ padding: 32, maxWidth: 760, margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .params-wrap { padding: 16px !important; }
+          .params-grid-2 { grid-template-columns: 1fr !important; }
+          .params-abo { flex-direction: column !important; align-items: flex-start !important; }
+          .params-abo-actions { align-items: flex-start !important; }
+        }
+      `}</style>
       <h1 style={{ margin: "0 0 28px", fontSize: 22, fontWeight: 700 }}>Paramètres</h1>
 
       {/* ── Abonnement ── */}
       <Section titre="Abonnement">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div className="params-abo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
               <span style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>Plan {PLAN_LABELS[plan]}</span>
@@ -218,7 +226,7 @@ export default function ParametresPage() {
       </Section>
 
       <Section titre="Fidélité & parrainage" style={{ marginTop: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Champ label="Visites pour récompense" value={String(settings.nb_visites_fidelite)} onChange={v => setSettings(s => ({ ...s, nb_visites_fidelite: Number(v) }))} type="number" />
           <Champ label="Montant récompense (€)" value={String(settings.montant_recompense)} onChange={v => setSettings(s => ({ ...s, montant_recompense: Number(v) }))} type="number" />
           <Champ label="Tarif minimum (€)" value={String(settings.tarif_minimum)} onChange={v => setSettings(s => ({ ...s, tarif_minimum: Number(v) }))} type="number" />
@@ -229,7 +237,7 @@ export default function ParametresPage() {
       </Section>
 
       <Section titre="Emails automatiques" style={{ marginTop: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <Champ label="Nom de l'expéditeur" value={settings.email_expediteur_nom} onChange={v => setSettings(s => ({ ...s, email_expediteur_nom: v }))} />
           <Champ label="Email expéditeur" value={settings.email_expediteur} onChange={v => setSettings(s => ({ ...s, email_expediteur: v }))} type="email" />
         </div>
@@ -270,7 +278,7 @@ export default function ParametresPage() {
       </Section>
 
       <Section titre="Sécurité" style={{ marginTop: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
             <label style={labelStyle}>Nouveau mot de passe</label>
             <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="6 caractères minimum" style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
