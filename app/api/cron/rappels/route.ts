@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const d = demain;
   const demainStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, email_rappel_contenu, email_expediteur, email_expediteur_nom");
+  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, message_rappel_rdv, email_expediteur, email_expediteur_nom");
   const { data: rdvs } = await admin
     .from("rendez_vous")
     .select("id, date_heure, salon_id, salons(nom), clients(prenom, email), rendez_vous_prestations(prestations(nom))")
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       to: client.email,
       toName: client.prenom,
       subject: salonCfg?.email_rappel_objet || `Rappel : votre rendez-vous demain — ${salon?.nom || "rdvous"}`,
-      html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: salonCfg?.email_rappel_contenu || undefined }),
+      html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: salonCfg?.message_rappel_rdv || undefined }),
       fromName: salonCfg?.email_expediteur_nom || salon?.nom || "rdvous",
       fromEmail: salonCfg?.email_expediteur || undefined,
     });

@@ -54,7 +54,7 @@ export default function UpgradeBanner() {
           <span className="upgrade-desc-long">✨ Plan Gratuit — limité à 30 RDV/mois · Fidélité et cagnotte non disponibles</span>
           <span className="upgrade-desc-short">✨ Plan Gratuit — 30 RDV/mois</span>
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0, width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <button onClick={triggerCheckout} disabled={loading} className="upgrade-btn"
             style={{ flex: 1, padding: "6px 16px", background: "#c9a060", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
             {loading ? "Chargement…" : "Passer à l'offre Indépendant — 19€/mois →"}

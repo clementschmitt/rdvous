@@ -6,17 +6,17 @@ import { createSupabase } from "@/lib/supabase";
 import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_confirmation_active: boolean; email_confirmation_objet: string; email_confirmation_contenu: string; email_rappel_active: boolean; email_rappel_objet: string; email_rappel_contenu: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
 
 export default function ParametresPage() {
   const salon = useSalon();
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", email_confirmation_contenu: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", email_rappel_contenu: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5 });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5 });
   const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0" });
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
-  const [savingSettings, setSavingSettings] = useState(false);
-  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const [newPassword, setNewPassword] = useState("");
@@ -109,13 +109,20 @@ export default function ParametresPage() {
     setPwdLoading(false);
   }
 
-  async function saveSettings() {
-    setSavingSettings(true);
+  async function saveSection(key: string) {
+    setSaving(s => ({ ...s, [key]: true }));
     const supabase = createSupabase();
-    await supabase.from("app_settings").update(settings).eq("salon_id", salon!.id);
-    setSavingSettings(false);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2000);
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...settings, salon_id: salon!.id }),
+    });
+    const json = await res.json();
+    setSaving(s => ({ ...s, [key]: false }));
+    if (!json.ok) { alert("Erreur : " + (json.error || "inconnue")); return; }
+    setSaved(s => ({ ...s, [key]: true }));
+    setTimeout(() => setSaved(s => ({ ...s, [key]: false })), 2000);
   }
 
   if (!salon) return null;
@@ -234,6 +241,7 @@ export default function ParametresPage() {
           <Champ label="Bonus parrain (€)" value={String(settings.montant_parrain)} onChange={v => setSettings(s => ({ ...s, montant_parrain: Number(v) }))} type="number" />
           <Champ label="Bonus filleul·e (€)" value={String(settings.montant_filleul)} onChange={v => setSettings(s => ({ ...s, montant_filleul: Number(v) }))} type="number" />
         </div>
+        <SaveButton sectionKey="fidelite" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
       </Section>
 
       <Section titre="Emails automatiques" style={{ marginTop: 16 }}>
@@ -252,7 +260,7 @@ export default function ParametresPage() {
         {settings.email_confirmation_active && (
           <>
             <Champ label="Objet" value={settings.email_confirmation_objet} onChange={v => setSettings(s => ({ ...s, email_confirmation_objet: v }))} />
-            <ChampTextarea label="Contenu" value={settings.email_confirmation_contenu} onChange={v => setSettings(s => ({ ...s, email_confirmation_contenu: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
+            <ChampTextarea label="Contenu" value={settings.message_confirmation} onChange={v => setSettings(s => ({ ...s, message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
           </>
         )}
         <div style={{ height: 1, background: "#f0f0f0" }} />
@@ -266,15 +274,21 @@ export default function ParametresPage() {
         {settings.email_rappel_active && (
           <>
             <Champ label="Objet" value={settings.email_rappel_objet} onChange={v => setSettings(s => ({ ...s, email_rappel_objet: v }))} />
-            <ChampTextarea label="Contenu" value={settings.email_rappel_contenu} onChange={v => setSettings(s => ({ ...s, email_rappel_contenu: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
+            <ChampTextarea label="Contenu" value={settings.message_rappel_rdv} onChange={v => setSettings(s => ({ ...s, message_rappel_rdv: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
           </>
         )}
+        <SaveButton sectionKey="emails" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
       </Section>
 
       <Section titre="Relances clients" style={{ marginTop: 16 }}>
+        <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <Champ label="Nom de l'expéditeur" value={settings.email_expediteur_nom} onChange={v => setSettings(s => ({ ...s, email_expediteur_nom: v }))} />
+          <Champ label="Email expéditeur" value={settings.email_expediteur} onChange={v => setSettings(s => ({ ...s, email_expediteur: v }))} type="email" />
+        </div>
         <Champ label="Délai avant relance (mois)" value={String(settings.delai_relance_mois)} onChange={v => setSettings(s => ({ ...s, delai_relance_mois: Number(v) }))} type="number" />
         <Champ label="Objet de l'email" value={settings.email_relance_objet} onChange={v => setSettings(s => ({ ...s, email_relance_objet: v }))} />
         <ChampTextarea label="Contenu" value={settings.message_relance} onChange={v => setSettings(s => ({ ...s, message_relance: v }))} hint="{prenom}" />
+        <SaveButton sectionKey="relances" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
       </Section>
 
       <Section titre="Sécurité" style={{ marginTop: 16 }}>
@@ -301,11 +315,19 @@ export default function ParametresPage() {
         </div>
       </Section>
 
-      <div style={{ marginTop: 24, display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={saveSettings} disabled={savingSettings} style={{ padding: "10px 28px", background: settingsSaved ? "#27ae60" : m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
-          {savingSettings ? "Enregistrement..." : settingsSaved ? "✓ Enregistré" : "Enregistrer"}
-        </button>
-      </div>
+    </div>
+  );
+}
+
+function SaveButton({ sectionKey, saving, saved, onSave, couleur }: { sectionKey: string; saving: Record<string, boolean>; saved: Record<string, boolean>; onSave: (k: string) => void; couleur: string }) {
+  const isSaving = saving[sectionKey];
+  const isSaved = saved[sectionKey];
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+      <button onClick={() => onSave(sectionKey)} disabled={isSaving}
+        style={{ padding: "8px 20px", background: isSaved ? "#27ae60" : couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }}>
+        {isSaving ? "Enregistrement…" : isSaved ? "✓ Enregistré" : "Enregistrer"}
+      </button>
     </div>
   );
 }

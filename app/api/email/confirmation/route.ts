@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   if (!rdv) return NextResponse.json({ ok: false });
 
-  const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, email_confirmation_contenu, email_expediteur, email_expediteur_nom").eq("salon_id", rdv.salon_id).single();
+  const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom").eq("salon_id", rdv.salon_id).single();
   if (settings?.email_confirmation_active === false) return NextResponse.json({ ok: false, reason: "disabled" });
 
   const client = rdv.clients as unknown as { prenom: string; email: string | null } | null;
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       to: client.email,
       toName: client.prenom,
       subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salon?.nom || "rdvous"}`,
-      html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: settings?.email_confirmation_contenu || undefined }),
+      html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: settings?.message_confirmation || undefined }),
       fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
       fromEmail: settings?.email_expediteur || undefined,
     });
