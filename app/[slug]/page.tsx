@@ -1,12 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import { getSalon } from "@/app/s/[id]/page";
+import PublicSalonPage from "@/app/s/[id]/page";
 
 export default async function SlugPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-
-  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-  const { data: salon } = await admin.from("salons").select("id").eq("slug", slug).single();
-
-  if (!salon) notFound();
-  redirect(`/s/${salon.id}`);
+  const result = await getSalon(slug, true);
+  if (!result) notFound();
+  // Rendre la même page avec l'id du salon
+  return PublicSalonPage({ params: Promise.resolve({ id: result.salon.id }) });
 }

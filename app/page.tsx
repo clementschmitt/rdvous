@@ -63,7 +63,7 @@ export default function HomePage() {
   async function rechercher() {
     setLoading(true); setSearched(true);
     const supabase = createSupabase();
-    let q = supabase.from("salons").select("id,nom,metier,ville,adresse,description").eq("visible_recherche", true).order("nom").limit(8);
+    let q = supabase.from("salons").select("id,nom,metier,ville,adresse,description,slug").eq("visible_recherche", true).order("nom").limit(8);
     if (nom.trim())   q = q.ilike("nom",  `%${nom.trim()}%`);
     if (ville.trim()) q = q.ilike("ville",`%${ville.trim()}%`);
     const { data } = await q;
@@ -207,7 +207,7 @@ export default function HomePage() {
                 {resultats.map(salon => {
                   const m = METIERS[salon.metier as keyof typeof METIERS];
                   return (
-                    <Link key={salon.id} href={`/s/${salon.id}`} style={{ textDecoration:"none" }}>
+                    <Link key={salon.id} href={salon.slug ? `/${salon.slug}` : `/s/${salon.id}`} style={{ textDecoration:"none" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 20px", borderBottom:"1px solid #f5f0ea", cursor:"pointer" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "#faf8f5")}
                         onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>

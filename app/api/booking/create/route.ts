@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
       .single();
     const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom").eq("salon_id", salon_id).single();
 
-    const clientData = fullRdv?.clients as { prenom: string; email: string | null } | null;
-    const salonData = fullRdv?.salons as { nom: string } | null;
+    const clientData = fullRdv?.clients as unknown as { prenom: string; email: string | null } | null;
+    const salonData = fullRdv?.salons as unknown as { nom: string } | null;
     const prestationsData = ((fullRdv?.rendez_vous_prestations || []) as { prestations: { nom: string; duree_minutes: number; tarif: number } | null }[])
       .map(rp => rp.prestations).filter(Boolean) as { nom: string; duree_minutes: number; tarif: number }[];
 

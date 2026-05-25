@@ -8,18 +8,18 @@ type Prestation = { id: string; nom: string; duree_minutes: number; tarif: numbe
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
 
-async function getSalon(id: string) {
+export async function getSalon(idOrSlug: string, bySlug = false) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const { data: salon } = await admin
     .from("salons")
     .select("id, nom, metier, ville, adresse, description, telephone, visible_recherche, photos, slug, deplacement")
-    .eq("id", id)
+    .eq(bySlug ? "slug" : "id", idOrSlug)
     .single();
   if (!salon || salon.visible_recherche === false) return null;
   const { data: prestations } = await admin
     .from("prestations")
     .select("id, nom, duree_minutes, tarif")
-    .eq("salon_id", id)
+    .eq("salon_id", salon.id)
     .eq("actif", true)
     .order("nom");
   return { salon, prestations: (prestations || []) as Prestation[] };
@@ -47,7 +47,7 @@ function groupPrestations(prestations: Prestation[]) {
 
 export default async function PublicSalonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const result = await getSalon(id);
+  const result = await getSalon(id, false);
   if (!result) notFound();
 
   const { salon, prestations } = result;

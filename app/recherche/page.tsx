@@ -27,7 +27,7 @@ export default function RecherchePage() {
     const supabase = createSupabase();
     let query = supabase
       .from("salons")
-      .select("id, nom, metier, ville, adresse, description")
+      .select("id, nom, metier, ville, adresse, description, slug")
       .eq("visible_recherche", true)
       .order("nom")
       .limit(20);
@@ -116,7 +116,7 @@ export default function RecherchePage() {
           {resultats.map(salon => {
             const m = METIERS[salon.metier as keyof typeof METIERS];
             return (
-              <Link key={salon.id} href={`/s/${salon.id}`} style={{ textDecoration: "none" }}>
+              <Link key={salon.id} href={salon.slug ? `/${salon.slug}` : `/s/${salon.id}`} style={{ textDecoration: "none" }}>
                 <div style={{ background: "#fff", borderRadius: 12, padding: "18px 22px", border: "1px solid #ebebeb", display: "flex", alignItems: "center", gap: 16, cursor: "pointer", transition: "box-shadow 0.15s" }}
                   onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.08)")}
                   onMouseLeave={e => (e.currentTarget.style.boxShadow = "none")}
