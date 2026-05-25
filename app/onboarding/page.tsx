@@ -12,6 +12,7 @@ export default function OnboardingPage() {
   const [telephone, setTelephone] = useState("");
   const [adresse, setAdresse] = useState("");
   const [ville, setVille] = useState("");
+  const [deplacement, setDeplacement] = useState<"non" | "possible" | "uniquement">("non");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export default function OnboardingPage() {
     const res = await fetch("/api/onboarding", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nom, metier, telephone, adresse, ville }),
+      body: JSON.stringify({ nom, metier, telephone, adresse, ville, deplacement }),
     });
     const json = await res.json();
     if (!res.ok) { setError(json.error || "Erreur lors de la création du salon."); setLoading(false); return; }
@@ -78,6 +79,21 @@ export default function OnboardingPage() {
               <div>
                 <label style={labelStyle}>Ville</label>
                 <input value={ville} onChange={e => setVille(e.target.value)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Déplacements à domicile</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {([
+                    { value: "non", label: "Non — je reçois uniquement en salon" },
+                    { value: "possible", label: "Oui, en option — salon et domicile" },
+                    { value: "uniquement", label: "Oui, uniquement à domicile" },
+                  ] as { value: "non" | "possible" | "uniquement"; label: string }[]).map(opt => (
+                    <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, color: T.text, padding: "10px 12px", border: `1.5px solid ${deplacement === opt.value ? (metier ? METIERS[metier].couleur : T.text) : T.border}`, borderRadius: T.radiusSm, background: deplacement === opt.value ? (metier ? `${METIERS[metier].couleur}10` : "#f5f5f5") : T.white }}>
+                      <input type="radio" name="deplacement" value={opt.value} checked={deplacement === opt.value} onChange={() => setDeplacement(opt.value)} style={{ accentColor: metier ? METIERS[metier].couleur : T.text }} />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
               </div>
               {error && <p style={{ color: "#B91C1C", fontSize: 13, margin: 0 }}>{error}</p>}
               <div style={{ display: "flex", gap: 10, marginTop: 4 }}>

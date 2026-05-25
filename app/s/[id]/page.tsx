@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import BookingWidget from "./BookingWidget";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
 
@@ -11,7 +12,7 @@ async function getSalon(id: string) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const { data: salon } = await admin
     .from("salons")
-    .select("id, nom, metier, ville, adresse, description, telephone, visible_recherche")
+    .select("id, nom, metier, ville, adresse, description, telephone, visible_recherche, photos, slug, deplacement")
     .eq("id", id)
     .single();
   if (!salon || salon.visible_recherche === false) return null;
@@ -33,6 +34,17 @@ function formatTel(tel: string) {
   return tel.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
 }
 
+function groupPrestations(prestations: Prestation[]) {
+  const groups: Record<string, Prestation[]> = {};
+  for (const p of prestations) {
+    const match = p.nom.match(/^(étape|etape|step)\s*\d+/i);
+    const key = match ? match[0].charAt(0).toUpperCase() + match[0].slice(1).toLowerCase() : "Autres";
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  }
+  return groups;
+}
+
 export default async function PublicSalonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const result = await getSalon(id);
@@ -41,124 +53,190 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const { salon, prestations } = result;
   const m = METIERS[salon.metier as keyof typeof METIERS];
   const couleur = m?.couleur || "#333";
+  const couleurClaire = m?.couleurClaire || couleur + "22";
   const emoji = METIER_EMOJI[salon.metier] || "✂️";
+  const photos: string[] = salon.photos || [];
+  const deplacement: string = salon.deplacement || "non";
   const mapsUrl = salon.adresse && salon.ville
     ? `https://maps.google.com/?q=${encodeURIComponent(`${salon.adresse}, ${salon.ville}`)}`
-    : salon.ville
-    ? `https://maps.google.com/?q=${encodeURIComponent(salon.ville)}`
-    : null;
+    : salon.ville ? `https://maps.google.com/?q=${encodeURIComponent(salon.ville)}` : null;
+  const grouped = groupPrestations(prestations);
+  const hasGroups = Object.keys(grouped).some(k => k !== "Autres");
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fafafa", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .vitrine-layout { flex-direction: column !important; }
+          .vitrine-sidebar { position: static !important; width: auto !important; }
+          .vitrine-photos { height: 220px !important; }
+          .vitrine-hero-content { padding: 24px 16px !important; }
+          .vitrine-main { padding: 16px !important; }
+        }
+        .slot-btn:hover { opacity: 0.85; }
+      `}</style>
 
       {/* Header */}
-      <div style={{ background: "#fff", borderBottom: "1px solid #f0f0f0", padding: "0 24px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ background: "#fff", borderBottom: "1px solid #ebebeb", padding: "0 24px", height: 52, display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 50 }}>
         <Link href="/recherche" style={{ fontSize: 13, color: "#999", textDecoration: "none" }}>← Recherche</Link>
         <Link href="/" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, textDecoration: "none", color: "#1a1a1a" }}>rdvous</Link>
       </div>
 
-      {/* Hero */}
-      <div style={{ background: couleur, padding: "40px 24px 48px" }}>
-        <div style={{ maxWidth: 620, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 20 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 16, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, flexShrink: 0 }}>
-              {emoji}
+      {/* Hero photos */}
+      {photos.length > 0 ? (
+        <div className="vitrine-photos" style={{ height: 300, display: "flex", gap: 3, overflow: "hidden" }}>
+          {photos.slice(0, 3).map((url, i) => (
+            <div key={i} style={{ flex: i === 0 ? 2 : 1, backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ height: 160, background: `linear-gradient(135deg, ${couleur} 0%, ${couleur}cc 100%)`, display: "flex", alignItems: "flex-end" }}>
+          <div className="vitrine-hero-content" style={{ padding: "28px 32px", width: "100%", maxWidth: 900, margin: "0 auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>{emoji}</div>
+              <div>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 28, fontWeight: 500, color: "#fff", margin: 0, lineHeight: 1.2 }}>{salon.nom}</h1>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", marginTop: 2 }}>{m?.label || salon.metier}</div>
+              </div>
             </div>
-            <div>
-              <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 30, fontWeight: 500, color: "#fff", margin: "0 0 4px", lineHeight: 1.2 }}>{salon.nom}</h1>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{m?.label || salon.metier}</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px" }}>
+
+        {/* Nom + infos sous les photos */}
+        {photos.length > 0 && (
+          <div style={{ background: "#fff", borderRadius: "0 0 16px 16px", padding: "20px 28px", marginBottom: 20, boxShadow: "0 2px 8px rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 48, height: 48, borderRadius: 12, background: couleurClaire, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{emoji}</div>
+              <div>
+                <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 600, color: "#1a1a1a", margin: 0 }}>{salon.nom}</h1>
+                <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginTop: 2 }}>
+                  <span style={{ fontSize: 13, color: "#999" }}>{m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}</span>
+                  {deplacement === "possible" && <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20, background: couleurClaire, color: couleur }}>🚗 Domicile possible</span>}
+                  {deplacement === "uniquement" && <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 20, background: couleurClaire, color: couleur }}>🚗 Domicile uniquement</span>}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {salon.telephone && (
+                <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", background: couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                  📞 {formatTel(salon.telephone)}
+                </a>
+              )}
+              {mapsUrl && (
+                <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", background: "#f5f5f5", color: "#555", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                  📍
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="vitrine-layout" style={{ display: "flex", gap: 20, alignItems: "flex-start", paddingBottom: 48 }}>
+
+          {/* Colonne gauche */}
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* Infos si pas de photos */}
+            {photos.length === 0 && (salon.adresse || salon.ville || salon.telephone) && (
+              <div style={{ background: "#fff", borderRadius: 12, padding: "18px 22px", border: "1px solid #ebebeb", display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {(salon.adresse || salon.ville) && mapsUrl && (
+                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555", textDecoration: "none" }}>
+                    📍 {[salon.adresse, salon.ville].filter(Boolean).join(", ")}
+                  </a>
+                )}
+                {salon.telephone && (
+                  <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555", textDecoration: "none" }}>
+                    📞 {formatTel(salon.telephone)}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Description */}
+            {salon.description && (
+              <div style={{ background: "#fff", borderRadius: 12, padding: "18px 22px", border: "1px solid #ebebeb", fontSize: 14, color: "#555", lineHeight: 1.8 }}>
+                {salon.description}
+              </div>
+            )}
+
+            {/* Prestations */}
+            {prestations.length > 0 && (
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", overflow: "hidden" }}>
+                <div style={{ padding: "16px 22px", borderBottom: "1px solid #f5f5f5" }}>
+                  <h2 style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Prestations</h2>
+                </div>
+                {hasGroups ? (
+                  Object.entries(grouped).map(([group, items]) => (
+                    <div key={group}>
+                      <div style={{ padding: "10px 22px", background: couleurClaire }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: couleur, textTransform: "uppercase", letterSpacing: "0.06em" }}>{group}</span>
+                      </div>
+                      {items.map((p, i) => (
+                        <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 22px", borderBottom: i < items.length - 1 ? "1px solid #f9f9f9" : "none" }}>
+                          <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom.replace(/^(étape|etape|step)\s*\d+\s*:\s*/i, "")}</span>
+                          <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
+                            <span style={{ fontSize: 12, color: "#ccc" }}>{formatDuree(p.duree_minutes)}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: couleur, minWidth: 44, textAlign: "right" }}>{p.tarif} €</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                ) : (
+                  prestations.map((p, i) => (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 22px", borderBottom: i < prestations.length - 1 ? "1px solid #f9f9f9" : "none" }}>
+                      <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                      <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, color: "#ccc" }}>{formatDuree(p.duree_minutes)}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: couleur, minWidth: 44, textAlign: "right" }}>{p.tarif} €</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar booking */}
+          <div className="vitrine-sidebar" style={{ width: 340, flexShrink: 0, position: "sticky", top: 68 }}>
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", overflow: "hidden" }}>
+              <div style={{ background: couleur, padding: "18px 22px" }}>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Cormorant Garamond', serif", marginBottom: 2 }}>Prendre rendez-vous</div>
+                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
+                  {prestations.length > 0 ? "Choisissez votre prestation et votre créneau." : `Contactez ${salon.nom} directement.`}
+                </div>
+              </div>
+              <div style={{ padding: "20px 22px" }}>
+                {prestations.length > 0 ? (
+                  <BookingWidget salonId={salon.id} prestations={prestations} couleur={couleur} deplacement={deplacement} />
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {salon.telephone && (
+                      <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", background: couleur, color: "#fff", borderRadius: 10, fontSize: 15, fontWeight: 700, textDecoration: "none" }}>
+                        📞 Appeler — {formatTel(salon.telephone)}
+                      </a>
+                    )}
+                    {mapsUrl && (
+                      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", background: "#f5f5f5", color: "#555", borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+                        📍 Voir sur Google Maps
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Infos rapides */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(salon.adresse || salon.ville) && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                <span>📍</span>
-                {mapsUrl
-                  ? <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ color: "rgba(255,255,255,0.85)", textDecoration: "underline" }}>
-                      {[salon.adresse, salon.ville].filter(Boolean).join(", ")}
-                    </a>
-                  : <span>{[salon.adresse, salon.ville].filter(Boolean).join(", ")}</span>
-                }
-              </div>
-            )}
-            {salon.telephone && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "rgba(255,255,255,0.85)" }}>
-                <span>📞</span>
-                <a href={`tel:${salon.telephone}`} style={{ color: "rgba(255,255,255,0.85)", textDecoration: "none" }}>
-                  {formatTel(salon.telephone)}
-                </a>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 620, margin: "0 auto", padding: "32px 24px" }}>
-
-        {/* Description */}
-        {salon.description && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", marginBottom: 16, border: "1px solid #ebebeb", fontSize: 14, color: "#555", lineHeight: 1.75 }}>
-            {salon.description}
-          </div>
-        )}
-
-        {/* Prestations */}
-        {prestations.length > 0 && (
-          <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", border: "1px solid #ebebeb", marginBottom: 16 }}>
-            <h2 style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 16px" }}>Prestations</h2>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {prestations.map((p, i) => (
-                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: i < prestations.length - 1 ? "1px solid #f5f5f5" : "none" }}>
-                  <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
-                  <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
-                    <span style={{ fontSize: 12, color: "#bbb" }}>{formatDuree(p.duree_minutes)}</span>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: couleur, minWidth: 48, textAlign: "right" }}>{p.tarif} €</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* CTA contact */}
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", overflow: "hidden" }}>
-          <div style={{ background: couleur, padding: "20px 24px" }}>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#fff", fontFamily: "'Cormorant Garamond', serif", marginBottom: 4 }}>
-              Prendre rendez-vous
-            </div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
-              Contactez {salon.nom} directement pour réserver.
-            </div>
-          </div>
-          <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-            {salon.telephone && (
-              <a href={`tel:${salon.telephone}`}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", background: couleur, color: "#fff", borderRadius: 10, fontSize: 15, fontWeight: 700, textDecoration: "none" }}>
-                📞 Appeler — {formatTel(salon.telephone)}
-              </a>
-            )}
-            {mapsUrl && (
-              <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", background: "#f5f5f5", color: "#555", borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                📍 Voir sur Google Maps
-              </a>
-            )}
-            {!salon.telephone && !mapsUrl && (
-              <div style={{ textAlign: "center", fontSize: 13, color: "#bbb", padding: "8px 0" }}>
-                Retrouvez ce salon pour prendre rendez-vous.
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Footer rdvous */}
-        <div style={{ textAlign: "center", marginTop: 32, paddingTop: 24, borderTop: "1px solid #ebebeb" }}>
-          <div style={{ fontSize: 12, color: "#ccc", marginBottom: 8 }}>Propulsé par</div>
-          <Link href="/" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20, fontWeight: 600, textDecoration: "none", color: "#1a1a1a" }}>rdvous</Link>
-          <div style={{ fontSize: 11, color: "#ccc", marginTop: 4 }}>Gérez votre salon sur rdvous.fr</div>
-        </div>
+      {/* Footer */}
+      <div style={{ borderTop: "1px solid #ebebeb", padding: "20px 24px", textAlign: "center", background: "#fff" }}>
+        <Link href="/" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, textDecoration: "none", color: "#1a1a1a" }}>rdvous</Link>
+        <div style={{ fontSize: 11, color: "#ccc", marginTop: 4 }}>Gérez votre salon sur rdvous.fr</div>
       </div>
     </div>
   );

@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
 
-  const { nom, metier, telephone, adresse, ville } = await req.json();
+  const { nom, metier, telephone, adresse, ville, deplacement } = await req.json();
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   const { data: salon, error } = await admin
     .from("salons")
-    .insert({ nom, slug, metier, telephone, adresse, ville, email: user.email })
+    .insert({ nom, slug, metier, telephone, adresse, ville, email: user.email, deplacement: deplacement || "non" })
     .select()
     .single();
 

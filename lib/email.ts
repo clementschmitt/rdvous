@@ -1,23 +1,28 @@
-export async function sendEmail({ to, toName, subject, html, fromName, fromEmail }: {
+export async function sendEmail({ to, toName, subject, html, fromName, replyTo }: {
   to: string;
   toName: string;
   subject: string;
   html: string;
   fromName?: string;
-  fromEmail?: string;
+  replyTo?: string;
 }) {
+  const senderEmail = process.env.BREVO_SENDER_EMAIL || "noreply@rdvous.fr";
+  const body: Record<string, unknown> = {
+    sender: { name: fromName || "rdvous", email: senderEmail },
+    to: [{ email: to, name: toName }],
+    subject,
+    htmlContent: html,
+  };
+  const replyToClean = replyTo?.trim();
+  if (replyToClean && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyToClean)) body.replyTo = { email: replyToClean };
+
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
       "api-key": process.env.BREVO_API_KEY!,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      sender: { name: fromName || "rdvous", email: fromEmail || process.env.BREVO_SENDER_EMAIL || "clement.flance@gmail.com" },
-      to: [{ email: to, name: toName }],
-      subject,
-      htmlContent: html,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const errText = await res.text();

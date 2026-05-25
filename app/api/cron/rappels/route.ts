@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       subject: salonCfg?.email_rappel_objet || `Rappel : votre rendez-vous demain — ${salon?.nom || "rdvous"}`,
       html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: salonCfg?.message_rappel_rdv || undefined }),
       fromName: salonCfg?.email_expediteur_nom || salon?.nom || "rdvous",
-      fromEmail: salonCfg?.email_expediteur || undefined,
+      replyTo: salonCfg?.email_expediteur || undefined,
     });
     sent++;
   }

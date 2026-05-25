@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salon?.nom || "rdvous"}`,
       html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: settings?.message_confirmation || undefined }),
       fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
-      fromEmail: settings?.email_expediteur || undefined,
+      replyTo: settings?.email_expediteur || undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {
