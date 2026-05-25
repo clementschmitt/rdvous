@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   if (!plages || plages.length === 0) return NextResponse.json({ slots: [] });
 
   type RdvRow = { date_heure: string; duree_minutes: number | null; rendez_vous_prestations: { prestations: { duree_minutes: number } | null }[] };
-  const occupes: { debut: number; fin: number }[] = (rdvs || []).map((r: RdvRow) => {
+  const occupes: { debut: number; fin: number }[] = ((rdvs || []) as unknown as RdvRow[]).map((r: RdvRow) => {
     const debut = toMinutes(r.date_heure.slice(11, 16));
     const dureeRdv = r.duree_minutes || r.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0) || 60;
     return { debut, fin: debut + dureeRdv };

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
     const clientData = fullRdv?.clients as unknown as { prenom: string; email: string | null } | null;
     const salonData = fullRdv?.salons as unknown as { nom: string } | null;
-    const prestationsData = ((fullRdv?.rendez_vous_prestations || []) as { prestations: { nom: string; duree_minutes: number; tarif: number } | null }[])
+    const prestationsData = ((fullRdv?.rendez_vous_prestations || []) as unknown as { prestations: { nom: string; duree_minutes: number; tarif: number } | null }[])
       .map(rp => rp.prestations).filter(Boolean) as { nom: string; duree_minutes: number; tarif: number }[];
 
     if (settings?.email_confirmation_active !== false && clientData?.email && fullRdv) {

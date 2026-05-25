@@ -4,7 +4,7 @@ import { createSupabase } from "@/lib/supabase";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 
-type Salon = { id: string; nom: string; metier: string; ville: string | null; adresse: string | null; description: string | null };
+type Salon = { id: string; nom: string; metier: string; ville: string | null; adresse: string | null; description: string | null; slug: string | null };
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
 
