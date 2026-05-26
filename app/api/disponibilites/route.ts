@@ -47,11 +47,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "upsert_exceptions_bulk") {
+    const { exceptions } = body as { exceptions: { date: string; ferme: boolean; plages: { heure_debut: string; heure_fin: string }[] }[] };
+    if (!exceptions || exceptions.length === 0) return NextResponse.json({ ok: true });
+    // INSERT ... ON CONFLICT DO NOTHING : ne jamais écraser un jour_unique existant
+    const { error } = await admin.from("disponibilites_exceptions")
+      .insert(exceptions.map(ex => ({ salon_id, date: ex.date, ferme: ex.ferme, plages: ex.plages, type: "periode" })), { ignoreDuplicates: true } as never);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   if (action === "upsert_exception") {
     const { date, ferme, plages } = body;
     if (!date) return NextResponse.json({ error: "date manquante" }, { status: 400 });
+    // Jour unique = toujours prioritaire, écrase tout
     const { error } = await admin.from("disponibilites_exceptions")
-      .upsert({ salon_id, date, ferme: ferme ?? false, plages: plages ?? [] }, { onConflict: "salon_id,date" });
+      .upsert({ salon_id, date, ferme: ferme ?? false, plages: plages ?? [], type: "jour_unique" }, { onConflict: "salon_id,date" });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }

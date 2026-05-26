@@ -2,10 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import BookingWidget from "./BookingWidget";
 import VitrineHeader from "./VitrineHeader";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
+type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
 
@@ -17,13 +17,27 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     .eq(bySlug ? "slug" : "id", idOrSlug)
     .single();
   if (!salon || salon.visible_recherche === false) return null;
-  const { data: prestations } = await admin
-    .from("prestations")
-    .select("id, nom, duree_minutes, tarif, sur_devis")
-    .eq("salon_id", salon.id)
-    .eq("actif", true)
-    .order("nom");
-  return { salon, prestations: (prestations || []) as Prestation[] };
+  const [{ data: prestations }, { data: appSettings }, { data: categories }, { data: dispos }] = await Promise.all([
+    admin.from("prestations").select("id, nom, duree_minutes, tarif, sur_devis, categorie_id").eq("salon_id", salon.id).eq("actif", true).order("nom"),
+    admin.from("app_settings").select("*").eq("salon_id", salon.id).single(),
+    admin.from("prestation_categories").select("id, nom, ordre, selection_type").eq("salon_id", salon.id).order("ordre"),
+    admin.from("disponibilites").select("jour_semaine, heure_debut, heure_fin").eq("salon_id", salon.id).order("jour_semaine"),
+  ]);
+  const s = appSettings as Record<string, unknown> | null;
+  const prestationsLabel = (s?.prestations_label as string) || "Prestations";
+  const googleAvisUrl = (s?.google_avis_url as string | undefined) || null;
+  const googleNote = (s?.google_note as number | undefined) || null;
+  const googleNbAvis = (s?.google_nb_avis as number | undefined) || null;
+  return {
+    salon,
+    prestations: (prestations || []) as Prestation[],
+    prestationsLabel,
+    categories: (categories || []) as Category[],
+    dispos: (dispos || []) as { jour_semaine: number; heure_debut: string; heure_fin: string }[],
+    googleAvisUrl,
+    googleNote,
+    googleNbAvis,
+  };
 }
 
 function formatDuree(min: number) {
@@ -35,15 +49,14 @@ function formatTel(tel: string) {
   return tel.replace(/(\d{2})(?=\d)/g, "$1 ").trim();
 }
 
-function groupPrestations(prestations: Prestation[]) {
-  const groups: Record<string, Prestation[]> = {};
-  for (const p of prestations) {
-    const match = p.nom.match(/^(étape|etape|step)\s*\d+/i);
-    const key = match ? match[0].charAt(0).toUpperCase() + match[0].slice(1).toLowerCase() : "Autres";
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(p);
-  }
-  return groups;
+function groupPrestationsByCategory(prestations: Prestation[], categories: Category[]): { label: string; items: Prestation[] }[] {
+  const withCat = categories.map(cat => ({
+    label: cat.nom,
+    items: prestations.filter(p => p.categorie_id === cat.id),
+  })).filter(g => g.items.length > 0);
+  const uncategorized = prestations.filter(p => !p.categorie_id);
+  if (uncategorized.length > 0) withCat.push({ label: "Autres", items: uncategorized });
+  return withCat;
 }
 
 export default async function PublicSalonPage({ params }: { params: Promise<{ id: string }> }) {
@@ -51,25 +64,31 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const result = await getSalon(id, false);
   if (!result) notFound();
 
-  const { salon, prestations } = result;
+  const { salon, prestations, prestationsLabel, categories, dispos, googleAvisUrl, googleNote, googleNbAvis } = result;
   const m = METIERS[salon.metier as keyof typeof METIERS];
   const couleur = m?.couleur || "#333";
   const couleurClaire = m?.couleurClaire || couleur + "22";
-  const emoji = METIER_EMOJI[salon.metier] || "✂️";
   const photos: string[] = salon.photos || [];
   const deplacement: string = salon.deplacement || "non";
   const mapsUrl = salon.adresse && salon.ville
     ? `https://maps.google.com/?q=${encodeURIComponent(`${salon.adresse}, ${salon.ville}`)}`
     : salon.ville ? `https://maps.google.com/?q=${encodeURIComponent(salon.ville)}` : null;
-  const grouped = groupPrestations(prestations);
-  const hasGroups = Object.keys(grouped).some(k => k !== "Autres");
+  const groups = groupPrestationsByCategory(prestations, categories);
+  const hasGroups = groups.length > 1 || (groups.length === 1 && groups[0].label !== "Autres");
+  const JOURS_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const horaires = JOURS_LABELS.map((jour, i) => {
+    const plages = dispos.filter(d => d.jour_semaine === i);
+    return { jour, isToday: i === todayIdx, heures: plages.map(p => `${p.heure_debut.slice(0, 5)} - ${p.heure_fin.slice(0, 5)}`).join(", ") };
+  });
+  const hasHoraires = dispos.length > 0;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif" }}>
       <style>{`
         @media (max-width: 640px) {
           .vitrine-layout { flex-direction: column !important; padding-top: 16px !important; }
-          .vitrine-sidebar { position: static !important; width: auto !important; }
+          .vitrine-sidebar { position: static !important; width: auto !important; order: -1 !important; }
           .vitrine-hero { height: 280px !important; }
           .vitrine-hero-text h1 { font-size: 28px !important; }
           .vitrine-hero-actions { display: none !important; }
@@ -175,17 +194,17 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
             {prestations.length > 0 && (
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", overflow: "hidden" }}>
                 <div style={{ padding: "16px 22px", borderBottom: "1px solid #f5f5f5" }}>
-                  <h2 style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>Prestations</h2>
+                  <h2 style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>{prestationsLabel}</h2>
                 </div>
                 {hasGroups ? (
-                  Object.entries(grouped).map(([group, items]) => (
-                    <div key={group}>
+                  groups.map(({ label, items }) => (
+                    <div key={label}>
                       <div style={{ padding: "10px 22px", background: couleurClaire }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: couleur, textTransform: "uppercase", letterSpacing: "0.06em" }}>{group}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: couleur, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
                       </div>
                       {items.map((p, i) => (
                         <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 22px", borderBottom: i < items.length - 1 ? "1px solid #f9f9f9" : "none" }}>
-                          <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom.replace(/^(étape|etape|step)\s*\d+\s*:\s*/i, "")}</span>
+                          <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
                           <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
                             <span style={{ fontSize: 12, color: "#ccc" }}>{formatDuree(p.duree_minutes)}</span>
                             <span style={{ fontSize: 14, fontWeight: 700, color: p.sur_devis ? "#888" : couleur, minWidth: 44, textAlign: "right" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
@@ -209,34 +228,84 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
             )}
           </div>
 
-          {/* Sidebar booking */}
-          <div className="vitrine-sidebar" style={{ width: 340, flexShrink: 0, position: "sticky", top: 68 }}>
-            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", overflow: "hidden" }}>
-              <div style={{ background: couleur, padding: "18px 22px" }}>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#fff", fontFamily: "'Cormorant Garamond', serif", marginBottom: 2 }}>Prendre rendez-vous</div>
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
-                  {prestations.length > 0 ? "Choisissez votre prestation et votre créneau." : `Contactez ${salon.nom} directement.`}
+          {/* Sidebar */}
+          <div className="vitrine-sidebar" style={{ width: 300, flexShrink: 0, position: "sticky", top: 68, display: "flex", flexDirection: "column", gap: 10 }}>
+
+            {/* CTA + contact */}
+            <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "14px" }}>
+              {prestations.length > 0 ? (
+                <Link href={`/s/${salon.id}/reserver`} style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                  background: couleur, padding: "15px 20px", textDecoration: "none", textAlign: "center",
+                  borderRadius: 9, boxShadow: `0 4px 14px ${couleur}55`,
+                }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", letterSpacing: "-0.01em" }}>Prendre rendez-vous</span>
+                </Link>
+              ) : (
+                <div style={{ padding: "15px 20px", background: couleur, borderRadius: 9, textAlign: "center" }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Nous contacter</span>
                 </div>
-              </div>
-              <div style={{ padding: "20px 22px" }}>
-                {prestations.length > 0 ? (
-                  <BookingWidget salonId={salon.id} prestations={prestations} couleur={couleur} deplacement={deplacement} />
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {salon.telephone && (
-                      <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", background: couleur, color: "#fff", borderRadius: 10, fontSize: 15, fontWeight: 700, textDecoration: "none" }}>
-                        📞 Appeler — {formatTel(salon.telephone)}
-                      </a>
-                    )}
-                    {mapsUrl && (
-                      <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "13px", background: "#f5f5f5", color: "#555", borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
-                        📍 Voir sur Google Maps
-                      </a>
-                    )}
+              )}
+              {(salon.telephone || mapsUrl) && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f5f5f5", display: "flex", flexDirection: "column", gap: 7 }}>
+                  {salon.telephone && (
+                    <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555", textDecoration: "none" }}>
+                      📞 {formatTel(salon.telephone)}
+                    </a>
+                  )}
+                  {mapsUrl && (
+                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555", textDecoration: "none" }}>
+                      📍 {[salon.adresse, salon.ville].filter(Boolean).join(", ")}
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Avis Google */}
+            {googleNote && (
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "16px 18px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Avis clients</div>
+                <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                  <div style={{ background: "#1a1a1a", borderRadius: 8, width: 52, height: 52, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ color: "#fff", fontSize: 17, fontWeight: 700 }}>{String(googleNote).replace(".", ",")}</span>
                   </div>
+                  <div>
+                    <div style={{ display: "flex", gap: 1, marginBottom: 4 }}>
+                      {[1, 2, 3, 4, 5].map(i => (
+                        <span key={i} style={{ fontSize: 15, color: i <= Math.round(googleNote) ? "#f5a623" : "#e0e0e0", lineHeight: 1 }}>★</span>
+                      ))}
+                    </div>
+                    {googleNbAvis ? <div style={{ fontSize: 12, color: "#888" }}>{googleNbAvis} avis</div> : null}
+                  </div>
+                </div>
+                {googleAvisUrl && (
+                  <a href={googleAvisUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 12, paddingTop: 12, borderTop: "1px solid #f5f5f5", fontSize: 12, color: couleur, fontWeight: 600, textDecoration: "none" }}>
+                    Voir les avis Google →
+                  </a>
                 )}
               </div>
-            </div>
+            )}
+
+            {/* Horaires */}
+            {hasHoraires && (
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "16px 18px" }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Horaires</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {horaires.map(({ jour, isToday, heures }) => (
+                    <div key={jour} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, padding: isToday ? "4px 8px" : "2px 0", background: isToday ? couleurClaire : "transparent", borderRadius: isToday ? 6 : 0, margin: isToday ? "0 -8px" : 0 }}>
+                      <span style={{ fontWeight: isToday ? 700 : 400, color: isToday ? couleur : "#555" }}>{jour}</span>
+                      <span style={{ fontWeight: isToday ? 700 : 400, color: heures ? (isToday ? couleur : "#555") : "#ccc" }}>
+                        {heures || "Fermé"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
           </div>
 
         </div>

@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, message_rappel_rdv, email_expediteur, email_expediteur_nom");
   const { data: rdvs } = await admin
     .from("rendez_vous")
-    .select("id, date_heure, salon_id, salons(nom), clients(prenom, email), rendez_vous_prestations(prestations(nom))")
+    .select("id, date_heure, salon_id, salons(nom), clients(prenom, email), rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
     .eq("statut", "confirme")
     .gte("date_heure", `${demainStr}T00:00:00`)
     .lte("date_heure", `${demainStr}T23:59:59`);
@@ -32,9 +32,9 @@ export async function GET(req: NextRequest) {
     if (!client?.email) continue;
 
     const salon = rdv.salons as unknown as { nom: string } | null;
-    const prestations = (rdv.rendez_vous_prestations as unknown as { prestations: { nom: string } | null }[])
+    const prestations = (rdv.rendez_vous_prestations as unknown as { prestations: { nom: string; tarif: number; sur_devis: boolean } | null }[])
       .map(rp => rp.prestations)
-      .filter(Boolean) as { nom: string }[];
+      .filter(Boolean) as { nom: string; tarif: number; sur_devis: boolean }[];
 
     const dateStr = new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     const heureStr = rdv.date_heure.slice(11, 16);

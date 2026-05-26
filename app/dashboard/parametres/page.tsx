@@ -5,8 +5,9 @@ import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
+type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -24,8 +25,12 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5 });
-  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "" });
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [newCategorie, setNewCategorie] = useState("");
+  const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
+  const [editCategorieNom, setEditCategorieNom] = useState("");
+  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "" });
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -39,9 +44,15 @@ export default function ParametresPage() {
   const [newConge, setNewConge] = useState<Conge>({ date_debut: "", date_fin: "", libelle: "" });
   const [savingDispos, setSavingDispos] = useState(false);
   const [savedDispos, setSavedDispos] = useState(false);
-  type Exception = { id: string; date: string; ferme: boolean; plages: Plage[] };
+  type Exception = { id: string; date: string; ferme: boolean; plages: Plage[]; type?: string };
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [newException, setNewException] = useState<{ date: string; ferme: boolean; plages: Plage[] }>({ date: "", ferme: true, plages: [defaultPlage()] });
+  const [exceptionMode, setExceptionMode] = useState<"single" | "period">("single");
+  type PeriodJour = { actif: boolean; heure_debut: string; heure_fin: string };
+  const [newPeriod, setNewPeriod] = useState<{ date_debut: string; date_fin: string; commonDebut: string; commonFin: string; jours: PeriodJour[] }>({
+    date_debut: "", date_fin: "", commonDebut: "09:00", commonFin: "18:00",
+    jours: [true, true, true, true, true, true, false].map(actif => ({ actif, heure_debut: "09:00", heure_fin: "18:00" }))
+  });
 
   const [slug, setSlug] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
@@ -55,6 +66,8 @@ export default function ParametresPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwdLoading, setPwdLoading] = useState(false);
   const [pwdMessage, setPwdMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [googleSyncing, setGoogleSyncing] = useState(false);
+  const [googleSyncMsg, setGoogleSyncMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!salon) return;
@@ -63,14 +76,16 @@ export default function ParametresPage() {
 
   async function load() {
     const supabase = createSupabase();
-    const [pRes, sRes, dRes, cRes, eRes] = await Promise.all([
+    const [pRes, sRes, dRes, cRes, eRes, catRes] = await Promise.all([
       supabase.from("prestations").select("*").eq("salon_id", salon!.id).order("nom"),
       supabase.from("app_settings").select("*").eq("salon_id", salon!.id).single(),
       supabase.from("disponibilites").select("*").eq("salon_id", salon!.id).order("jour_semaine"),
       supabase.from("conges").select("*").eq("salon_id", salon!.id).order("date_debut"),
       supabase.from("disponibilites_exceptions").select("*").eq("salon_id", salon!.id).gte("date", (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })()).order("date"),
+      supabase.from("prestation_categories").select("*").eq("salon_id", salon!.id).order("ordre"),
     ]);
     setPrestations((pRes.data || []) as Prestation[]);
+    setCategories((catRes.data || []) as Category[]);
     if (sRes.data) setSettings(prev => ({
       ...prev,
       ...Object.fromEntries(Object.entries(sRes.data as Record<string, unknown>).map(([k, v]) => [k, v ?? prev[k as keyof Settings]])),
@@ -95,11 +110,42 @@ export default function ParametresPage() {
     }
   }
 
+  async function addCategorie() {
+    if (!newCategorie.trim()) return;
+    const supabase = createSupabase();
+    await supabase.from("prestation_categories").insert({ salon_id: salon!.id, nom: newCategorie.trim(), ordre: categories.length });
+    setNewCategorie("");
+    load();
+  }
+
+  async function saveEditCategorie(id: string) {
+    if (!editCategorieNom.trim()) return;
+    const supabase = createSupabase();
+    await supabase.from("prestation_categories").update({ nom: editCategorieNom.trim() }).eq("id", id);
+    setEditCategorieId(null);
+    load();
+  }
+
+  async function toggleCategorieSelection(id: string, current: string) {
+    const cycle: Record<string, "unique" | "multiple" | "libre"> = { libre: "unique", unique: "multiple", multiple: "libre" };
+    const next = cycle[current] || "libre";
+    const supabase = createSupabase();
+    await supabase.from("prestation_categories").update({ selection_type: next }).eq("id", id);
+    setCategories(cats => cats.map(c => c.id === id ? { ...c, selection_type: next } : c));
+  }
+
+  async function deleteCategorie(id: string) {
+    if (!confirm("Supprimer cette catégorie ? Les prestations associées ne seront pas supprimées.")) return;
+    const supabase = createSupabase();
+    await supabase.from("prestation_categories").delete().eq("id", id);
+    load();
+  }
+
   async function addPresta() {
     if (!newPresta.nom.trim()) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis });
-    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false });
+    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis, categorie_id: newPresta.categorie_id || null });
+    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "" });
     load();
   }
 
@@ -113,7 +159,7 @@ export default function ParametresPage() {
   async function saveEditPresta() {
     if (!editPresta) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis }).eq("id", editPresta.id);
+    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis, categorie_id: editPresta.categorie_id || null }).eq("id", editPresta.id);
     setEditPrestaId(null);
     load();
   }
@@ -161,6 +207,44 @@ export default function ParametresPage() {
       headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ salon_id: salon!.id, action: "delete_conge", id }),
     });
+    load();
+  }
+
+  function getPeriodPreview() {
+    if (!newPeriod.date_debut || !newPeriod.date_fin) return 0;
+    const start = new Date(newPeriod.date_debut + "T12:00:00");
+    const end = new Date(newPeriod.date_fin + "T12:00:00");
+    let count = 0;
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (newPeriod.jours[(d.getDay() + 6) % 7].actif) count++;
+    }
+    return count;
+  }
+
+  async function addPeriod() {
+    if (!newPeriod.date_debut || !newPeriod.date_fin) return;
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const exceptions: { date: string; ferme: boolean; plages: Plage[] }[] = [];
+    const start = new Date(newPeriod.date_debut + "T12:00:00");
+    const end = new Date(newPeriod.date_fin + "T12:00:00");
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const jour = newPeriod.jours[(d.getDay() + 6) % 7];
+      if (jour.actif) {
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        exceptions.push({ date: dateStr, ferme: false, plages: [{ heure_debut: jour.heure_debut, heure_fin: jour.heure_fin }] });
+      }
+    }
+    if (exceptions.length === 0) return;
+    const res = await fetch("/api/disponibilites", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id, action: "upsert_exceptions_bulk", exceptions }),
+    });
+    const json = await res.json();
+    if (!json.ok) { alert("Erreur : " + json.error); return; }
+    setNewPeriod({ date_debut: "", date_fin: "", commonDebut: "09:00", commonFin: "18:00", jours: [true, true, true, true, true, true, false].map(actif => ({ actif, heure_debut: "09:00", heure_fin: "18:00" })) });
+    setExceptionMode("single");
     load();
   }
 
@@ -301,6 +385,24 @@ export default function ParametresPage() {
     setPwdLoading(false);
   }
 
+  async function syncGoogle() {
+    if (!settings.google_place_id?.trim()) { setGoogleSyncMsg({ ok: false, text: "Entrez un Place ID." }); return; }
+    setGoogleSyncing(true);
+    setGoogleSyncMsg(null);
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/google-business/sync", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id, place_id: settings.google_place_id }),
+    });
+    const json = await res.json();
+    setGoogleSyncing(false);
+    if (!json.ok) { setGoogleSyncMsg({ ok: false, text: json.error || "Erreur inconnue" }); return; }
+    setSettings(s => ({ ...s, google_note: json.note ?? s.google_note, google_nb_avis: json.nb_avis ?? s.google_nb_avis }));
+    setGoogleSyncMsg({ ok: true, text: `${String(json.note).replace(".", ",")} · ${json.nb_avis} avis` });
+  }
+
   async function saveSection(key: string) {
     setSaving(s => ({ ...s, [key]: true }));
     const supabase = createSupabase();
@@ -348,28 +450,120 @@ export default function ParametresPage() {
 
       {/* ── Prestations ── */}
       {tab === "prestations" && (
-        <Section titre="Prestations">
+        <>
+        {/* Titre vitrine */}
+        <Section titre="Affichage vitrine">
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Titre de la section</label>
+              <input value={settings.prestations_label} onChange={e => setSettings(s => ({ ...s, prestations_label: e.target.value }))} placeholder="Prestations" style={{ ...miniInput, width: "100%", boxSizing: "border-box" }} />
+            </div>
+            <SaveButton sectionKey="prestations_label" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
+          </div>
+        </Section>
+
+        {/* Google Business */}
+        <Section titre="Google Business" style={{ marginTop: 16 }}>
+          <div style={{ fontSize: 12, color: "#888" }}>
+            Synchronisez votre note Google automatiquement.{" "}
+            <a href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder" target="_blank" rel="noopener noreferrer" style={{ color: m.couleur }}>Trouver mon Place ID →</a>
+          </div>
+          <div>
+            <label style={labelStyle}>Google Place ID</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={settings.google_place_id} onChange={e => setSettings(s => ({ ...s, google_place_id: e.target.value.trim() }))} placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4" style={{ flex: 1, ...miniInput }} />
+              <button onClick={syncGoogle} disabled={googleSyncing}
+                style={{ padding: "7px 14px", background: googleSyncing ? "#e0e0e0" : m.couleur, color: "#fff", border: "none", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: googleSyncing ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                {googleSyncing ? "…" : "↻ Sync"}
+              </button>
+            </div>
+            {googleSyncMsg && (
+              <div style={{ fontSize: 12, marginTop: 6, color: googleSyncMsg.ok ? "#27ae60" : "#e74c3c", fontWeight: 500 }}>
+                {googleSyncMsg.ok ? `✓ ${googleSyncMsg.text}` : `✗ ${googleSyncMsg.text}`}
+              </div>
+            )}
+            {!googleSyncMsg && settings.google_note > 0 && (
+              <div style={{ fontSize: 12, color: "#888", marginTop: 6 }}>
+                Dernière synchro : ★ {String(settings.google_note).replace(".", ",")} · {settings.google_nb_avis} avis
+              </div>
+            )}
+          </div>
+          <div>
+            <label style={labelStyle}>Lien vers les avis Google</label>
+            <input type="url" value={settings.google_avis_url} onChange={e => setSettings(s => ({ ...s, google_avis_url: e.target.value }))} placeholder="https://g.page/r/..." style={{ ...miniInput, width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <SaveButton sectionKey="google_business" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
+        </Section>
+
+        {/* Catégories */}
+        <Section titre="Catégories" style={{ marginTop: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            {categories.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune catégorie.</div>}
+            {categories.map(cat => (
+              <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f9f9f9", borderRadius: 8 }}>
+                {editCategorieId === cat.id ? (
+                  <>
+                    <input value={editCategorieNom} onChange={e => setEditCategorieNom(e.target.value)} style={{ flex: 1, ...miniInput }} autoFocus />
+                    <button onClick={() => saveEditCategorie(cat.id)} style={btnSmall(m.couleur)}>✓</button>
+                    <button onClick={() => setEditCategorieId(null)} style={btnSmallGhost}>✕</button>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{cat.nom}</span>
+                    <span style={{ fontSize: 11, color: "#bbb" }}>{prestations.filter(p => p.categorie_id === cat.id).length} presta.</span>
+                    <button onClick={() => toggleCategorieSelection(cat.id, cat.selection_type || "libre")}
+                      style={{ fontSize: 11, padding: "3px 8px", borderRadius: 20, border: `1px solid ${cat.selection_type === "libre" || !cat.selection_type ? "#ddd" : m.couleur}`, color: cat.selection_type === "libre" || !cat.selection_type ? "#aaa" : "#fff", background: cat.selection_type === "libre" || !cat.selection_type ? "transparent" : m.couleur, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                      {cat.selection_type === "unique" ? "Étape unique" : cat.selection_type === "multiple" ? "Étape multi" : "Libre"}
+                    </button>
+                    <button onClick={() => { setEditCategorieId(cat.id); setEditCategorieNom(cat.nom); }} style={btnSmallGhost}>Renommer</button>
+                    <button onClick={() => deleteCategorie(cat.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={newCategorie} onChange={e => setNewCategorie(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategorie()} placeholder="Ex: Couleurs, Soins, Coupes…" style={{ flex: 1, ...miniInput }} />
+            <button onClick={addCategorie} style={{ padding: "7px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
+          </div>
+        </Section>
+
+        {/* Prestations */}
+        <Section titre="Prestations" style={{ marginTop: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
             {prestations.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune prestation.</div>}
             {prestations.map(p => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
                 {editPrestaId === p.id && editPresta ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, ...miniInput }} placeholder="Nom" />
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, minWidth: 120, ...miniInput }} placeholder="Nom" />
                       <input type="number" value={editPresta.duree_minutes} onChange={e => setEditPresta({ ...editPresta, duree_minutes: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
                       <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} disabled={editPresta.sur_devis} />
                       <button onClick={saveEditPresta} style={btnSmall(m.couleur)}>✓</button>
                       <button onClick={() => setEditPrestaId(null)} style={btnSmallGhost}>✕</button>
                     </div>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer", paddingLeft: 2 }}>
-                      <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked, tarif: e.target.checked ? 0 : editPresta.tarif })} style={{ accentColor: m.couleur }} />
-                      Prix sur devis (pas de tarif fixe)
-                    </label>
+                    <div style={{ display: "flex", gap: 16, alignItems: "center", paddingLeft: 2 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
+                        <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked, tarif: e.target.checked ? 0 : editPresta.tarif })} style={{ accentColor: m.couleur }} />
+                        Sur devis
+                      </label>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12, color: "#555" }}>Catégorie :</span>
+                        <select value={editPresta.categorie_id || ""} onChange={e => setEditPresta({ ...editPresta, categorie_id: e.target.value || null })}
+                          style={{ ...miniInput, fontSize: 12 }}>
+                          <option value="">— Aucune —</option>
+                          {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.nom}</option>)}
+                        </select>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>
-                    <span style={{ flex: 2, fontSize: 13, fontWeight: 500 }}>{p.nom}</span>
+                    <div style={{ flex: 2, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{p.nom}</div>
+                      {p.categorie_id && <div style={{ fontSize: 11, color: m.couleur, marginTop: 1 }}>{categories.find(c => c.id === p.categorie_id)?.nom}</div>}
+                    </div>
                     <span style={{ flex: 1, fontSize: 13, color: "#666" }}>{p.duree_minutes} min</span>
                     <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: p.sur_devis ? "#aaa" : "#1a1a1a" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
                     <button onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={btnSmallGhost}>Modifier</button>
@@ -380,8 +574,8 @@ export default function ParametresPage() {
             ))}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-              <div style={{ flex: 2 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ flex: 2, minWidth: 120 }}>
                 <label style={labelStyle}>Nom *</label>
                 <input value={newPresta.nom} onChange={e => setNewPresta(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Pose complète" style={{ ...miniInput, width: "100%" }} />
               </div>
@@ -393,6 +587,15 @@ export default function ParametresPage() {
                 <label style={labelStyle}>Tarif (€)</label>
                 <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} disabled={newPresta.sur_devis} />
               </div>
+              {categories.length > 0 && (
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Catégorie</label>
+                  <select value={newPresta.categorie_id} onChange={e => setNewPresta(p => ({ ...p, categorie_id: e.target.value }))} style={{ ...miniInput, width: "100%" }}>
+                    <option value="">— Aucune —</option>
+                    {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.nom}</option>)}
+                  </select>
+                </div>
+              )}
               <button onClick={addPresta} style={{ padding: "9px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
             </div>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
@@ -401,6 +604,7 @@ export default function ParametresPage() {
             </label>
           </div>
         </Section>
+        </>
       )}
 
       {/* ── Disponibilités ── */}
@@ -483,8 +687,13 @@ export default function ParametresPage() {
           </Section>
 
           <Section titre="Horaires exceptionnels" style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>
-              Définissez des horaires différents pour un jour précis (semaine chargée, horaires élargis, etc.)
+            <div style={{ background: "#f8f8f8", border: "1px solid #ebebeb", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#666", lineHeight: 1.7 }}>
+              <div style={{ fontWeight: 700, color: "#444", marginBottom: 4 }}>Ordre de priorité</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <div>🔵 <strong>Horaires de travail</strong> — votre planning habituel, appliqué par défaut</div>
+                <div>🟡 <strong>Période</strong> — remplace les horaires habituels sur une plage de dates</div>
+                <div>🔴 <strong>Jour unique (Prioritaire)</strong> — toujours appliqué en dernier, écrase tout</div>
+              </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
               {exceptions.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune exception à venir.</div>}
@@ -498,57 +707,130 @@ export default function ParametresPage() {
                       {ex.plages.map((p, i) => <span key={i}>{i > 0 ? " · " : ""}{p.heure_debut}–{p.heure_fin}</span>)}
                     </span>
                   )}
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: ex.type === "periode" ? "#f0f0f0" : m.couleur + "18", color: ex.type === "periode" ? "#aaa" : m.couleur, marginLeft: 4 }}>
+                    {ex.type === "periode" ? "Période" : "Prioritaire"}
+                  </span>
                   <button onClick={() => deleteException(ex.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", marginLeft: "auto" }}>✕</button>
                 </div>
               ))}
             </div>
-            <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 14px 10px" }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
-                <div>
-                  <label style={labelStyle}>Date</label>
-                  <input type="date" value={newException.date} onChange={e => setNewException(ex => ({ ...ex, date: e.target.value }))} style={{ ...miniInput }} />
+            {/* Toggle mode */}
+            <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3, alignSelf: "flex-start" }}>
+              {(["single", "period"] as const).map(mode => (
+                <button key={mode} onClick={() => setExceptionMode(mode)}
+                  style={{ padding: "6px 16px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: exceptionMode === mode ? "#fff" : "transparent", color: exceptionMode === mode ? "#1a1a1a" : "#999", boxShadow: exceptionMode === mode ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+                  {mode === "single" ? "Jour unique" : "Période"}
+                </button>
+              ))}
+            </div>
+
+            {/* Jour unique */}
+            {exceptionMode === "single" && (
+              <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 14px 10px" }}>
+                <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
+                  <div>
+                    <label style={labelStyle}>Date</label>
+                    <input type="date" value={newException.date} onChange={e => setNewException(ex => ({ ...ex, date: e.target.value }))} style={{ ...miniInput }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, paddingBottom: 2 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${!newException.ferme ? m.couleur : "#e0e0e0"}`, borderRadius: 7, background: !newException.ferme ? m.couleur + "12" : "#fff" }}>
+                      <input type="radio" name="exFerme" checked={!newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: false }))} style={{ accentColor: m.couleur }} />
+                      Horaires spéciaux
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${newException.ferme ? "#e74c3c" : "#e0e0e0"}`, borderRadius: 7, background: newException.ferme ? "#fef2f2" : "#fff" }}>
+                      <input type="radio" name="exFerme" checked={newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: true }))} />
+                      Fermé ce jour
+                    </label>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, paddingBottom: 2 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${!newException.ferme ? m.couleur : "#e0e0e0"}`, borderRadius: 7, background: !newException.ferme ? m.couleur + "12" : "#fff" }}>
-                    <input type="radio" name="exFerme" checked={!newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: false }))} style={{ accentColor: m.couleur }} />
-                    Horaires spéciaux
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${newException.ferme ? "#e74c3c" : "#e0e0e0"}`, borderRadius: 7, background: newException.ferme ? "#fef2f2" : "#fff" }}>
-                    <input type="radio" name="exFerme" checked={newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: true }))} />
-                    Fermé ce jour
-                  </label>
+                {!newException.ferme && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                    {newException.plages.map((plage, pi) => (
+                      <div key={pi} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input type="time" value={plage.heure_debut} onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_debut: e.target.value } : p) }))} style={{ ...miniInput, width: 110 }} />
+                        <span style={{ fontSize: 12, color: "#999" }}>→</span>
+                        <input type="time" value={plage.heure_fin} onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_fin: e.target.value } : p) }))} style={{ ...miniInput, width: 110 }} />
+                        {newException.plages.length > 1 && (
+                          <button onClick={() => setNewException(ex => ({ ...ex, plages: ex.plages.filter((_, i) => i !== pi) }))} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", padding: "4px 8px" }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={() => setNewException(ex => ({ ...ex, plages: [...ex.plages, defaultPlage()] }))} style={{ alignSelf: "flex-start", fontSize: 12, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>+ Ajouter une pause</button>
+                  </div>
+                )}
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <button onClick={addException} disabled={!newException.date} style={{ padding: "8px 20px", background: newException.date ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newException.date ? "pointer" : "not-allowed" }}>Ajouter</button>
                 </div>
               </div>
-              {!newException.ferme && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                  {newException.plages.map((plage, pi) => (
-                    <div key={pi} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <input type="time" value={plage.heure_debut}
-                        onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_debut: e.target.value } : p) }))}
-                        style={{ ...miniInput, width: 110 }} />
+            )}
+
+            {/* Période */}
+            {exceptionMode === "period" && (
+              <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 14px 12px" }}>
+                {/* Dates */}
+                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                  <div>
+                    <label style={labelStyle}>Du</label>
+                    <input type="date" value={newPeriod.date_debut} onChange={e => setNewPeriod(p => ({ ...p, date_debut: e.target.value }))} style={{ ...miniInput }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Au</label>
+                    <input type="date" value={newPeriod.date_fin} onChange={e => setNewPeriod(p => ({ ...p, date_fin: e.target.value }))} style={{ ...miniInput }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+                    <label style={labelStyle}>Horaires communs</label>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input type="time" value={newPeriod.commonDebut}
+                        onChange={e => setNewPeriod(p => ({ ...p, commonDebut: e.target.value, jours: p.jours.map(j => ({ ...j, heure_debut: e.target.value })) }))}
+                        style={{ ...miniInput, width: 100 }} />
                       <span style={{ fontSize: 12, color: "#999" }}>→</span>
-                      <input type="time" value={plage.heure_fin}
-                        onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_fin: e.target.value } : p) }))}
-                        style={{ ...miniInput, width: 110 }} />
-                      {newException.plages.length > 1 && (
-                        <button onClick={() => setNewException(ex => ({ ...ex, plages: ex.plages.filter((_, i) => i !== pi) }))}
-                          style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", padding: "4px 8px" }}>✕</button>
-                      )}
+                      <input type="time" value={newPeriod.commonFin}
+                        onChange={e => setNewPeriod(p => ({ ...p, commonFin: e.target.value, jours: p.jours.map(j => ({ ...j, heure_fin: e.target.value })) }))}
+                        style={{ ...miniInput, width: 100 }} />
                     </div>
-                  ))}
-                  <button onClick={() => setNewException(ex => ({ ...ex, plages: [...ex.plages, defaultPlage()] }))}
-                    style={{ alignSelf: "flex-start", fontSize: 12, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
-                    + Ajouter une pause
+                  </div>
+                </div>
+
+                {/* Ligne par jour */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+                  {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((nom, i) => {
+                    const jour = newPeriod.jours[i];
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 7, background: jour.actif ? "#fafafa" : "#f5f5f5", opacity: jour.actif ? 1 : 0.5 }}>
+                        <button onClick={() => setNewPeriod(p => ({ ...p, jours: p.jours.map((j, idx) => idx === i ? { ...j, actif: !j.actif } : j) }))}
+                          style={{ flexShrink: 0, width: 32, height: 18, borderRadius: 9, border: "none", background: jour.actif ? m.couleur : "#ddd", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                          <div style={{ position: "absolute", top: 2, left: jour.actif ? 16 : 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+                        </button>
+                        <span style={{ fontSize: 12, fontWeight: 700, minWidth: 26, color: jour.actif ? "#333" : "#bbb" }}>{nom}</span>
+                        {jour.actif ? (
+                          <>
+                            <input type="time" value={jour.heure_debut}
+                              onChange={e => setNewPeriod(p => ({ ...p, jours: p.jours.map((j, idx) => idx === i ? { ...j, heure_debut: e.target.value } : j) }))}
+                              style={{ ...miniInput, width: 95, fontSize: 12 }} />
+                            <span style={{ fontSize: 11, color: "#bbb" }}>→</span>
+                            <input type="time" value={jour.heure_fin}
+                              onChange={e => setNewPeriod(p => ({ ...p, jours: p.jours.map((j, idx) => idx === i ? { ...j, heure_fin: e.target.value } : j) }))}
+                              style={{ ...miniInput, width: 95, fontSize: 12 }} />
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 12, color: "#ccc" }}>Fermé</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "#999" }}>
+                    {getPeriodPreview() > 0 ? `${getPeriodPreview()} jour${getPeriodPreview() > 1 ? "s" : ""} concerné${getPeriodPreview() > 1 ? "s" : ""}` : ""}
+                  </span>
+                  <button onClick={addPeriod} disabled={!newPeriod.date_debut || !newPeriod.date_fin || getPeriodPreview() === 0}
+                    style={{ padding: "8px 20px", background: getPeriodPreview() > 0 ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: getPeriodPreview() > 0 ? "pointer" : "not-allowed" }}>
+                    Générer {getPeriodPreview() > 0 ? `(${getPeriodPreview()})` : ""}
                   </button>
                 </div>
-              )}
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <button onClick={addException} disabled={!newException.date}
-                  style={{ padding: "8px 20px", background: newException.date ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newException.date ? "pointer" : "not-allowed" }}>
-                  Ajouter
-                </button>
               </div>
-            </div>
+            )}
           </Section>
         </>
       )}
@@ -559,14 +841,16 @@ export default function ParametresPage() {
           <Section titre="Emails automatiques">
             <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Champ label="Nom de l'expéditeur" value={settings.email_expediteur_nom} onChange={v => setSettings(s => ({ ...s, email_expediteur_nom: v }))} />
-              <Champ label="Email expéditeur" value={settings.email_expediteur} onChange={v => setSettings(s => ({ ...s, email_expediteur: v }))} type="email" />
+              <Champ label="Email expéditeur (reply-to client)" value={settings.email_expediteur} onChange={v => setSettings(s => ({ ...s, email_expediteur: v }))} type="email" />
             </div>
+            <Champ label="Email de réception des nouvelles réservations" value={settings.email_reception} onChange={v => setSettings(s => ({ ...s, email_reception: v }))} type="email" />
+            <div style={{ fontSize: 12, color: "#aaa", marginTop: -6 }}>Si vide, les notifications sont envoyées à votre email expéditeur ou email de compte.</div>
             <div style={{ height: 1, background: "#f0f0f0" }} />
             <Toggle label="Confirmation de rendez-vous" description="Envoie un email au client dès qu'un RDV est créé" value={settings.email_confirmation_active} onChange={v => setSettings(s => ({ ...s, email_confirmation_active: v }))} couleur={m.couleur} />
             {settings.email_confirmation_active && (
               <>
                 <Champ label="Objet" value={settings.email_confirmation_objet} onChange={v => setSettings(s => ({ ...s, email_confirmation_objet: v }))} />
-                <ChampTextarea label="Contenu" value={settings.message_confirmation} onChange={v => setSettings(s => ({ ...s, message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
+                <ChampTextarea label="Contenu" value={settings.message_confirmation} onChange={v => setSettings(s => ({ ...s, message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {tarif}, {salon}" />
               </>
             )}
             <div style={{ height: 1, background: "#f0f0f0" }} />
@@ -574,7 +858,7 @@ export default function ParametresPage() {
             {settings.email_rappel_active && (
               <>
                 <Champ label="Objet" value={settings.email_rappel_objet} onChange={v => setSettings(s => ({ ...s, email_rappel_objet: v }))} />
-                <ChampTextarea label="Contenu" value={settings.message_rappel_rdv} onChange={v => setSettings(s => ({ ...s, message_rappel_rdv: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {salon}" />
+                <ChampTextarea label="Contenu" value={settings.message_rappel_rdv} onChange={v => setSettings(s => ({ ...s, message_rappel_rdv: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {tarif}, {salon}" />
               </>
             )}
             <SaveButton sectionKey="emails" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
