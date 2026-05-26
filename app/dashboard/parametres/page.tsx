@@ -68,7 +68,7 @@ export default function ParametresPage() {
       supabase.from("app_settings").select("*").eq("salon_id", salon!.id).single(),
       supabase.from("disponibilites").select("*").eq("salon_id", salon!.id).order("jour_semaine"),
       supabase.from("conges").select("*").eq("salon_id", salon!.id).order("date_debut"),
-      supabase.from("disponibilites_exceptions").select("*").eq("salon_id", salon!.id).gte("date", new Date().toISOString().split("T")[0]).order("date"),
+      supabase.from("disponibilites_exceptions").select("*").eq("salon_id", salon!.id).gte("date", (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })()).order("date"),
     ]);
     setPrestations((pRes.data || []) as Prestation[]);
     if (sRes.data) setSettings(prev => ({
@@ -490,7 +490,7 @@ export default function ParametresPage() {
               {exceptions.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune exception à venir.</div>}
               {exceptions.map(ex => (
                 <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 100 }}>{ex.date}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 100 }}>{new Date(ex.date + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
                   {ex.ferme ? (
                     <span style={{ fontSize: 13, color: "#e74c3c", fontWeight: 600 }}>Fermé</span>
                   ) : (
