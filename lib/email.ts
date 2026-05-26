@@ -40,14 +40,14 @@ export function templateConfirmation({ prenom, salonNom, dateStr, heureStr, pres
   salonNom: string;
   dateStr: string;
   heureStr: string;
-  prestations: { nom: string; duree_minutes: number; tarif: number }[];
+  prestations: { nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean }[];
   contenu?: string;
 }) {
   const prestationsStr = prestations.map(p => p.nom).join(", ");
   const body = contenu
     ? interpolate(contenu, { prenom, date: dateStr, heure: heureStr, prestations: prestationsStr, salon: salonNom })
     : `Bonjour ${prenom}, votre rendez-vous du ${dateStr} à ${heureStr} est confirmé. À bientôt !`;
-  const lignes = prestations.map(p => `<li>${p.nom} — ${p.duree_minutes}min — ${p.tarif}€</li>`).join("");
+  const lignes = prestations.map(p => `<li>${p.nom} — ${p.duree_minutes}min — ${p.sur_devis ? "Sur devis" : `${p.tarif}€`}</li>`).join("");
   return `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
       <div style="background:#f9f9f9;border-radius:10px;padding:20px;margin-bottom:24px">

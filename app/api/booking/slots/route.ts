@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const jourSemaine = (new Date(date + "T12:00:00").getDay() + 6) % 7; // 0=lundi
 
-  const [{ data: plages }, { data: rdvs }] = await Promise.all([
+  const [{ data: templatePlages }, { data: rdvs }, { data: exception }] = await Promise.all([
     admin.from("disponibilites").select("heure_debut, heure_fin").eq("salon_id", salon_id).eq("jour_semaine", jourSemaine),
     admin.from("rendez_vous")
       .select("date_heure, duree_minutes, rendez_vous_prestations(prestations(duree_minutes))")
@@ -21,9 +21,19 @@ export async function GET(req: NextRequest) {
       .eq("statut", "confirme")
       .gte("date_heure", `${date}T00:00:00`)
       .lte("date_heure", `${date}T23:59:59`),
+    admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
   ]);
 
-  if (!plages || plages.length === 0) return NextResponse.json({ slots: [] });
+  // Exception override : si une exception existe pour cette date
+  let plages: { heure_debut: string; heure_fin: string }[] = [];
+  if (exception) {
+    if (exception.ferme) return NextResponse.json({ slots: [] });
+    plages = (exception.plages as { heure_debut: string; heure_fin: string }[]) || [];
+  } else {
+    plages = templatePlages || [];
+  }
+
+  if (plages.length === 0) return NextResponse.json({ slots: [] });
 
   type RdvRow = { date_heure: string; duree_minutes: number | null; rendez_vous_prestations: { prestations: { duree_minutes: number } | null }[] };
   const occupes: { debut: number; fin: number }[] = ((rdvs || []) as unknown as RdvRow[]).map((r: RdvRow) => {

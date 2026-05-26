@@ -42,15 +42,15 @@ export async function POST(req: NextRequest) {
   try {
     const { data: fullRdv } = await admin
       .from("rendez_vous")
-      .select("date_heure, clients(prenom, email), rendez_vous_prestations(prestations(nom, duree_minutes, tarif)), salons(nom)")
+      .select("date_heure, clients(prenom, email), rendez_vous_prestations(prestations(nom, duree_minutes, tarif, sur_devis)), salons(nom)")
       .eq("id", rdv.id)
       .single();
     const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom").eq("salon_id", salon_id).single();
 
     const clientData = fullRdv?.clients as unknown as { prenom: string; email: string | null } | null;
     const salonData = fullRdv?.salons as unknown as { nom: string } | null;
-    const prestationsData = ((fullRdv?.rendez_vous_prestations || []) as unknown as { prestations: { nom: string; duree_minutes: number; tarif: number } | null }[])
-      .map(rp => rp.prestations).filter(Boolean) as { nom: string; duree_minutes: number; tarif: number }[];
+    const prestationsData = ((fullRdv?.rendez_vous_prestations || []) as unknown as { prestations: { nom: string; duree_minutes: number; tarif: number; sur_devis: boolean } | null }[])
+      .map(rp => rp.prestations).filter(Boolean) as { nom: string; duree_minutes: number; tarif: number; sur_devis: boolean }[];
 
     if (settings?.email_confirmation_active !== false && clientData?.email && fullRdv) {
       const dateStr = new Date(fullRdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });

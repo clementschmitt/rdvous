@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean };
 type Slot = { date: string; heure: string };
 
 function formatDuree(min: number) {
@@ -47,6 +47,7 @@ export default function BookingWidget({ salonId, prestations, couleur, deplaceme
 
   const dureeTotal = selected.reduce((s, p) => s + p.duree_minutes, 0);
   const tarifTotal = selected.reduce((s, p) => s + p.tarif, 0);
+  const hasSurDevis = selected.some(p => p.sur_devis);
   const monday = getMondayOfWeek(weekOffset);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const today = toISO(new Date());
@@ -114,6 +115,7 @@ export default function BookingWidget({ salonId, prestations, couleur, deplaceme
       <button onClick={() => setStep("select")} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 13, padding: 0, marginBottom: 16 }}>← Modifier le créneau</button>
       <div style={{ background: "#f5f5f5", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 13, color: "#555" }}>
         <strong style={{ color: couleur }}>{selected.map(p => p.nom).join(" + ")}</strong> · {choix?.date.split("-").reverse().join("/")} à <strong>{choix?.heure}</strong>
+        {hasSurDevis && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#888", background: "#e8e8e8", padding: "2px 8px", borderRadius: 10 }}>Prix à définir</span>}
       </div>
       {/* Option domicile */}
       {deplacement === "possible" && (
@@ -160,7 +162,7 @@ export default function BookingWidget({ salonId, prestations, couleur, deplaceme
         >
           <option value="" disabled>{selected.length === 0 ? "Choisissez une prestation…" : "Ajouter une prestation…"}</option>
           {prestations.filter(p => !selected.find(s => s.id === p.id)).map(p => (
-            <option key={p.id} value={p.id}>{p.nom} — {formatDuree(p.duree_minutes)} · {p.tarif} €</option>
+            <option key={p.id} value={p.id}>{p.nom} — {formatDuree(p.duree_minutes)}{p.sur_devis ? " · Sur devis" : ` · ${p.tarif} €`}</option>
           ))}
         </select>
       </div>
@@ -172,13 +174,15 @@ export default function BookingWidget({ salonId, prestations, couleur, deplaceme
             {selected.map(p => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: couleur + "15", border: `1px solid ${couleur}40`, borderRadius: 20, fontSize: 13 }}>
                 <span style={{ fontWeight: 600, color: couleur }}>{p.nom}</span>
-                <span style={{ fontSize: 11, color: "#999" }}>{formatDuree(p.duree_minutes)} · {p.tarif}€</span>
+                <span style={{ fontSize: 11, color: "#999" }}>{formatDuree(p.duree_minutes)}{p.sur_devis ? " · Sur devis" : ` · ${p.tarif}€`}</span>
                 <button onClick={() => setSelected(s => s.filter(x => x.id !== p.id))}
                   style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}>✕</button>
               </div>
             ))}
           </div>
-          <div style={{ fontSize: 12, color: "#999" }}>Total : {formatDuree(dureeTotal)} · {tarifTotal} €</div>
+          <div style={{ fontSize: 12, color: "#999" }}>
+            Total : {formatDuree(dureeTotal)} · {hasSurDevis ? (tarifTotal > 0 ? `${tarifTotal} € + sur devis` : "Sur devis") : `${tarifTotal} €`}
+          </div>
         </div>
       )}
 

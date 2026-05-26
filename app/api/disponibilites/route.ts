@@ -47,5 +47,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  if (action === "upsert_exception") {
+    const { date, ferme, plages } = body;
+    if (!date) return NextResponse.json({ error: "date manquante" }, { status: 400 });
+    const { error } = await admin.from("disponibilites_exceptions")
+      .upsert({ salon_id, date, ferme: ferme ?? false, plages: plages ?? [] }, { onConflict: "salon_id,date" });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "delete_exception") {
+    const { id } = body;
+    const { error } = await admin.from("disponibilites_exceptions").delete().eq("id", id).eq("salon_id", salon_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   return NextResponse.json({ error: "Action inconnue" }, { status: 400 });
 }

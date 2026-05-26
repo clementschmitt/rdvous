@@ -5,7 +5,7 @@ import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean };
 type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
@@ -25,7 +25,7 @@ export default function ParametresPage() {
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5 });
-  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0" });
+  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false });
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -39,6 +39,9 @@ export default function ParametresPage() {
   const [newConge, setNewConge] = useState<Conge>({ date_debut: "", date_fin: "", libelle: "" });
   const [savingDispos, setSavingDispos] = useState(false);
   const [savedDispos, setSavedDispos] = useState(false);
+  type Exception = { id: string; date: string; ferme: boolean; plages: Plage[] };
+  const [exceptions, setExceptions] = useState<Exception[]>([]);
+  const [newException, setNewException] = useState<{ date: string; ferme: boolean; plages: Plage[] }>({ date: "", ferme: true, plages: [defaultPlage()] });
 
   const [slug, setSlug] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
@@ -60,11 +63,12 @@ export default function ParametresPage() {
 
   async function load() {
     const supabase = createSupabase();
-    const [pRes, sRes, dRes, cRes] = await Promise.all([
+    const [pRes, sRes, dRes, cRes, eRes] = await Promise.all([
       supabase.from("prestations").select("*").eq("salon_id", salon!.id).order("nom"),
       supabase.from("app_settings").select("*").eq("salon_id", salon!.id).single(),
       supabase.from("disponibilites").select("*").eq("salon_id", salon!.id).order("jour_semaine"),
       supabase.from("conges").select("*").eq("salon_id", salon!.id).order("date_debut"),
+      supabase.from("disponibilites_exceptions").select("*").eq("salon_id", salon!.id).gte("date", new Date().toISOString().split("T")[0]).order("date"),
     ]);
     setPrestations((pRes.data || []) as Prestation[]);
     if (sRes.data) setSettings(prev => ({
@@ -81,6 +85,7 @@ export default function ParametresPage() {
       setDispos(newDispos);
     }
     setConges(((cRes.data || []) as { id: string; date_debut: string; date_fin: string; libelle: string }[]).map(c => ({ id: c.id, date_debut: c.date_debut, date_fin: c.date_fin, libelle: c.libelle || "" })));
+    setExceptions(((eRes.data || []) as { id: string; date: string; ferme: boolean; plages: Plage[] }[]));
 
     const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement").eq("id", salon!.id).single();
     if (salonData) {
@@ -93,8 +98,8 @@ export default function ParametresPage() {
   async function addPresta() {
     if (!newPresta.nom.trim()) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif) });
-    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0" });
+    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis });
+    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false });
     load();
   }
 
@@ -108,7 +113,7 @@ export default function ParametresPage() {
   async function saveEditPresta() {
     if (!editPresta) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif }).eq("id", editPresta.id);
+    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis }).eq("id", editPresta.id);
     setEditPrestaId(null);
     load();
   }
@@ -155,6 +160,32 @@ export default function ParametresPage() {
       method: "POST",
       headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ salon_id: salon!.id, action: "delete_conge", id }),
+    });
+    load();
+  }
+
+  async function addException() {
+    if (!newException.date) return;
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/disponibilites", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id, action: "upsert_exception", date: newException.date, ferme: newException.ferme, plages: newException.ferme ? [] : newException.plages }),
+    });
+    const json = await res.json();
+    if (!json.ok) { alert("Erreur : " + json.error); return; }
+    setNewException({ date: "", ferme: true, plages: [defaultPlage()] });
+    load();
+  }
+
+  async function deleteException(id: string) {
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch("/api/disponibilites", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id, action: "delete_exception", id }),
     });
     load();
   }
@@ -323,39 +354,51 @@ export default function ParametresPage() {
             {prestations.map(p => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
                 {editPrestaId === p.id && editPresta ? (
-                  <>
-                    <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, ...miniInput }} />
-                    <input type="number" value={editPresta.duree_minutes} onChange={e => setEditPresta({ ...editPresta, duree_minutes: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
-                    <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
-                    <button onClick={saveEditPresta} style={btnSmall(m.couleur)}>✓</button>
-                    <button onClick={() => setEditPrestaId(null)} style={btnSmallGhost}>✕</button>
-                  </>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, ...miniInput }} placeholder="Nom" />
+                      <input type="number" value={editPresta.duree_minutes} onChange={e => setEditPresta({ ...editPresta, duree_minutes: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
+                      <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} disabled={editPresta.sur_devis} />
+                      <button onClick={saveEditPresta} style={btnSmall(m.couleur)}>✓</button>
+                      <button onClick={() => setEditPrestaId(null)} style={btnSmallGhost}>✕</button>
+                    </div>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer", paddingLeft: 2 }}>
+                      <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked, tarif: e.target.checked ? 0 : editPresta.tarif })} style={{ accentColor: m.couleur }} />
+                      Prix sur devis (pas de tarif fixe)
+                    </label>
+                  </div>
                 ) : (
                   <>
                     <span style={{ flex: 2, fontSize: 13, fontWeight: 500 }}>{p.nom}</span>
                     <span style={{ flex: 1, fontSize: 13, color: "#666" }}>{p.duree_minutes} min</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{p.tarif} €</span>
-                    <button onClick={() => { setEditPrestaId(p.id); setEditPresta(p); }} style={btnSmallGhost}>Modifier</button>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: p.sur_devis ? "#aaa" : "#1a1a1a" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
+                    <button onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={btnSmallGhost}>Modifier</button>
                     <button onClick={() => deletePresta(p.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
                   </>
                 )}
               </div>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-            <div style={{ flex: 2 }}>
-              <label style={labelStyle}>Nom *</label>
-              <input value={newPresta.nom} onChange={e => setNewPresta(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Pose complète" style={{ ...miniInput, width: "100%" }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+              <div style={{ flex: 2 }}>
+                <label style={labelStyle}>Nom *</label>
+                <input value={newPresta.nom} onChange={e => setNewPresta(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Pose complète" style={{ ...miniInput, width: "100%" }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Durée (min)</label>
+                <input type="number" value={newPresta.duree_minutes} onChange={e => setNewPresta(p => ({ ...p, duree_minutes: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>Tarif (€)</label>
+                <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} disabled={newPresta.sur_devis} />
+              </div>
+              <button onClick={addPresta} style={{ padding: "9px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Durée (min)</label>
-              <input type="number" value={newPresta.duree_minutes} onChange={e => setNewPresta(p => ({ ...p, duree_minutes: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Tarif (€)</label>
-              <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
-            </div>
-            <button onClick={addPresta} style={{ padding: "9px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
+              <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked, tarif: e.target.checked ? "0" : p.tarif }))} style={{ accentColor: m.couleur }} />
+              Prix sur devis (pas de tarif fixe)
+            </label>
           </div>
         </Section>
       )}
@@ -436,6 +479,75 @@ export default function ParametresPage() {
               <button onClick={addConge} style={{ padding: "8px 20px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 Ajouter
               </button>
+            </div>
+          </Section>
+
+          <Section titre="Horaires exceptionnels" style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>
+              Définissez des horaires différents pour un jour précis (semaine chargée, horaires élargis, etc.)
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+              {exceptions.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune exception à venir.</div>}
+              {exceptions.map(ex => (
+                <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 100 }}>{ex.date}</span>
+                  {ex.ferme ? (
+                    <span style={{ fontSize: 13, color: "#e74c3c", fontWeight: 600 }}>Fermé</span>
+                  ) : (
+                    <span style={{ fontSize: 13, color: "#555", flex: 1 }}>
+                      {ex.plages.map((p, i) => <span key={i}>{i > 0 ? " · " : ""}{p.heure_debut}–{p.heure_fin}</span>)}
+                    </span>
+                  )}
+                  <button onClick={() => deleteException(ex.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", marginLeft: "auto" }}>✕</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 14px 10px" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
+                <div>
+                  <label style={labelStyle}>Date</label>
+                  <input type="date" value={newException.date} onChange={e => setNewException(ex => ({ ...ex, date: e.target.value }))} style={{ ...miniInput }} />
+                </div>
+                <div style={{ display: "flex", gap: 8, paddingBottom: 2 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${!newException.ferme ? m.couleur : "#e0e0e0"}`, borderRadius: 7, background: !newException.ferme ? m.couleur + "12" : "#fff" }}>
+                    <input type="radio" name="exFerme" checked={!newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: false }))} style={{ accentColor: m.couleur }} />
+                    Horaires spéciaux
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${newException.ferme ? "#e74c3c" : "#e0e0e0"}`, borderRadius: 7, background: newException.ferme ? "#fef2f2" : "#fff" }}>
+                    <input type="radio" name="exFerme" checked={newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: true }))} />
+                    Fermé ce jour
+                  </label>
+                </div>
+              </div>
+              {!newException.ferme && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                  {newException.plages.map((plage, pi) => (
+                    <div key={pi} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="time" value={plage.heure_debut}
+                        onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_debut: e.target.value } : p) }))}
+                        style={{ ...miniInput, width: 110 }} />
+                      <span style={{ fontSize: 12, color: "#999" }}>→</span>
+                      <input type="time" value={plage.heure_fin}
+                        onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_fin: e.target.value } : p) }))}
+                        style={{ ...miniInput, width: 110 }} />
+                      {newException.plages.length > 1 && (
+                        <button onClick={() => setNewException(ex => ({ ...ex, plages: ex.plages.filter((_, i) => i !== pi) }))}
+                          style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", padding: "4px 8px" }}>✕</button>
+                      )}
+                    </div>
+                  ))}
+                  <button onClick={() => setNewException(ex => ({ ...ex, plages: [...ex.plages, defaultPlage()] }))}
+                    style={{ alignSelf: "flex-start", fontSize: 12, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                    + Ajouter une pause
+                  </button>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={addException} disabled={!newException.date}
+                  style={{ padding: "8px 20px", background: newException.date ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newException.date ? "pointer" : "not-allowed" }}>
+                  Ajouter
+                </button>
+              </div>
             </div>
           </Section>
         </>
