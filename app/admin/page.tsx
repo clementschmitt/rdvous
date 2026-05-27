@@ -7,7 +7,7 @@ import { T } from "@/lib/theme";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL!;
 
-type Salon = { id: string; nom: string; metier: Metier; email: string | null; created_at: string };
+type Salon = { id: string; nom: string; metier: Metier; email: string | null; created_at: string; visible_recherche: boolean | null };
 type InviteForm = { email: string; password: string; salon_id: string };
 
 export default function AdminPage() {
@@ -70,6 +70,16 @@ export default function AdminPage() {
       setInviteMsg(`Erreur : ${json.error}`);
     }
     setInviting(false);
+  }
+
+  async function toggleVisibilite(s: Salon) {
+    const next = !(s.visible_recherche ?? false);
+    await fetch("/api/admin/salon", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: s.id, visible_recherche: next }),
+    });
+    setSalons(prev => prev.map(x => x.id === s.id ? { ...x, visible_recherche: next } : x));
   }
 
   async function creerSalon() {
@@ -178,6 +188,12 @@ export default function AdminPage() {
                     {m.label} · {s.email || "—"} · {new Date(s.created_at).toLocaleDateString("fr-FR")}
                   </div>
                 </div>
+                <button
+                  onClick={() => toggleVisibilite(s)}
+                  title={s.visible_recherche ? "Visible dans la recherche — cliquer pour masquer" : "Masqué de la recherche — cliquer pour rendre visible"}
+                  style={{ ...T.ls, fontSize: "9px", border: `1px solid ${s.visible_recherche ? "#16a34a" : T.border}`, background: s.visible_recherche ? "#f0fdf4" : T.bg, color: s.visible_recherche ? "#16a34a" : T.muted, borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}>
+                  {s.visible_recherche ? "● Visible" : "○ Masqué"}
+                </button>
                 {isActive ? (
                   <span style={{ ...T.ls, fontSize: "9px", color: m.couleur, background: `${m.couleur}15`, padding: "4px 10px", borderRadius: T.radiusSm }}>Actif</span>
                 ) : (

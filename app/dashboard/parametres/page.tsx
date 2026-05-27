@@ -57,6 +57,7 @@ export default function ParametresPage() {
   const [slug, setSlug] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugMsg, setSlugMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [visibleRecherche, setVisibleRecherche] = useState(true);
   const [photos, setPhotos] = useState<string[]>([]);
   const [deplacement, setDeplacement] = useState<"non" | "possible" | "uniquement">("non");
   const [deplacementSaving, setDeplacementSaving] = useState(false);
@@ -102,11 +103,12 @@ export default function ParametresPage() {
     setConges(((cRes.data || []) as { id: string; date_debut: string; date_fin: string; libelle: string }[]).map(c => ({ id: c.id, date_debut: c.date_debut, date_fin: c.date_fin, libelle: c.libelle || "" })));
     setExceptions(((eRes.data || []) as { id: string; date: string; ferme: boolean; plages: Plage[] }[]));
 
-    const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement").eq("id", salon!.id).single();
+    const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement, visible_recherche").eq("id", salon!.id).single();
     if (salonData) {
       setSlug(salonData.slug || "");
       setPhotos(salonData.photos || []);
       setDeplacement(salonData.deplacement || "non");
+      setVisibleRecherche(salonData.visible_recherche ?? true);
     }
   }
 
@@ -290,6 +292,18 @@ export default function ParametresPage() {
     setSlug(json.slug || slug);
     setSlugMsg({ ok: true, text: "URL mise à jour !" });
     setTimeout(() => setSlugMsg(null), 3000);
+  }
+
+  async function toggleVisibilite() {
+    const next = !visibleRecherche;
+    setVisibleRecherche(next);
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch("/api/salon/update", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id, visible_recherche: next }),
+    });
   }
 
   async function saveDeplacement(val: "non" | "possible" | "uniquement") {
@@ -909,6 +923,20 @@ export default function ParametresPage() {
               </div>
               {slugMsg && <div style={{ fontSize: 12, color: slugMsg.ok ? "#27ae60" : "#e74c3c", marginTop: 6 }}>{slugMsg.text}</div>}
               {slug && <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>Lien : <a href={`/${slug}`} target="_blank" rel="noopener noreferrer" style={{ color: m.couleur }}>rdvous.fr/{slug}</a></div>}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", background: visibleRecherche ? "#f0fdf4" : "#fafafa", border: `1px solid ${visibleRecherche ? "#86efac" : "#e0e0e0"}`, borderRadius: 8 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: visibleRecherche ? "#16a34a" : "#555" }}>
+                  {visibleRecherche ? "Visible dans la recherche" : "Masqué de la recherche"}
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>
+                  {visibleRecherche ? "Votre page apparaît dans les résultats de rdvous.fr" : "Votre page n'apparaît pas dans les résultats de rdvous.fr"}
+                </div>
+              </div>
+              <button onClick={toggleVisibilite} style={{ flexShrink: 0, width: 44, height: 24, borderRadius: 12, border: "none", background: visibleRecherche ? "#16a34a" : "#d1d5db", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                <span style={{ position: "absolute", top: 3, left: visibleRecherche ? 23 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s", display: "block" }} />
+              </button>
             </div>
 
             <div style={{ height: 1, background: "#f0f0f0" }} />

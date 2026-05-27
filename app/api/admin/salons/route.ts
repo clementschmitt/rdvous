@@ -32,7 +32,7 @@ export async function GET() {
 
   const { data } = await admin
     .from("salons")
-    .select("id, nom, metier, email, created_at")
+    .select("id, nom, metier, email, created_at, visible_recherche")
     .order("created_at", { ascending: false });
 
   return NextResponse.json(data || []);
