@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!rdv) return NextResponse.json({ error: "RDV introuvable" }, { status: 404 });
-  const clientEmail = (rdv.clients as { email: string } | null)?.email;
+  const clientEmail = (rdv.clients as unknown as { email: string } | null)?.email;
   if (clientEmail !== user.email) return NextResponse.json({ error: "Non autorisé" }, { status: 403 });
   if (new Date(rdv.date_heure) < new Date()) return NextResponse.json({ error: "Ce rendez-vous est déjà passé." }, { status: 400 });
   if (rdv.statut === "annule") return NextResponse.json({ error: "Déjà annulé." }, { status: 400 });
