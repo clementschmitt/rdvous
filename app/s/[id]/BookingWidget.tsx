@@ -46,6 +46,7 @@ export default function BookingWidget({
   const [adresseDomicile, setAdresseDomicile] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [website, setWebsite] = useState("");
 
   // Catégories dans le stepper = unique + multiple (dans l'ordre)
   const stepCategories = categories.filter(c => c.selection_type === "unique" || c.selection_type === "multiple");
@@ -132,13 +133,14 @@ export default function BookingWidget({
   async function handleSubmit() {
     if (!prenom.trim() || !nom.trim()) { setError("Prénom et nom requis."); return; }
     if (!email.trim()) { setError("Email requis."); return; }
+    if (!/^[a-zA-Z0-9_%+\-]([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-])?@[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$/.test(email) || email.includes("..")) { setError("Adresse email invalide."); return; }
     if (!telephone.trim()) { setError("Téléphone requis."); return; }
     if (!choix) { setError("Veuillez choisir un créneau."); return; }
-    if (wantsDomicile && !adresseDomicile.trim()) { setError("Veuillez indiquer votre adresse."); return; }
+    if (wantsDomicile && (adresseDomicile.trim().length < 15 || !/\b\d{5}[\s,]+[a-zA-ZÀ-ÿ]/.test(adresseDomicile))) { setError("Adresse incomplète — indiquez la rue, le code postal et la ville (ex: 12 rue des Lilas, 75011 Paris)."); return; }
     setError(""); setSubmitting(true);
     const res = await fetch("/api/booking/create", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ salon_id: salonId, prestation_ids: selected.map(p => p.id), date: choix.date, heure: choix.heure, prenom, nom, email, telephone, adresse_domicile: wantsDomicile ? adresseDomicile : null }),
+      body: JSON.stringify({ salon_id: salonId, prestation_ids: selected.map(p => p.id), date: choix.date, heure: choix.heure, prenom, nom, email, telephone, adresse_domicile: wantsDomicile ? adresseDomicile : null, website }),
     });
     const json = await res.json();
     setSubmitting(false);
@@ -150,11 +152,28 @@ export default function BookingWidget({
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5 };
 
   if (step === "done") return (
-    <div style={{ textAlign: "center", padding: "32px 0" }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>Rendez-vous confirmé !</div>
-      <div style={{ fontSize: 14, color: "#666" }}>{selected.map(p => p.nom).join(" + ")} · {choix?.date.split("-").reverse().join("/")} à {choix?.heure}</div>
-      {email && <div style={{ fontSize: 13, color: "#999", marginTop: 8 }}>Un email de confirmation vous a été envoyé.</div>}
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ textAlign: "center", padding: "28px 0 12px" }}>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>Rendez-vous confirmé !</div>
+        <div style={{ fontSize: 14, color: "#666" }}>{selected.map(p => p.nom).join(" + ")} · {choix?.date.split("-").reverse().join("/")} à {choix?.heure}</div>
+        {email && <div style={{ fontSize: 13, color: "#999", marginTop: 8 }}>Un email de confirmation vous a été envoyé.</div>}
+      </div>
+      <div style={{ height: 1, background: "#f0f0f0" }} />
+      <div style={{ background: "#f9f9f9", borderRadius: 10, padding: "16px 18px", textAlign: "center" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>Retrouvez vos rendez-vous en ligne</div>
+        <div style={{ fontSize: 12, color: "#888", marginBottom: 14, lineHeight: 1.5 }}>Créez votre espace rdvous pour accéder à votre historique et votre cagnotte fidélité.</div>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+          <a href={`/rejoindre?email=${encodeURIComponent(email)}`}
+            style={{ padding: "9px 18px", background: couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+            Créer mon espace
+          </a>
+          <a href={`/login?email=${encodeURIComponent(email)}`}
+            style={{ padding: "9px 18px", background: "#fff", color: "#555", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+            J'ai déjà un compte
+          </a>
+        </div>
+      </div>
     </div>
   );
 
@@ -173,6 +192,10 @@ export default function BookingWidget({
       )}
       {deplacement === "uniquement" && <div style={{ padding: "8px 12px", background: couleur + "12", borderRadius: 8, fontSize: 12, color: couleur, fontWeight: 600, marginBottom: 4 }}>🚗 RDV à domicile uniquement</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Honeypot — invisible pour les humains, rempli par les bots */}
+        <div style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, pointerEvents: "none" }} aria-hidden>
+          <input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} name="website" />
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><label style={labelStyle}>Prénom *</label><input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={inputStyle} /></div>
           <div><label style={labelStyle}>Nom *</label><input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" style={inputStyle} /></div>

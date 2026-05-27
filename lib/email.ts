@@ -62,6 +62,29 @@ export function templateConfirmation({ prenom, salonNom, dateStr, heureStr, pres
     </div>`;
 }
 
+export function templateCagnotte({ prenom, salonNom, montant, solde }: {
+  prenom: string;
+  salonNom: string;
+  montant: number;
+  solde: number;
+}) {
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+      <div style="background:#fefce8;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #eab308;text-align:center">
+        <div style="font-size:36px;margin-bottom:8px">🎉</div>
+        <div style="font-size:20px;font-weight:700;color:#1a1a1a">Vous avez gagné ${montant}€ !</div>
+        <div style="font-size:14px;color:#666;margin-top:4px">Récompense fidélité — ${salonNom}</div>
+      </div>
+      <p style="font-size:14px;line-height:1.6">Bonjour ${prenom},</p>
+      <p style="font-size:14px;line-height:1.6">Merci pour votre fidélité ! Vous venez de débloquer une récompense de <strong>${montant}€</strong>.</p>
+      <div style="background:#f9f9f9;border-radius:8px;padding:14px 18px;margin:20px 0;text-align:center">
+        <div style="font-size:12px;color:#999;margin-bottom:4px">Votre solde cagnotte</div>
+        <div style="font-size:28px;font-weight:700;color:#1a1a1a">${solde}€</div>
+      </div>
+      <p style="font-size:14px;line-height:1.6;color:#666">Mentionnez votre cagnotte lors de votre prochain rendez-vous chez <strong>${salonNom}</strong> pour en bénéficier.</p>
+    </div>`;
+}
+
 export function templateNouveauRdv({ clientPrenom, clientNom, clientTel, clientEmail, dateStr, heureStr, prestations, adresseDomicile }: {
   clientPrenom: string;
   clientNom: string;

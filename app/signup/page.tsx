@@ -9,7 +9,7 @@ import { Suspense } from "react";
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
@@ -18,11 +18,12 @@ function SignupContent() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!/^[a-zA-Z0-9_%+\-]([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-])?@[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$/.test(email) || email.includes("..")) { setError("Adresse email invalide."); return; }
     if (password !== confirm) { setError("Les mots de passe ne correspondent pas."); return; }
     if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     const supabase = createSupabase();
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: "artisan" } } });
     if (error) { setError(error.message); setLoading(false); return; }
     if (searchParams.get("plan") === "solo") sessionStorage.setItem("upgrade_intent", "solo");
     router.push("/onboarding");

@@ -111,9 +111,10 @@ export default function HomePage() {
         <nav className="rdv-nav" style={{ background:"rgba(250,248,245,0.92)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
           <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, letterSpacing:"0.03em", color:"#1a1614" }}>rdvous</span>
           <div className="rdv-nav-links" style={{ display:"flex", alignItems:"center", gap:20 }}>
-            <Link href="/login" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Connexion</Link>
-            <Link href="/pro" style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none" }}>
-              Inscrire mon salon
+            <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Inscrire mon entreprise</Link>
+            <Link href="/mon-compte" style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none", display:"flex", alignItems:"center", gap:7 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+              Mon compte
             </Link>
           </div>
           <button className="rdv-hamburger" onClick={() => setMenuOpen(o => !o)}
@@ -123,8 +124,8 @@ export default function HomePage() {
         </nav>
         {menuOpen && (
           <div style={{ background:"rgba(250,248,245,0.98)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"4px 24px 12px", display:"flex", flexDirection:"column" }}>
-            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:"#6a5a4a", textDecoration:"none", borderBottom:"1px solid rgba(200,180,160,0.15)", display:"block" }}>Connexion</Link>
-            <Link href="/pro" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:"#1a1614", textDecoration:"none", display:"block" }}>Inscrire mon salon →</Link>
+            <Link href="/mon-compte" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:"#6a5a4a", textDecoration:"none", borderBottom:"1px solid rgba(200,180,160,0.15)", display:"block" }}>Mon compte</Link>
+            <Link href="/pro" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:"#1a1614", textDecoration:"none", display:"block" }}>Inscrire mon entreprise →</Link>
           </div>
         )}
       </div>
@@ -351,7 +352,7 @@ export default function HomePage() {
             </p>
           </div>
           <Link href="/pro" style={{ flexShrink:0, padding:"14px 32px", background:"#1a1614", color:"#fff", borderRadius:12, fontSize:14, fontWeight:600, textDecoration:"none" }}>
-            Inscrire mon salon →
+            Inscrire mon entreprise →
           </Link>
         </div>
       </section>
@@ -360,8 +361,8 @@ export default function HomePage() {
       <footer className="rdv-footer" style={{ borderTop:"1px solid rgba(200,180,160,0.3)", padding:"32px 40px", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:16 }}>
         <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, fontWeight:600, color:"#1a1614" }}>rdvous</span>
         <div style={{ display:"flex", gap:24 }}>
-          <Link href="/pro"   style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Professionnels</Link>
-          <Link href="/login" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Connexion</Link>
+          <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Espace pro</Link>
+          <Link href="/mon-compte" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Mon compte</Link>
         </div>
         <span style={{ fontSize:12, color:"#b8a898" }}>© 2025 rdvous</span>
       </footer>

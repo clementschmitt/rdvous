@@ -146,6 +146,13 @@ export default function RDVDetailPage() {
           cagnotte += settings.montant_recompense;
           await supabase.from("clients").update({ cagnotte }).eq("id", client.id);
           await supabase.from("cagnotte_mouvements").insert({ salon_id: salon!.id, client_id: client.id, montant: settings.montant_recompense, type: "recompense", reference_id: id });
+          // Email récompense au client (fire-and-forget)
+          const { data: { session } } = await supabase.auth.getSession();
+          fetch("/api/fidelite/recompense", {
+            method: "POST",
+            headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ salon_id: salon!.id, client_id: client.id, montant: settings.montant_recompense }),
+          });
         }
         const { data: clientFull } = await supabase.from("clients").select("parrain_id, parrainage_utilise, cagnotte").eq("id", client.id).single();
         if (clientFull && !clientFull.parrainage_utilise && clientFull.parrain_id && settings) {

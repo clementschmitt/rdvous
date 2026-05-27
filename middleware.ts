@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -25,19 +25,17 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
-  const isPublic =
-    pathname === "/" ||
-    pathname.startsWith("/book") ||
-    pathname.startsWith("/pro") ||
-    pathname.startsWith("/recherche") ||
-    pathname.startsWith("/s/") ||
-    pathname.startsWith("/reset-password") ||
-    pathname.startsWith("/update-password");
+  const isProtected =
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/onboarding") ||
+    pathname.startsWith("/mon-compte");
   const isApi = pathname.startsWith("/api");
 
-  if (isApi || isPublic) return supabaseResponse;
+  // Tout ce qui n'est pas protégé est public (vitrine, slug, home, pro, etc.)
+  if (isApi || !isProtected) return supabaseResponse;
 
-  if (!user && !isAuthPage) {
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

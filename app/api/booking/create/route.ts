@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateConfirmation, templateNouveauRdv } from "@/lib/email";
+import { bookingLimiter, getIP } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
-  const { salon_id, prestation_ids, date, heure, prenom, nom, email, telephone, adresse_domicile } = await req.json();
+  const { success } = await bookingLimiter.limit(getIP(req));
+  if (!success) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans une heure." }, { status: 429 });
+
+  const { salon_id, prestation_ids, date, heure, prenom, nom, email, telephone, adresse_domicile, website } = await req.json();
+  if (website) return NextResponse.json({ ok: true }); // honeypot déclenché — faux succès silencieux
 
   const ids: string[] = Array.isArray(prestation_ids) ? prestation_ids : prestation_ids ? [prestation_ids] : [];
   if (!salon_id || ids.length === 0 || !date || !heure || !prenom || !nom || !email || !telephone) {
