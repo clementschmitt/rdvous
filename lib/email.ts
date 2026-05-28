@@ -111,6 +111,20 @@ export function templateNouveauRdv({ clientPrenom, clientNom, clientTel, clientE
     </div>`;
 }
 
+export function templateRelance({ prenom, salonNom, contenu }: {
+  prenom: string;
+  salonNom: string;
+  contenu?: string;
+}) {
+  const body = contenu
+    ? interpolate(contenu, { prenom, salon: salonNom })
+    : `Bonjour ${prenom},\n\nCela fait un moment que nous ne vous avons pas vu(e) !\n\nNous serions ravis de vous retrouver très bientôt.\n\nÀ bientôt,\n${salonNom}`;
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+      <p style="font-size:14px;line-height:1.6;white-space:pre-wrap">${body}</p>
+    </div>`;
+}
+
 export function templateRappel({ prenom, salonNom, dateStr, heureStr, prestations, contenu }: {
   prenom: string;
   salonNom: string;

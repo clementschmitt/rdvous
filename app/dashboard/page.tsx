@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 
 type RdvToday = { id: string; date_heure: string; statut: string; clients: { prenom: string; nom: string } | null; rendez_vous_prestations: { prestations: { duree_minutes: number; tarif: number } | null }[] };
 type Anniversaire = { id: string; prenom: string; nom: string; jours: number };
-type Relance = { id: string; prenom: string; nom: string; telephone: string | null; sent: boolean };
+type Relance = { id: string; prenom: string; nom: string; telephone: string | null; email: string | null; sending: boolean; error: string | null };
 
 export default function DashboardPage() {
   const salon = useSalon();
@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [rdvsToday, setRdvsToday] = useState<RdvToday[]>([]);
   const [anniversaires, setAnniversaires] = useState<Anniversaire[]>([]);
   const [relances, setRelances] = useState<Relance[]>([]);
+  const [relanceConfirm, setRelanceConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     if (!salon) return;
@@ -46,7 +47,7 @@ export default function DashboardPage() {
         supabase.from("rendez_vous").select("id, date_heure, statut, clients(prenom, nom), rendez_vous_prestations(prestations(duree_minutes, tarif))").eq("salon_id", salon!.id).gte("date_heure", `${todayStr}T00:00:00`).lte("date_heure", `${todayStr}T23:59:59`).neq("statut", "annule").order("date_heure"),
         supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "termine"),
         supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${monthStartStr}T00:00:00`).lt("date_heure", `${monthEndStr}T00:00:00`).eq("statut", "termine"),
-        supabase.from("clients").select("id, prenom, nom, telephone, date_naissance").eq("salon_id", salon!.id),
+        supabase.from("clients").select("id, prenom, nom, telephone, email, date_naissance").eq("salon_id", salon!.id),
         supabase.from("app_settings").select("delai_relance_mois").eq("salon_id", salon!.id).single(),
         supabase.from("rendez_vous").select("client_id, date_heure").eq("salon_id", salon!.id).neq("statut", "annule").order("date_heure", { ascending: false }),
       ]);
@@ -80,12 +81,45 @@ export default function DashboardPage() {
       for (const r of (allRdvsRes.data || [])) {
         if (!dernierRdv[r.client_id]) dernierRdv[r.client_id] = r.date_heure.slice(0, 10);
       }
+      const storageKey = `relances_sent_${salon!.id}`;
+      const stored: Record<string, string> = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      const relanceCutoff = new Date(); relanceCutoff.setMonth(relanceCutoff.getMonth() - delai);
       const aRelancer = clients
-        .filter(c => { const d = dernierRdv[c.id]; return !d || new Date(d) < cutoff; })
-        .map(c => ({ id: c.id, prenom: c.prenom, nom: c.nom, telephone: c.telephone, sent: false }));
+        .filter(c => {
+          const d = dernierRdv[c.id];
+          if (!(!d || new Date(d) < cutoff)) return false;
+          const sentAt = stored[c.id];
+          if (sentAt && new Date(sentAt) > relanceCutoff) return false;
+          return true;
+        })
+        .map(c => ({ id: c.id, prenom: c.prenom, nom: c.nom, telephone: c.telephone, email: c.email ?? null, sending: false, error: null }));
       setRelances(aRelancer);
     })();
   }, [salon]);
+
+  async function envoyerRelance(c: Relance) {
+    setRelances(rs => rs.map(r => r.id === c.id ? { ...r, sending: true, error: null } : r));
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    const res = await fetch("/api/relance/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ client_id: c.id, salon_id: salon!.id }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      const storageKey = `relances_sent_${salon!.id}`;
+      const stored: Record<string, string> = JSON.parse(localStorage.getItem(storageKey) || "{}");
+      stored[c.id] = new Date().toISOString();
+      localStorage.setItem(storageKey, JSON.stringify(stored));
+      setRelances(rs => rs.filter(r => r.id !== c.id));
+      setRelanceConfirm(`Email de relance envoyé à ${c.prenom} ${c.nom}`);
+      setTimeout(() => setRelanceConfirm(null), 4000);
+    } else {
+      setRelances(rs => rs.map(r => r.id === c.id ? { ...r, sending: false, error: json.error || "Erreur" } : r));
+    }
+  }
 
   if (!salon) return <div style={{ padding: 40, color: T.faint }}>Chargement...</div>;
   const m = METIERS[salon.metier];
@@ -183,24 +217,31 @@ export default function DashboardPage() {
                 <span style={{ fontSize: "11px", backgroundColor: `${m.couleur}15`, color: m.couleur, padding: "2px 8px", borderRadius: "20px" }}>{relances.length}</span>
               )}
             </div>
+            {relanceConfirm && (
+              <p style={{ fontSize: "12px", color: "#16a34a", margin: "0 0 12px", padding: "8px 12px", background: "#f0fdf4", borderRadius: T.radiusSm }}>✓ {relanceConfirm}</p>
+            )}
             {relances.length === 0 ? (
               <div style={{ color: T.faint, fontSize: "13px" }}>Tout le monde est à jour</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 {relances.map(c => (
-                  <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: "10px", borderBottom: `1px solid ${m.couleurClaire}` }}>
-                    <p style={{ fontSize: "13px", color: T.text, margin: 0, cursor: "pointer" }} onClick={() => router.push(`/dashboard/clients/${c.id}`)}>
-                      {c.prenom} {c.nom}
-                    </p>
-                    {c.sent ? (
-                      <span style={{ fontSize: "11px", color: m.couleur }}>✓ Envoyé</span>
-                    ) : (
-                      <button
-                        onClick={() => setRelances(rs => rs.map(r => r.id === c.id ? { ...r, sent: true } : r))}
-                        style={{ ...ls, fontSize: "9px", backgroundColor: m.couleur, color: "#fff", border: "none", padding: "5px 10px", cursor: "pointer", borderRadius: T.radiusSm, flexShrink: 0 }}>
-                        Relancer
-                      </button>
-                    )}
+                  <div key={c.id} style={{ display: "flex", flexDirection: "column", gap: 4, paddingBottom: "10px", borderBottom: `1px solid ${m.couleurClaire}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <p style={{ fontSize: "13px", color: T.text, margin: 0, cursor: "pointer" }} onClick={() => router.push(`/dashboard/clients/${c.id}`)}>
+                        {c.prenom} {c.nom}
+                      </p>
+                      {!c.email ? (
+                        <span style={{ fontSize: "10px", color: T.faint }}>Pas d&apos;email</span>
+                      ) : (
+                        <button
+                          onClick={() => envoyerRelance(c)}
+                          disabled={c.sending}
+                          style={{ ...ls, fontSize: "9px", backgroundColor: m.couleur, color: "#fff", border: "none", padding: "5px 10px", cursor: c.sending ? "not-allowed" : "pointer", borderRadius: T.radiusSm, flexShrink: 0, opacity: c.sending ? 0.6 : 1 }}>
+                          {c.sending ? "..." : "Relancer"}
+                        </button>
+                      )}
+                    </div>
+                    {c.error && <p style={{ fontSize: "11px", color: "#B91C1C", margin: 0 }}>{c.error}</p>}
                   </div>
                 ))}
               </div>

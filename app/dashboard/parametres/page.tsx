@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
@@ -47,6 +47,8 @@ export default function ParametresPage() {
   type Exception = { id: string; date: string; ferme: boolean; plages: Plage[]; type?: string };
   const [exceptions, setExceptions] = useState<Exception[]>([]);
   const [newException, setNewException] = useState<{ date: string; ferme: boolean; plages: Plage[] }>({ date: "", ferme: true, plages: [defaultPlage()] });
+  const [editingExceptionId, setEditingExceptionId] = useState<string | null>(null);
+  const exceptionFormRef = useRef<HTMLDivElement>(null);
   const [exceptionMode, setExceptionMode] = useState<"single" | "period">("single");
   type PeriodJour = { actif: boolean; heure_debut: string; heure_fin: string };
   const [newPeriod, setNewPeriod] = useState<{ date_debut: string; date_fin: string; commonDebut: string; commonFin: string; jours: PeriodJour[] }>({
@@ -250,6 +252,19 @@ export default function ParametresPage() {
     load();
   }
 
+  function startEditException(ex: Exception) {
+    const plages = Array.isArray(ex.plages) && ex.plages.length > 0 ? ex.plages : [defaultPlage()];
+    setNewException({ date: ex.date, ferme: ex.ferme, plages });
+    setEditingExceptionId(ex.id);
+    setExceptionMode("single");
+    setTimeout(() => exceptionFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+  }
+
+  function cancelEditException() {
+    setNewException({ date: "", ferme: true, plages: [defaultPlage()] });
+    setEditingExceptionId(null);
+  }
+
   async function addException() {
     if (!newException.date) return;
     const supabase = createSupabase();
@@ -262,6 +277,7 @@ export default function ParametresPage() {
     const json = await res.json();
     if (!json.ok) { alert("Erreur : " + json.error); return; }
     setNewException({ date: "", ferme: true, plages: [defaultPlage()] });
+    setEditingExceptionId(null);
     load();
   }
 
@@ -724,7 +740,8 @@ export default function ParametresPage() {
                   <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: ex.type === "periode" ? "#f0f0f0" : m.couleur + "18", color: ex.type === "periode" ? "#aaa" : m.couleur, marginLeft: 4 }}>
                     {ex.type === "periode" ? "Période" : "Prioritaire"}
                   </span>
-                  <button onClick={() => deleteException(ex.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", marginLeft: "auto" }}>✕</button>
+                  <button onClick={() => startEditException(ex)} style={{ ...btnSmallGhost, marginLeft: "auto" }}>✏️</button>
+                  <button onClick={() => deleteException(ex.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
                 </div>
               ))}
             </div>
@@ -740,7 +757,12 @@ export default function ParametresPage() {
 
             {/* Jour unique */}
             {exceptionMode === "single" && (
-              <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 14px 10px" }}>
+              <div ref={exceptionFormRef} style={{ border: `1px solid ${editingExceptionId ? m.couleur + "60" : "#f0f0f0"}`, borderRadius: 8, padding: "14px 14px 10px" }}>
+                {editingExceptionId && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: m.couleur, background: m.couleur + "12", borderRadius: 6, padding: "4px 10px", marginBottom: 10, display: "inline-block" }}>
+                    ✏️ Mode édition
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
                   <div>
                     <label style={labelStyle}>Date</label>
@@ -772,8 +794,11 @@ export default function ParametresPage() {
                     <button onClick={() => setNewException(ex => ({ ...ex, plages: [...ex.plages, defaultPlage()] }))} style={{ alignSelf: "flex-start", fontSize: 12, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>+ Ajouter une pause</button>
                   </div>
                 )}
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <button onClick={addException} disabled={!newException.date} style={{ padding: "8px 20px", background: newException.date ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newException.date ? "pointer" : "not-allowed" }}>Ajouter</button>
+                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                  {editingExceptionId && (
+                    <button onClick={cancelEditException} style={{ padding: "8px 16px", background: "#fff", color: "#666", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
+                  )}
+                  <button onClick={addException} disabled={!newException.date} style={{ padding: "8px 20px", background: newException.date ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newException.date ? "pointer" : "not-allowed" }}>{editingExceptionId ? "Modifier" : "Ajouter"}</button>
                 </div>
               </div>
             )}
