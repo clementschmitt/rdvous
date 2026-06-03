@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Créer le RDV
+  const cancelToken = crypto.randomUUID();
   const { data: rdv, error } = await admin.from("rendez_vous")
-    .insert({ salon_id, client_id: clientId, date_heure: `${date}T${heure}:00`, statut: "confirme", adresse_domicile: adresse_domicile || null })
+    .insert({ salon_id, client_id: clientId, date_heure: `${date}T${heure}:00`, statut: "confirme", adresse_domicile: adresse_domicile || null, cancel_token: cancelToken })
     .select("id")
     .single();
 
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
         to: clientData.email,
         toName: clientData.prenom,
         subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salonData?.nom || "rdvous"}`,
-        html: templateConfirmation({ prenom: clientData.prenom, salonNom: salonData?.nom || "", dateStr, heureStr, prestations: prestationsData, contenu: settings?.message_confirmation || undefined }),
+        html: templateConfirmation({ prenom: clientData.prenom, salonNom: salonData?.nom || "", dateStr, heureStr, prestations: prestationsData, contenu: settings?.message_confirmation || undefined, cancelToken }),
         fromName: settings?.email_expediteur_nom || salonData?.nom || "rdvous",
         replyTo: settings?.email_expediteur || undefined,
       });

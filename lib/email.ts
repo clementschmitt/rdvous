@@ -37,13 +37,14 @@ function interpolate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
 }
 
-export function templateConfirmation({ prenom, salonNom, dateStr, heureStr, prestations, contenu }: {
+export function templateConfirmation({ prenom, salonNom, dateStr, heureStr, prestations, contenu, cancelToken }: {
   prenom: string;
   salonNom: string;
   dateStr: string;
   heureStr: string;
   prestations: { nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean }[];
   contenu?: string;
+  cancelToken?: string;
 }) {
   const prestationsStr = prestations.map(p => p.nom).join(", ");
   const totalTarif = prestations.reduce((s, p) => s + p.tarif, 0);
@@ -61,6 +62,7 @@ export function templateConfirmation({ prenom, salonNom, dateStr, heureStr, pres
       </div>
       <p style="font-size:14px;line-height:1.6;white-space:pre-wrap">${body}</p>
       <ul style="padding-left:20px;margin:16px 0;font-size:14px">${lignes}</ul>
+      ${cancelToken ? `<div style="margin-top:24px;text-align:center"><a href="${process.env.NEXT_PUBLIC_APP_URL}/annuler/${cancelToken}" style="font-size:12px;color:#999;text-decoration:underline">Annuler ce rendez-vous</a></div>` : ""}
     </div>`;
 }
 
