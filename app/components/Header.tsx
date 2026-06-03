@@ -67,9 +67,12 @@ export default function Header() {
             ))}
           </nav>
         </div>
-        <button onClick={handleLogout} style={{ ...T.ls, fontSize: "9px", background: "none", border: `1px solid ${m.couleurClaire}`, borderRadius: T.radiusSm, padding: "5px 14px", cursor: "pointer", color: T.muted }}>
-          Déconnexion
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <a href="mailto:support@rdvous.fr" style={{ ...T.ls, fontSize: "9px", color: T.muted, textDecoration: "none" }}>Support</a>
+          <button onClick={handleLogout} style={{ ...T.ls, fontSize: "9px", background: "none", border: `1px solid ${m.couleurClaire}`, borderRadius: T.radiusSm, padding: "5px 14px", cursor: "pointer", color: T.muted }}>
+            Déconnexion
+          </button>
+        </div>
       </div>
 
       {/* Navigation bas — mobile uniquement */}

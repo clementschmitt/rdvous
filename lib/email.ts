@@ -16,6 +16,8 @@ export async function sendEmail({ to, toName, subject, html, fromName, replyTo }
   const replyToClean = replyTo?.trim();
   if (replyToClean && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyToClean)) body.replyTo = { email: replyToClean };
 
+  const footer = `<div style="font-family:sans-serif;max-width:520px;margin:24px auto 0;padding:16px 24px;border-top:1px solid #f0f0f0;text-align:center;font-size:11px;color:#bbb">Besoin d'aide ? <a href="mailto:support@rdvous.fr" style="color:#bbb">support@rdvous.fr</a></div>`;
+  html = html + footer;
   const res = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: {
