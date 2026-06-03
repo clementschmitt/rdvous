@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await admin
     .from("salons")
-    .select("id, nom, metier")
+    .select("id, nom, metier, plan, sms_credits")
     .eq("id", id)
     .single();
 

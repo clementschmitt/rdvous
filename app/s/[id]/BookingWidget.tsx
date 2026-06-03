@@ -140,7 +140,7 @@ export default function BookingWidget({
     setError(""); setSubmitting(true);
     const res = await fetch("/api/booking/create", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ salon_id: salonId, prestation_ids: selected.map(p => p.id), date: choix.date, heure: choix.heure, prenom, nom, email, telephone, adresse_domicile: wantsDomicile ? adresseDomicile : null, website }),
+      body: JSON.stringify({ salon_id: salonId, prestation_ids: selected.map(p => p.id), date: choix.date, heure: choix.heure, prenom, nom, email, telephone, adresse_domicile: wantsDomicile ? adresseDomicile : null, website: website }),
     });
     const json = await res.json();
     setSubmitting(false);
@@ -194,7 +194,7 @@ export default function BookingWidget({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* Honeypot — invisible pour les humains, rempli par les bots */}
         <div style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, pointerEvents: "none" }} aria-hidden>
-          <input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} name="website" />
+          <input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} name="_b3acon" />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><label style={labelStyle}>Prénom *</label><input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={inputStyle} /></div>

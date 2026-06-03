@@ -7,7 +7,7 @@ import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -25,7 +25,7 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "" });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous" });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
@@ -901,6 +901,38 @@ export default function ParametresPage() {
               </>
             )}
             <SaveButton sectionKey="emails" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
+          </Section>
+
+          <Section titre="SMS automatiques" style={{ marginTop: 16 }}>
+            <Toggle label="SMS activés" description="Envoie un SMS de confirmation et de rappel aux clients" value={settings.sms_active} onChange={v => setSettings(s => ({ ...s, sms_active: v }))} couleur={m.couleur} />
+            {settings.sms_active && (
+              <>
+                <Champ label="Nom de l'expéditeur SMS (max 11 caractères, sans espaces)" value={settings.sms_expediteur} onChange={v => setSettings(s => ({ ...s, sms_expediteur: v.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) }))} />
+                <div style={{ background: "#f9f9f9", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>Crédits SMS disponibles</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: (salon?.sms_credits ?? 0) === 0 ? "#dc2626" : (salon?.sms_credits ?? 0) <= 10 ? "#ea580c" : "#1a1a1a", marginTop: 2 }}>{salon?.sms_credits ?? 0}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#555", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, padding: "8px 12px" }}>50 SMS offerts chaque mois avec votre abonnement · maximum 150 SMS cumulés (3 mois).<br/>Au besoin, rechargez ci-dessous :</div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {([{ pack: 50, price: "5€" }, { pack: 100, price: "8€" }, { pack: 200, price: "14€" }, { pack: 500, price: "30€" }] as { pack: number; price: string }[]).map(({ pack, price }) => (
+                      <button key={pack} onClick={async () => {
+                        const supabase = createSupabase();
+                        const { data: { session: sess } } = await supabase.auth.getSession();
+                        const res = await fetch("/api/stripe/sms-credits", { method: "POST", headers: { authorization: `Bearer ${sess?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ salon_id: salon!.id, pack }) });
+                        const { url } = await res.json();
+                        if (url) window.location.href = url;
+                      }} style={{ padding: "8px 14px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        {pack} SMS — {price}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            <SaveButton sectionKey="sms" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
           </Section>
 
           <Section titre="Relances clients" style={{ marginTop: 16 }}>

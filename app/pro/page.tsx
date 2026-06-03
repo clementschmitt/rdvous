@@ -37,7 +37,7 @@ const METIERS_LIST = [
 const FEATURES = [
   { icon: "📆", titre: "Agenda intelligent",         desc: "Vue semaine et mois. Créez un RDV en 10 secondes." },
   { icon: "🔗", titre: "Réservation en ligne",        desc: "Vos clients réservent directement depuis votre profil RDVOUS." },
-  { icon: "✉️", titre: "Emails & rappels auto",       desc: "Confirmation, rappel 24h avant, relance client automatiques." },
+  { icon: "✉️", titre: "Emails & SMS auto",            desc: "Confirmation et rappel 24h avant par email et SMS. 50 SMS/mois inclus dans l'offre Indépendant." },
   { icon: "👥", titre: "Fiches clients",               desc: "Historique complet, notes, mesures, cagnotte par client." },
   { icon: "⭐", titre: "Programme fidélité",           desc: "Récompensez vos fidèles automatiquement selon vos règles." },
   { icon: "🤝", titre: "Parrainage intégré",           desc: "Vos clients vous recommandent, les deux sont récompensés." },
@@ -54,14 +54,14 @@ const PLANS = [
     nom: "Gratuit", prix: "0€", duree: "/mois", badge: "Pour démarrer",
     badgeColor: C.sage, highlight: false,
     desc: "Lancez-vous sans engagement. Aucune carte requise.",
-    items: ["Jusqu'à 30 rendez-vous/mois", "Profil public sur rdvous.fr", "Fiches clients", "Emails de confirmation & rappels", "Agenda simple"],
+    items: ["Jusqu'à 30 rendez-vous/mois", "Profil public sur rdvous.fr", "Fiches clients", "Emails de confirmation & rappels (email uniquement, pas de SMS)", "Agenda simple"],
     cta: "Commencer gratuitement", ctaBg: "#fff", ctaColor: C.dark, ctaBorder: C.border,
   },
   {
     nom: "Indépendant", prix: "19€", duree: "/mois", badge: "Prix de lancement",
     badgeColor: C.gold, highlight: true,
     desc: "Offre de lancement — profitez-en avant que le prix augmente.",
-    items: ["Agenda intelligent & illimité", "Prise de RDV en ligne", "Emails & rappels automatiques", "Fiches clients personnalisées", "Fidélité & parrainage", "Visibilité locale", "Adapté à votre métier", "Support inclus"],
+    items: ["Agenda intelligent & illimité", "Prise de RDV en ligne", "Emails & SMS de confirmation & rappels — 50 SMS/mois inclus", "Fiches clients personnalisées", "Fidélité & parrainage", "Visibilité locale", "Adapté à votre métier", "Support inclus"],
     cta: "Commencer", ctaBg: C.dark, ctaColor: "#fff", ctaBorder: "transparent",
   },
   {

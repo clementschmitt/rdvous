@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateConfirmation, templateNouveauRdv } from "@/lib/email";
+import { sendSMS, smsConfirmation } from "@/lib/sms";
 import { bookingLimiter, getIP } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
-  const { success } = await bookingLimiter.limit(getIP(req));
-  if (!success) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans une heure." }, { status: 429 });
+  if (process.env.NODE_ENV !== "development") {
+    const { success } = await bookingLimiter.limit(getIP(req));
+    if (!success) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans une heure." }, { status: 429 });
+  }
 
-  const { salon_id, prestation_ids, date, heure, prenom, nom, email, telephone, adresse_domicile, website } = await req.json();
-  if (website) return NextResponse.json({ ok: true }); // honeypot déclenché — faux succès silencieux
+  const { salon_id, prestation_ids, date, heure, prenom, nom, email, telephone, adresse_domicile } = await req.json();
 
   const ids: string[] = Array.isArray(prestation_ids) ? prestation_ids : prestation_ids ? [prestation_ids] : [];
   if (!salon_id || ids.length === 0 || !date || !heure || !prenom || !nom || !email || !telephone) {
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
       .select("date_heure, clients(prenom, email), rendez_vous_prestations(prestations(nom, duree_minutes, tarif, sur_devis)), salons(nom)")
       .eq("id", rdv.id)
       .single();
-    const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom, email_reception").eq("salon_id", salon_id).single();
+    const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom, email_reception, sms_active, sms_expediteur").eq("salon_id", salon_id).single();
 
     const clientData = fullRdv?.clients as unknown as { prenom: string; email: string | null } | null;
     const salonData = fullRdv?.salons as unknown as { nom: string } | null;
@@ -71,6 +73,18 @@ export async function POST(req: NextRequest) {
         fromName: settings?.email_expediteur_nom || salonData?.nom || "rdvous",
         replyTo: settings?.email_expediteur || undefined,
       });
+    }
+
+    // SMS de confirmation au client
+    if (settings?.sms_active && telephone) {
+      const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id });
+      if (canSend) {
+        await sendSMS({
+          to: telephone,
+          content: smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr }),
+          sender: settings?.sms_expediteur || salonData?.nom || undefined,
+        });
+      }
     }
 
     // Notification nouveau RDV à l'artisan
