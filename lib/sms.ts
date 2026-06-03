@@ -1,3 +1,7 @@
+function interpolate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? `{${k}}`);
+}
+
 function normalizePhone(tel: string): string | null {
   const digits = tel.replace(/\D/g, "");
   if (digits.startsWith("33") && digits.length === 11) return `+${digits}`;
@@ -32,20 +36,24 @@ export async function sendSMS({ to, content, sender }: {
   }
 }
 
-export function smsConfirmation({ prenom, salonNom, dateStr, heureStr }: {
+export function smsConfirmation({ prenom, salonNom, dateStr, heureStr, contenu }: {
   prenom: string;
   salonNom: string;
   dateStr: string;
   heureStr: string;
+  contenu?: string | null;
 }): string {
+  if (contenu) return interpolate(contenu, { prenom, date: dateStr, heure: heureStr, salon: salonNom });
   return `Bonjour ${prenom}, votre RDV chez ${salonNom} est confirmé le ${dateStr} à ${heureStr}. À bientôt !`;
 }
 
-export function smsRappel({ prenom, salonNom, dateStr, heureStr }: {
+export function smsRappel({ prenom, salonNom, dateStr, heureStr, contenu }: {
   prenom: string;
   salonNom: string;
   dateStr: string;
   heureStr: string;
+  contenu?: string | null;
 }): string {
+  if (contenu) return interpolate(contenu, { prenom, date: dateStr, heure: heureStr, salon: salonNom });
   return `Rappel : RDV demain ${dateStr} à ${heureStr} chez ${salonNom}. À bientôt !`;
 }

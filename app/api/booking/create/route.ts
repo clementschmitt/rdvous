@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       .select("date_heure, clients(prenom, email), rendez_vous_prestations(prestations(nom, duree_minutes, tarif, sur_devis)), salons(nom)")
       .eq("id", rdv.id)
       .single();
-    const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom, email_reception, sms_active, sms_expediteur").eq("salon_id", salon_id).single();
+    const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom, email_reception, sms_active, sms_expediteur, sms_message_confirmation").eq("salon_id", salon_id).single();
 
     const clientData = fullRdv?.clients as unknown as { prenom: string; email: string | null } | null;
     const salonData = fullRdv?.salons as unknown as { nom: string } | null;
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
       if (canSend) {
         await sendSMS({
           to: telephone,
-          content: smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr }),
+          content: smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr, contenu: settings?.sms_message_confirmation }),
           sender: settings?.sms_expediteur || salonData?.nom || undefined,
         });
       }

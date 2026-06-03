@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const d = demain;
   const demainStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, message_rappel_rdv, email_expediteur, email_expediteur_nom, sms_active, sms_expediteur");
+  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, message_rappel_rdv, email_expediteur, email_expediteur_nom, sms_active, sms_expediteur, sms_message_rappel");
   const { data: rdvs } = await admin
     .from("rendez_vous")
     .select("id, date_heure, salon_id, salons(nom), clients(prenom, email, telephone), rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
       if (canSend) {
         await sendSMS({
           to: client.telephone,
-          content: smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr }),
+          content: smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel }),
           sender: salonCfg?.sms_expediteur || salon?.nom || undefined,
         });
       }
