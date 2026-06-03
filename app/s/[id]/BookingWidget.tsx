@@ -21,13 +21,15 @@ function getMondayOfWeek(offset: number) {
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function BookingWidget({
-  salonId, prestations, categories = [], couleur, deplacement,
+  salonId, prestations, categories = [], couleur, deplacement, delaiMinHeures = 0, salonTel,
 }: {
   salonId: string;
   prestations: Prestation[];
   categories?: Category[];
   couleur: string;
   deplacement?: string;
+  delaiMinHeures?: number;
+  salonTel?: string;
 }) {
   const [step, setStep] = useState<"select" | "contact" | "done">("select");
   const [selected, setSelected] = useState<Prestation[]>([]);
@@ -35,6 +37,7 @@ export default function BookingWidget({
   const [confirmedSteps, setConfirmedSteps] = useState<Set<string>>(new Set());
   const [weekOffset, setWeekOffset] = useState(0);
   const [slotsMap, setSlotsMap] = useState<Record<string, string[]>>({});
+  const [blockedMap, setBlockedMap] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [choix, setChoix] = useState<Slot | null>(null);
@@ -121,10 +124,12 @@ export default function BookingWidget({
     const results = await Promise.all(weekDays.map(d => {
       const iso = toISO(d);
       return fetch(`/api/booking/slots?salon_id=${salonId}&date=${iso}&duree=${dureeTotal}`)
-        .then(r => r.json()).then(j => ({ date: iso, slots: (j.slots || []) as string[] }));
+        .then(r => r.json()).then(j => ({ date: iso, slots: (j.slots || []) as string[], blocked: (j.blocked || []) as string[] }));
     }));
     const map: Record<string, string[]> = {};
-    results.forEach(r => { map[r.date] = r.slots; });
+    const bmap: Record<string, string[]> = {};
+    results.forEach(r => { map[r.date] = r.slots; bmap[r.date] = r.blocked; });
+    setBlockedMap(bmap);
     setSlotsMap(map); setLoadingSlots(false);
     const first = results.find(r => r.date >= today && r.slots.length > 0);
     setSelectedDay(first ? first.date : null);
@@ -283,6 +288,12 @@ export default function BookingWidget({
                 {new Date(selectedDay + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {(blockedMap[selectedDay] || []).map(s => (
+                  <div key={`blocked-${s}`} title="Ce créneau n'est plus disponible à la réservation en ligne — contactez-nous"
+                    style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1.5px solid #e0e0e0", borderRadius: 7, background: "#f5f5f5", color: "#bbb", cursor: "not-allowed", userSelect: "none" }}>
+                    {s}
+                  </div>
+                ))}
                 {slotsMap[selectedDay].map(s => {
                   const isSel = choix?.date === selectedDay && choix?.heure === s;
                   return (
@@ -293,6 +304,11 @@ export default function BookingWidget({
                   );
                 })}
               </div>
+              {(blockedMap[selectedDay] || []).length > 0 && (
+                <div style={{ fontSize: 11, color: "#bbb", marginTop: 6, width: "100%" }}>
+                  Les créneaux grisés ne sont plus disponibles à la réservation en ligne — contactez-nous directement.
+                </div>
+              )}
             </div>
           )}
           {!selectedDay && Object.values(slotsMap).every(s => s.length === 0) && (
@@ -313,6 +329,15 @@ export default function BookingWidget({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {delaiMinHeures > 0 && (
+        <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#c2410c", display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <span>⚠️</span>
+          <span>
+            Ce salon n'accepte pas de réservations moins de <strong>{delaiMinHeures}h à l'avance</strong>.
+            {salonTel ? <> Contactez-nous au <a href={`tel:${salonTel}`} style={{ color: "#c2410c", fontWeight: 700 }}>{salonTel}</a> pour les créneaux du jour.</> : <> Contactez le salon directement pour les créneaux du jour.</>}
+          </span>
+        </div>
+      )}
       {hasSteps ? (
         <>
           {stepCategories.map((cat, idx) => {

@@ -10,7 +10,7 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
   const result = await getSalon(id, false);
   if (!result) notFound();
 
-  const { salon, prestations, categories } = result;
+  const { salon, prestations, categories, delaiMinReservationHeures } = result;
   const m = METIERS[salon.metier as keyof typeof METIERS];
   const couleur = m?.couleur || "#333";
   const deplacement: string = salon.deplacement || "non";
@@ -40,7 +40,7 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
 
           <div style={{ padding: "28px" }}>
             {prestations.length > 0 ? (
-              <BookingWidget salonId={salon.id} prestations={prestations} categories={categories} couleur={couleur} deplacement={deplacement} />
+              <BookingWidget salonId={salon.id} prestations={prestations} categories={categories} couleur={couleur} deplacement={deplacement} delaiMinHeures={delaiMinReservationHeures} salonTel={salon.telephone || undefined} />
             ) : (
               <div style={{ textAlign: "center", padding: "32px 0", color: "#888", fontSize: 14 }}>
                 Aucune prestation disponible en ligne pour le moment.

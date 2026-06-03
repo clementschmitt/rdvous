@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const jourSemaine = (new Date(date + "T12:00:00").getDay() + 6) % 7; // 0=lundi
 
-  const [{ data: templatePlages }, { data: rdvs }, { data: exception }] = await Promise.all([
+  const [{ data: templatePlages }, { data: rdvs }, { data: exception }, { data: settings }] = await Promise.all([
     admin.from("disponibilites").select("heure_debut, heure_fin").eq("salon_id", salon_id).eq("jour_semaine", jourSemaine),
     admin.from("rendez_vous")
       .select("date_heure, duree_minutes, rendez_vous_prestations(prestations(duree_minutes))")
@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
       .gte("date_heure", `${date}T00:00:00`)
       .lte("date_heure", `${date}T23:59:59`),
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
+    admin.from("app_settings").select("delai_min_reservation_heures").eq("salon_id", salon_id).single(),
   ]);
 
   // Exception override : si une exception existe pour cette date
@@ -42,18 +43,28 @@ export async function GET(req: NextRequest) {
     return { debut, fin: debut + dureeRdv };
   });
 
+  const delaiHeures = settings?.delai_min_reservation_heures ?? 0;
+  const maintenant = new Date();
+  const limiteMs = maintenant.getTime() + delaiHeures * 3600000;
+
   const slots: string[] = [];
+  const blocked: string[] = [];
   for (const plage of plages) {
     const debut = toMinutes(plage.heure_debut.slice(0, 5));
     const fin = toMinutes(plage.heure_fin.slice(0, 5));
     for (let t = debut; t + duree <= fin; t += 15) {
       const slotFin = t + duree;
       const libre = !occupes.some(o => o.debut < slotFin && o.fin > t);
-      if (libre) slots.push(fromMinutes(t));
+      if (!libre) continue;
+      if (delaiHeures > 0) {
+        const slotDatetime = new Date(`${date}T${fromMinutes(t)}:00`);
+        if (slotDatetime.getTime() < limiteMs) { blocked.push(fromMinutes(t)); continue; }
+      }
+      slots.push(fromMinutes(t));
     }
   }
 
-  return NextResponse.json({ slots });
+  return NextResponse.json({ slots, blocked });
 }
 
 function toMinutes(hhmm: string) {

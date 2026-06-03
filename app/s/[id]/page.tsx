@@ -28,6 +28,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const googleAvisUrl = (s?.google_avis_url as string | undefined) || null;
   const googleNote = (s?.google_note as number | undefined) || null;
   const googleNbAvis = (s?.google_nb_avis as number | undefined) || null;
+  const delaiMinReservationHeures = (s?.delai_min_reservation_heures as number | undefined) || 0;
   return {
     salon,
     prestations: (prestations || []) as Prestation[],
@@ -37,6 +38,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     googleAvisUrl,
     googleNote,
     googleNbAvis,
+    delaiMinReservationHeures,
   };
 }
 
