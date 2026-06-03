@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object as Stripe.Invoice;
+    const invoice = event.data.object as Stripe.Invoice & { subscription?: string | null };
     const sub = invoice.subscription;
     if (sub && invoice.billing_reason === "subscription_cycle") {
       const { data: salon } = await admin.from("salons").select("id, sms_credits").eq("stripe_subscription_id", sub as string).single();
