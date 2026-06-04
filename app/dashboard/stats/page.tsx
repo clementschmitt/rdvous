@@ -296,7 +296,7 @@ export default function StatsPage() {
                             <Cell key={i} fill={[m.couleur, "#f59e0b", "#10b981", "#6366f1", "#ef4444", "#ec4899", "#14b8a6"][i % 7]} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(v: number) => [`${v}€`, "CA"]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+                        <Tooltip formatter={(v: unknown) => [`${v}€`, "CA"]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
                       </PieChart>
                     </div>
                   ) : (
@@ -388,7 +388,7 @@ export default function StatsPage() {
                     })} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
                       <XAxis dataKey="mois" tick={{ fontSize: 11, fill: "#aaa" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 11, fill: "#aaa" }} axisLine={false} tickLine={false} />
-                      <Tooltip formatter={(v: number) => [`${v}€`, "CA"]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                      <Tooltip formatter={(v: unknown) => [`${v}€`, "CA"]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
                       <Bar dataKey="ca" fill={m.couleur} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
