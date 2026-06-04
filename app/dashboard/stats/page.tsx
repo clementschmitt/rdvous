@@ -291,7 +291,7 @@ export default function StatsPage() {
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 600, color: "#aaa", textTransform: "uppercase", marginBottom: 8 }}>Répartition CA</div>
                       <PieChart width={260} height={220}>
-                        <Pie data={statsPrestation.filter(p => p.ca > 0)} dataKey="ca" nameKey="nom" cx="50%" cy="50%" outerRadius={80} label={({ percent }) => `${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                        <Pie data={statsPrestation.filter(p => p.ca > 0)} dataKey="ca" nameKey="nom" cx="50%" cy="50%" outerRadius={80} label={({ percent }: { percent?: number }) => `${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                           {statsPrestation.filter(p => p.ca > 0).map((_, i) => (
                             <Cell key={i} fill={[m.couleur, "#f59e0b", "#10b981", "#6366f1", "#ef4444", "#ec4899", "#14b8a6"][i % 7]} />
                           ))}
