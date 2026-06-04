@@ -158,7 +158,7 @@ export default function StatsPage() {
     return (
       <div style={{ borderRadius: 12, border: "1px solid #e0e0e0", overflow: "hidden" }}>
         {/* Titres visibles */}
-        <div style={{ background: "#fafafa", borderBottom: "1px solid #e0e0e0", padding: "14px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="stats-locked-header" style={{ background: "#fafafa", borderBottom: "1px solid #e0e0e0", padding: "14px 20px", display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 16 }}>🔒</span>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>Fonctionnalités Business</div>
@@ -207,10 +207,23 @@ export default function StatsPage() {
   const bigNum: React.CSSProperties = { fontSize: 32, fontWeight: 700, color: "#1a1a1a", lineHeight: 1 };
 
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+    <div className="stats-wrap" style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .stats-wrap { padding: 16px !important; }
+          .stats-header { flex-direction: column !important; align-items: stretch !important; }
+          .stats-periodes { display: none !important; }
+          .stats-select { display: block !important; }
+          .stats-kpis { grid-template-columns: 1fr !important; }
+          .stats-presta-grid { grid-template-columns: 1fr !important; }
+          .stats-locked-header { flex-direction: column !important; gap: 10px !important; }
+          .stats-locked-header a { width: 100% !important; text-align: center !important; }
+        }
+      `}</style>
+      <div className="stats-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Statistiques</h1>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {/* Boutons — desktop */}
+        <div className="stats-periodes" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {PERIODES.map(p => (
             <button key={p.key} onClick={() => setPeriode(p.key)}
               style={{ padding: "7px 14px", borderRadius: 8, border: "none", fontSize: 12, fontWeight: periode === p.key ? 700 : 500, background: periode === p.key ? m.couleur : "#f0f0f0", color: periode === p.key ? "#fff" : "#666", cursor: "pointer" }}>
@@ -218,6 +231,11 @@ export default function StatsPage() {
             </button>
           ))}
         </div>
+        {/* Select — mobile */}
+        <select className="stats-select" value={periode} onChange={e => setPeriode(e.target.value as Periode)}
+          style={{ display: "none", width: "100%", padding: "10px 14px", border: `1px solid #e0e0e0`, borderRadius: 8, fontSize: 14, fontWeight: 600, background: "#fff", color: "#1a1a1a", cursor: "pointer" }}>
+          {PERIODES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+        </select>
       </div>
 
       {isFree ? (
@@ -236,7 +254,7 @@ export default function StatsPage() {
           <div style={{ fontSize: 13, color: "#999", marginBottom: 20, fontWeight: 600 }}>{label}</div>
 
           {/* KPIs */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
+          <div className="stats-kpis" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, marginBottom: 24 }}>
             <div style={cardStyle}>
               <div style={labelGray}>Chiffre d'affaires</div>
               <div style={bigNum}>{totalCA}€</div>
@@ -255,7 +273,7 @@ export default function StatsPage() {
           {statsPrestation.length > 0 && (
             <div style={{ ...cardStyle, marginBottom: 24 }}>
               <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>CA par prestation</div>
-              <div style={{ display: "grid", gridTemplateColumns: statsPrestation.filter(p => p.ca > 0).length > 0 ? "1fr 280px" : "1fr", gap: 24, alignItems: "start" }}>
+              <div className="stats-presta-grid" style={{ display: "grid", gridTemplateColumns: statsPrestation.filter(p => p.ca > 0).length > 0 ? "1fr 280px" : "1fr", gap: 24, alignItems: "start" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ borderBottom: "2px solid #f0f0f0" }}>

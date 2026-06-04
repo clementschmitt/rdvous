@@ -473,14 +473,14 @@ export default function ParametresPage() {
           .params-wrap { padding: 16px !important; }
           .params-grid-2 { grid-template-columns: 1fr !important; }
           .params-abo { flex-direction: column !important; align-items: flex-start !important; }
-          .params-tabs { gap: 4px !important; }
-          .params-tab { padding: 7px 12px !important; font-size: 11px !important; }
+          .params-tabs { display: none !important; }
+          .params-select { display: block !important; }
         }
       `}</style>
 
       <h1 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>Paramètres</h1>
 
-      {/* Onglets */}
+      {/* Onglets — desktop */}
       <div className="params-tabs" style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
         {TABS.map(t => (
           <button key={t.key} className="params-tab" onClick={() => setTab(t.key)}
@@ -489,6 +489,11 @@ export default function ParametresPage() {
           </button>
         ))}
       </div>
+      {/* Onglets — mobile select */}
+      <select className="params-select" value={tab} onChange={e => setTab(e.target.value as Tab)}
+        style={{ display: "none", width: "100%", padding: "10px 14px", marginBottom: 20, border: `1px solid ${m.couleurClaire}`, borderRadius: 8, fontSize: 14, fontWeight: 600, background: "#fff", color: "#1a1a1a", cursor: "pointer" }}>
+        {TABS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+      </select>
 
       {/* ── Prestations ── */}
       {tab === "prestations" && (
