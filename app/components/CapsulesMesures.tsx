@@ -38,7 +38,7 @@ export function CapsulesMesures({ value, onChange, editing, couleur }: Props) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
       {(["g", "d"] as const).map(side => (
         <div key={side} style={{ background: `${couleur}06`, border: `1px solid ${couleur}20`, borderRadius: 8, padding: 14 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: couleur, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>

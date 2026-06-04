@@ -53,5 +53,26 @@ export async function POST(req: NextRequest) {
   await admin.from("salon_users").insert({ user_id: user.id, salon_id: salon.id, role: "owner" });
   await admin.from("app_settings").insert({ salon_id: salon.id });
 
+  // Notification nouveau compte pro
+  try {
+    const { sendEmail } = await import("@/lib/email");
+    await sendEmail({
+      to: "contact@rdvous.fr",
+      toName: "rdvous",
+      subject: `Nouveau compte — ${nom} (${metier})`,
+      html: `<div style="font-family:sans-serif;padding:24px;color:#222">
+        <h2 style="margin:0 0 16px">Nouveau salon inscrit</h2>
+        <p><strong>Nom :</strong> ${nom}</p>
+        <p><strong>Métier :</strong> ${metier}</p>
+        <p><strong>Ville :</strong> ${ville || "—"}</p>
+        <p><strong>Téléphone :</strong> ${telephone || "—"}</p>
+        <p><strong>Email :</strong> ${user.email}</p>
+      </div>`,
+      fromName: "rdvous",
+    });
+  } catch (e) {
+    console.error("Notification nouveau compte failed:", e);
+  }
+
   return NextResponse.json({ ok: true });
 }

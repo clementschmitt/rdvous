@@ -10,6 +10,7 @@ const NAV_ICONS: Record<string, string> = {
   "/dashboard": "🏠",
   "/dashboard/agenda": "📅",
   "/dashboard/clients": "👥",
+  "/dashboard/stats": "📊",
   "/dashboard/parametres": "⚙️",
 };
 
@@ -32,6 +33,7 @@ export default function Header() {
     { href: "/dashboard", label: "Accueil" },
     { href: "/dashboard/agenda", label: "Agenda" },
     { href: "/dashboard/clients", label: m.labelClients },
+    { href: "/dashboard/stats", label: "Stats" },
     { href: "/dashboard/parametres", label: "Params" },
   ];
 
@@ -48,6 +50,13 @@ export default function Header() {
           .hdr-salon-name { display: none !important; }
           .hdr-bottom-nav { display: flex !important; }
           body { padding-bottom: 64px; }
+        }
+        @media (max-width: 1024px) and (min-width: 641px) {
+          .hdr-bar { padding: 0 16px !important; }
+          .hdr-salon-name { display: none !important; }
+          .hdr-salon-sep { display: none !important; }
+          .hdr-nav a { padding: 5px 8px !important; font-size: 9px !important; }
+          .hdr-support { display: none !important; }
         }
       `}</style>
 
@@ -68,7 +77,7 @@ export default function Header() {
           </nav>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <a href="mailto:support@rdvous.fr" style={{ ...T.ls, fontSize: "9px", color: T.muted, textDecoration: "none" }}>Support</a>
+          <a href="mailto:support@rdvous.fr" className="hdr-support" style={{ ...T.ls, fontSize: "9px", color: T.muted, textDecoration: "none" }}>Support</a>
           <button onClick={handleLogout} style={{ ...T.ls, fontSize: "9px", background: "none", border: `1px solid ${m.couleurClaire}`, borderRadius: T.radiusSm, padding: "5px 14px", cursor: "pointer", color: T.muted }}>
             Déconnexion
           </button>

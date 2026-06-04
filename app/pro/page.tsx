@@ -60,16 +60,23 @@ const PLANS = [
   {
     nom: "Indépendant", prix: "19€", duree: "/mois", badge: "Prix de lancement",
     badgeColor: C.gold, highlight: true,
-    desc: "Offre de lancement — profitez-en avant que le prix augmente.",
-    items: ["Agenda intelligent & illimité", "Prise de RDV en ligne", "Emails & SMS de confirmation & rappels — 50 SMS/mois inclus", "Fiches clients personnalisées", "Fidélité & parrainage", "Visibilité locale", "Adapté à votre métier", "Support inclus"],
+    desc: "L'essentiel pour gérer votre activité au quotidien.",
+    items: ["Agenda intelligent & illimité", "Prise de RDV en ligne", "Emails & SMS de confirmation & rappels — 50 SMS/mois inclus", "Fiches clients personnalisées", "Fidélité & parrainage", "Visibilité locale", "Statistiques basiques", "Support inclus"],
     cta: "Commencer", ctaBg: C.dark, ctaColor: "#fff", ctaBorder: "transparent",
   },
   {
-    nom: "Équipe", prix: "Bientôt", duree: "", badge: "Offre à venir",
-    badgeColor: C.light, highlight: false, comingSoon: true,
-    desc: "Pour les instituts avec plusieurs collaborateurs. Agendas individuels, gestion d'équipe, réservations multi-agendas.",
-    items: ["Tout l'offre Indépendant", "Plusieurs collaborateurs", "Agenda individuel par collaborateur", "Réservations multi-agendas", "Gestion d'équipe"],
-    cta: "Être notifié en priorité", ctaBg: "#fff", ctaColor: C.muted, ctaBorder: C.border,
+    nom: "Business", prix: "39€", duree: "/mois", badge: "Pour développer",
+    badgeColor: "#7c3aed", highlight: false,
+    desc: "Pour piloter et développer votre activité avec des données avancées.",
+    items: ["Tout l'offre Indépendant", "150 SMS/mois inclus", "Statistiques avancées (projection CA, top clientes, taux d'annulation)", "Rapport mensuel automatique par email", "Support prioritaire"],
+    cta: "Commencer", ctaBg: "#7c3aed", ctaColor: "#fff", ctaBorder: "transparent",
+  },
+  {
+    nom: "Équipe", prix: "Sur devis", duree: "", badge: "Multi-praticiens",
+    badgeColor: C.light, highlight: false,
+    desc: "Pour les instituts avec plusieurs collaborateurs. Contactez-nous pour un tarif adapté.",
+    items: ["Tout l'offre Business", "Plusieurs praticiens", "Agenda individuel par praticien", "Statistiques par praticien", "Support dédié"],
+    cta: "Nous contacter", ctaBg: "#fff", ctaColor: C.muted, ctaBorder: C.border,
   },
 ];
 
@@ -178,7 +185,7 @@ export default function ProPage() {
           .pro-section { padding-left: 30px !important; padding-right: 30px !important; }
           .pro-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
           .pro-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
-          .pro-grid-plans { grid-template-columns: 1fr !important; }
+          .pro-grid-plans { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
 
@@ -323,14 +330,14 @@ export default function ProPage() {
 
       {/* ── TARIFS ── */}
       <section id="tarifs" className="pro-section" style={{ padding:"80px 60px" }}>
-        <div style={{ maxWidth:960, margin:"0 auto" }}>
+        <div style={{ maxWidth:1200, margin:"0 auto" }}>
           <div style={{ textAlign:"center", marginBottom:52 }}>
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, margin:"0 0 14px", color:C.text }}>
               Simple, transparent, honnête.
             </h2>
             <p style={{ fontSize:15, color:C.muted }}>Sans commissions abusives. Sans frais cachés.</p>
           </div>
-          <div className="pro-grid-plans" style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:20 }}>
+          <div className="pro-grid-plans" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:20 }}>
             {PLANS.map(p => (
               <div key={p.nom} style={{ background: p.highlight ? C.dark : "#fff", borderRadius:20, padding:"32px 28px", border: p.highlight ? "none" : `1px solid ${C.border}`, position:"relative", boxShadow: p.highlight ? "0 20px 60px rgba(26,22,20,0.25)" : "none", opacity: (p as any).comingSoon ? 0.85 : 1 }}>
                 {p.badge && (
@@ -357,9 +364,9 @@ export default function ProPage() {
                     </div>
                   ))}
                 </div>
-                {(p as any).comingSoon
-                  ? <div style={{ display:"block", textAlign:"center", padding:"13px", background:C.warm, color:C.light, border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontWeight:600 }}>Bientôt disponible</div>
-                  : <Link href={p.nom === "Indépendant" ? "/signup?plan=solo" : "/signup"} style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</Link>
+                {p.nom === "Équipe"
+                  ? <a href="mailto:support@rdvous.fr" style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</a>
+                  : <Link href={p.nom === "Indépendant" ? "/signup?plan=solo" : p.nom === "Business" ? "/signup?plan=business" : "/signup"} style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</Link>
                 }
               </div>
             ))}

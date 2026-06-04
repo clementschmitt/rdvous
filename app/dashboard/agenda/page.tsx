@@ -216,7 +216,7 @@ export default function AgendaPage() {
                             <div style={{ fontSize: 12, color: "#1a1a1a", marginBottom: 2 }}>
                               {rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}
                             </div>
-                            <div style={{ fontSize: 11, color: "#999" }}>
+                            <div style={{ fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {prestaNoms || "—"}{duree ? ` · ${formatDuree(duree)}` : ""}
                             </div>
                           </div>
