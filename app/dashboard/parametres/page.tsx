@@ -467,7 +467,7 @@ export default function ParametresPage() {
   const isFree = plan === "free";
 
   return (
-    <div className="params-wrap" style={{ padding: 32, maxWidth: 760, margin: "0 auto" }}>
+    <div className="params-wrap" style={{ padding: 32, maxWidth: 760, margin: "0 auto", overflowX: "hidden" }}>
       <style>{`
         @media (max-width: 640px) {
           .params-wrap { padding: 16px !important; }
@@ -547,7 +547,7 @@ export default function ParametresPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
             {categories.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune catégorie.</div>}
             {categories.map(cat => (
-              <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#f9f9f9", borderRadius: 8 }}>
+              <div key={cat.id} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "8px 12px", background: "#f9f9f9", borderRadius: 8 }}>
                 {editCategorieId === cat.id ? (
                   <>
                     <input value={editCategorieNom} onChange={e => setEditCategorieNom(e.target.value)} style={{ flex: 1, ...miniInput }} autoFocus />
@@ -555,16 +555,18 @@ export default function ParametresPage() {
                     <button onClick={() => setEditCategorieId(null)} style={btnSmallGhost}>✕</button>
                   </>
                 ) : (
-                  <>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{cat.nom}</span>
-                    <span style={{ fontSize: 11, color: "#bbb" }}>{prestations.filter(p => p.categorie_id === cat.id).length} presta.</span>
-                    <button onClick={() => toggleCategorieSelection(cat.id, cat.selection_type || "libre")}
-                      style={{ fontSize: 11, padding: "3px 8px", borderRadius: 20, border: `1px solid ${cat.selection_type === "libre" || !cat.selection_type ? "#ddd" : m.couleur}`, color: cat.selection_type === "libre" || !cat.selection_type ? "#aaa" : "#fff", background: cat.selection_type === "libre" || !cat.selection_type ? "transparent" : m.couleur, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
-                      {cat.selection_type === "unique" ? "Étape unique" : cat.selection_type === "multiple" ? "Étape multi" : "Libre"}
-                    </button>
-                    <button onClick={() => { setEditCategorieId(cat.id); setEditCategorieNom(cat.nom); }} style={btnSmallGhost}>Renommer</button>
-                    <button onClick={() => deleteCategorie(cat.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
-                  </>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, wordBreak: "break-word" }}>{cat.nom}</span>
+                      <span style={{ fontSize: 11, color: "#bbb", whiteSpace: "nowrap" }}>{prestations.filter(p => p.categorie_id === cat.id).length} presta.</span>
+                      <button onClick={() => toggleCategorieSelection(cat.id, cat.selection_type || "libre")}
+                        style={{ fontSize: 11, padding: "3px 8px", borderRadius: 20, border: `1px solid ${cat.selection_type === "libre" || !cat.selection_type ? "#ddd" : m.couleur}`, color: cat.selection_type === "libre" || !cat.selection_type ? "#aaa" : "#fff", background: cat.selection_type === "libre" || !cat.selection_type ? "transparent" : m.couleur, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {cat.selection_type === "unique" ? "Étape unique" : cat.selection_type === "multiple" ? "Étape multi" : "Libre"}
+                      </button>
+                      <button onClick={() => { setEditCategorieId(cat.id); setEditCategorieNom(cat.nom); }} style={btnSmallGhost}>Renommer</button>
+                    </div>
+                    <button onClick={() => deleteCategorie(cat.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", flexShrink: 0 }}>✕</button>
+                  </div>
                 )}
               </div>
             ))}
