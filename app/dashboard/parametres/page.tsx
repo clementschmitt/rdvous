@@ -46,7 +46,7 @@ export default function ParametresPage() {
   const [savedDispos, setSavedDispos] = useState(false);
   type Exception = { id: string; date: string; ferme: boolean; plages: Plage[]; type?: string };
   const [exceptions, setExceptions] = useState<Exception[]>([]);
-  const [newException, setNewException] = useState<{ date: string; ferme: boolean; plages: Plage[] }>({ date: "", ferme: true, plages: [defaultPlage()] });
+  const [newException, setNewException] = useState<{ date: string; ferme: boolean; plages: Plage[] }>({ date: "", ferme: false, plages: [defaultPlage()] });
   const [editingExceptionId, setEditingExceptionId] = useState<string | null>(null);
   const exceptionFormRef = useRef<HTMLDivElement>(null);
   const [exceptionMode, setExceptionMode] = useState<"single" | "period">("single");

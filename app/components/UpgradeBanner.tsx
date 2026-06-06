@@ -34,7 +34,7 @@ export default function UpgradeBanner() {
     setLoading(false);
   }
 
-  if (!salon || salon.plan === "solo" || salon.plan === "team" || dismissed) return null;
+  if (!salon || salon.plan !== "free" || dismissed) return null;
 
   return (
     <div style={{ background: "#1a1614", color: "#fff", fontSize: 13 }}>
