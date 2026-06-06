@@ -79,7 +79,8 @@ export default function FinancesPage() {
 
     const map: Record<string, { nb: number; ca: number }> = {};
     let total = 0;
-    (rdvRes.data || []).forEach((rdv: { rendez_vous_prestations: { prestations: { nom: string; tarif: number; sur_devis: boolean } | null }[] }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (rdvRes.data || []).forEach((rdv: any) => {
       (rdv.rendez_vous_prestations || []).forEach((rp) => {
         const p = rp.prestations;
         if (!p || p.sur_devis) return;
