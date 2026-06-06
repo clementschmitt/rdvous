@@ -81,7 +81,7 @@ export default function FinancesPage() {
     let total = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rdvRes.data || []).forEach((rdv: any) => {
-      (rdv.rendez_vous_prestations || []).forEach((rp) => {
+      (rdv.rendez_vous_prestations || []).forEach((rp: any) => {
         const p = rp.prestations;
         if (!p || p.sur_devis) return;
         if (!map[p.nom]) map[p.nom] = { nb: 0, ca: 0 };
