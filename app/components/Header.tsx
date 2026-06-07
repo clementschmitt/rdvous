@@ -31,12 +31,12 @@ export default function Header() {
   const m = METIERS[salon.metier];
 
   const links = [
-    { href: "/dashboard", label: "Accueil" },
-    { href: "/dashboard/agenda", label: "Agenda" },
-    { href: "/dashboard/clients", label: m.labelClients },
-    { href: "/dashboard/stats", label: "Stats" },
-    { href: "/dashboard/finances", label: "Finances" },
-    { href: "/dashboard/parametres", label: "Params" },
+    { href: "/dashboard", label: "Accueil", short: "Accueil" },
+    { href: "/dashboard/agenda", label: "Agenda", short: "Agenda" },
+    { href: "/dashboard/clients", label: m.labelClients, short: m.labelClients },
+    { href: "/dashboard/stats", label: "Statistiques", short: "Stats" },
+    { href: "/dashboard/finances", label: "Finances", short: "Finances" },
+    { href: "/dashboard/parametres", label: "Paramètres", short: "Params" },
   ];
 
   const isActive = (href: string) =>
@@ -93,7 +93,7 @@ export default function Header() {
           return (
             <Link key={l.href} href={l.href} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, textDecoration: "none", padding: "8px 0 10px", color: active ? m.couleur : T.muted }}>
               <span style={{ fontSize: 20 }}>{NAV_ICONS[l.href] || "•"}</span>
-              <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, letterSpacing: "0.04em", textTransform: "uppercase" }}>{l.label}</span>
+              <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, letterSpacing: "0.04em", textTransform: "uppercase" }}>{l.short}</span>
             </Link>
           );
         })}

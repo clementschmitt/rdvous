@@ -15,12 +15,7 @@ export const METIERS = {
     couleur: "#2E5E3E",
     couleurClaire: "#a8c5b0",
     couleurMuted: "#6b9b78",
-    champsClient: [
-      { key: "race", label: "Race", type: "text" },
-      { key: "age", label: "Âge", type: "number" },
-      { key: "poids", label: "Poids (kg)", type: "number" },
-      { key: "comportement", label: "Comportement", type: "text" },
-    ],
+    champsClient: [],
   },
   coiffure: {
     label: "Coiffure",

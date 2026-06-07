@@ -15,6 +15,14 @@ type Client = {
 };
 type RDV = { id: string; date_heure: string; statut: string; rendez_vous_prestations: { prestations: { nom: string; tarif: number } | null }[] };
 type Settings = { nb_visites_fidelite: number; montant_recompense: number };
+type Animal = {
+  id: string; client_id: string; salon_id: string;
+  nom: string; race: string | null; age: number | null; poids: number | null;
+  comportement: string | null; notes: string | null;
+};
+type AnimalForm = { id?: string; nom: string; race: string; age: string; poids: string; comportement: string; notes: string };
+
+const ANIMAL_FORM_DEFAULT: AnimalForm = { nom: "", race: "", age: "", poids: "", comportement: "", notes: "" };
 
 export default function ClientDetailPage() {
   const salon = useSalon();
@@ -30,6 +38,10 @@ export default function ClientDetailPage() {
   const [saving, setSaving] = useState(false);
   const [rdvPage, setRdvPage] = useState(0);
 
+  const [animaux, setAnimaux] = useState<Animal[]>([]);
+  const [animalForm, setAnimalForm] = useState<AnimalForm | null>(null);
+  const [animalSaving, setAnimalSaving] = useState(false);
+
   const RDV_PER_PAGE = 10;
 
   useEffect(() => {
@@ -39,16 +51,21 @@ export default function ClientDetailPage() {
 
   async function load() {
     const supabase = createSupabase();
-    const [cRes, rdvRes, sRes] = await Promise.all([
+    const queries: Promise<any>[] = [
       supabase.from("clients").select("*").eq("id", id).single(),
       supabase.from("rendez_vous").select("id, date_heure, statut, rendez_vous_prestations(prestations(nom, tarif))").eq("client_id", id).order("date_heure", { ascending: false }),
       supabase.from("app_settings").select("nb_visites_fidelite, montant_recompense").eq("salon_id", salon!.id).single(),
-    ]);
+    ];
+    if (salon!.metier === "toilettage") {
+      queries.push(supabase.from("animaux").select("*").eq("client_id", id).order("created_at"));
+    }
+    const [cRes, rdvRes, sRes, aRes] = await Promise.all(queries);
     if (!cRes.data) { router.push("/dashboard/clients"); return; }
     setClient(cRes.data as Client);
     setForm(cRes.data as Client);
     setRdvs((rdvRes.data || []) as unknown as RDV[]);
     if (sRes.data) setSettings(sRes.data as Settings);
+    if (aRes) setAnimaux((aRes.data || []) as Animal[]);
   }
 
   async function handleSave() {
@@ -71,6 +88,37 @@ export default function ClientDetailPage() {
     const supabase = createSupabase();
     await supabase.from("clients").delete().eq("id", id);
     router.push("/dashboard/clients");
+  }
+
+  async function handleSaveAnimal() {
+    if (!animalForm || !animalForm.nom.trim() || !salon) return;
+    setAnimalSaving(true);
+    const supabase = createSupabase();
+    const payload = {
+      client_id: id,
+      salon_id: salon.id,
+      nom: animalForm.nom.trim(),
+      race: animalForm.race.trim() || null,
+      age: animalForm.age ? parseFloat(animalForm.age) : null,
+      poids: animalForm.poids ? parseFloat(animalForm.poids) : null,
+      comportement: animalForm.comportement.trim() || null,
+      notes: animalForm.notes.trim() || null,
+    };
+    if (animalForm.id) {
+      await supabase.from("animaux").update(payload).eq("id", animalForm.id);
+    } else {
+      await supabase.from("animaux").insert(payload);
+    }
+    setAnimalForm(null);
+    setAnimalSaving(false);
+    load();
+  }
+
+  async function handleDeleteAnimal(animalId: string, nom: string) {
+    if (!confirm(`Supprimer ${nom} ? Cette action est irréversible.`)) return;
+    const supabase = createSupabase();
+    await supabase.from("animaux").delete().eq("id", animalId);
+    load();
   }
 
   if (!salon || !client) return <div style={{ padding: 40, color: "#bbb" }}>Chargement...</div>;
@@ -151,7 +199,7 @@ export default function ClientDetailPage() {
 
       {m.champsClient.length > 0 && (
         <Section titre="Informations métier" style={{ marginTop: 12 }}>
-          {m.champsClient.map(champ => {
+          {m.champsClient.map((champ: any) => {
             if (champ.key === "mesures_capsules") {
               const caps = parseCapsules(form.champs_metier?.[champ.key]);
               return (
@@ -177,6 +225,64 @@ export default function ClientDetailPage() {
               />
             );
           })}
+        </Section>
+      )}
+
+      {salon.metier === "toilettage" && (
+        <Section titre={`Animaux (${animaux.length})`} style={{ marginTop: 12 }}>
+          {animaux.map(animal => (
+            animalForm?.id === animal.id ? (
+              <AnimalFormBlock
+                key={animal.id}
+                form={animalForm}
+                onChange={setAnimalForm}
+                onSave={handleSaveAnimal}
+                onCancel={() => setAnimalForm(null)}
+                saving={animalSaving}
+                couleur={m.couleur}
+              />
+            ) : (
+              <div key={animal.id} style={{ border: "1px solid #e8e8e8", borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <div style={{ fontSize: 24 }}>🐾</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#1a1a1a", marginBottom: 4 }}>{animal.nom}</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px" }}>
+                    {animal.race && <span style={{ fontSize: 12, color: "#666" }}>Race : <b>{animal.race}</b></span>}
+                    {animal.age != null && <span style={{ fontSize: 12, color: "#666" }}>Âge : <b>{animal.age} an{animal.age > 1 ? "s" : ""}</b></span>}
+                    {animal.poids != null && <span style={{ fontSize: 12, color: "#666" }}>Poids : <b>{animal.poids} kg</b></span>}
+                    {animal.comportement && <span style={{ fontSize: 12, color: "#666" }}>Comportement : <b>{animal.comportement}</b></span>}
+                  </div>
+                  {animal.notes && <div style={{ fontSize: 12, color: "#999", marginTop: 6, fontStyle: "italic" }}>{animal.notes}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button
+                    onClick={() => setAnimalForm({ id: animal.id, nom: animal.nom, race: animal.race || "", age: animal.age?.toString() || "", poids: animal.poids?.toString() || "", comportement: animal.comportement || "", notes: animal.notes || "" })}
+                    style={{ ...btnGhost, padding: "4px 10px", fontSize: 12 }}
+                  >Modifier</button>
+                  <button
+                    onClick={() => handleDeleteAnimal(animal.id, animal.nom)}
+                    style={{ ...btnGhost, padding: "4px 10px", fontSize: 12, color: "#e74c3c", borderColor: "#e74c3c" }}
+                  >Supprimer</button>
+                </div>
+              </div>
+            )
+          ))}
+
+          {animalForm && !animalForm.id ? (
+            <AnimalFormBlock
+              form={animalForm}
+              onChange={setAnimalForm}
+              onSave={handleSaveAnimal}
+              onCancel={() => setAnimalForm(null)}
+              saving={animalSaving}
+              couleur={m.couleur}
+            />
+          ) : !animalForm && (
+            <button
+              onClick={() => setAnimalForm(ANIMAL_FORM_DEFAULT)}
+              style={{ alignSelf: "flex-start", padding: "7px 14px", background: "none", border: `1px dashed ${m.couleur}`, borderRadius: 7, fontSize: 13, cursor: "pointer", color: m.couleur }}
+            >+ Ajouter un animal</button>
+          )}
         </Section>
       )}
 
@@ -211,6 +317,49 @@ export default function ClientDetailPage() {
           </>
         )}
       </Section>
+    </div>
+  );
+}
+
+function AnimalFormBlock({ form, onChange, onSave, onCancel, saving, couleur }: {
+  form: AnimalForm; onChange: (f: AnimalForm) => void;
+  onSave: () => void; onCancel: () => void;
+  saving: boolean; couleur: string;
+}) {
+  const inp: React.CSSProperties = { width: "100%", padding: "7px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13, boxSizing: "border-box" };
+  return (
+    <div style={{ border: `1px solid ${couleur}40`, borderRadius: 8, padding: "14px 16px", background: `${couleur}06` }}>
+      <div style={{ fontWeight: 600, fontSize: 12, color: couleur, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>{form.id ? "Modifier l'animal" : "Nouvel animal"}</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#999", marginBottom: 4 }}>Nom *</label>
+          <input style={inp} value={form.nom} onChange={e => onChange({ ...form, nom: e.target.value })} placeholder="Ex: Rex" />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#999", marginBottom: 4 }}>Race</label>
+          <input style={inp} value={form.race} onChange={e => onChange({ ...form, race: e.target.value })} placeholder="Ex: Golden Retriever" />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#999", marginBottom: 4 }}>Âge (ans)</label>
+          <input style={inp} type="number" min="0" step="0.5" value={form.age} onChange={e => onChange({ ...form, age: e.target.value })} placeholder="Ex: 3" />
+        </div>
+        <div>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#999", marginBottom: 4 }}>Poids (kg)</label>
+          <input style={inp} type="number" min="0" step="0.1" value={form.poids} onChange={e => onChange({ ...form, poids: e.target.value })} placeholder="Ex: 12.5" />
+        </div>
+      </div>
+      <div style={{ marginBottom: 10 }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#999", marginBottom: 4 }}>Comportement</label>
+        <input style={inp} value={form.comportement} onChange={e => onChange({ ...form, comportement: e.target.value })} placeholder="Ex: Calme, craintif, mordeur..." />
+      </div>
+      <div style={{ marginBottom: 14 }}>
+        <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#999", marginBottom: 4 }}>Notes</label>
+        <textarea rows={2} style={{ ...inp, resize: "vertical" }} value={form.notes} onChange={e => onChange({ ...form, notes: e.target.value })} placeholder="Allergies, traitements, habitudes..." />
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onCancel} style={btnGhost}>Annuler</button>
+        <button onClick={onSave} disabled={saving || !form.nom.trim()} style={{ ...btnPrimary, background: couleur, opacity: !form.nom.trim() ? 0.5 : 1 }}>{saving ? "..." : "Enregistrer"}</button>
+      </div>
     </div>
   );
 }

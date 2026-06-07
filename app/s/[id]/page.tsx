@@ -29,10 +29,12 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const googleNote = (s?.google_note as number | undefined) || null;
   const googleNbAvis = (s?.google_nb_avis as number | undefined) || null;
   const delaiMinReservationHeures = (s?.delai_min_reservation_heures as number | undefined) || 0;
+  const messagePrestations = (s?.message_prestations as string | undefined) || "";
   return {
     salon,
     prestations: (prestations || []) as Prestation[],
     prestationsLabel,
+    messagePrestations,
     categories: (categories || []) as Category[],
     dispos: (dispos || []) as { jour_semaine: number; heure_debut: string; heure_fin: string }[],
     googleAvisUrl,
@@ -66,7 +68,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const result = await getSalon(id, false);
   if (!result) notFound();
 
-  const { salon, prestations, prestationsLabel, categories, dispos, googleAvisUrl, googleNote, googleNbAvis } = result;
+  const { salon, prestations, prestationsLabel, messagePrestations, categories, dispos, googleAvisUrl, googleNote, googleNbAvis } = result;
   const m = METIERS[salon.metier as keyof typeof METIERS];
   const couleur = m?.couleur || "#333";
   const couleurClaire = m?.couleurClaire || couleur + "22";
@@ -226,6 +228,14 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                     </div>
                   ))
                 )}
+              </div>
+            )}
+
+            {/* Message informatif prestations */}
+            {messagePrestations && (
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "12px 18px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>ℹ️</span>
+                <p style={{ margin: 0, fontSize: 13, color: "#777", lineHeight: 1.6 }}>{messagePrestations}</p>
               </div>
             )}
           </div>

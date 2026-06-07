@@ -105,11 +105,12 @@ export default function FinancesPage() {
     if (!salon || !newDep.montant || !newDep.date || adding) return;
     setAdding(true);
     const supabase = createSupabase();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("depenses")
       .insert({ salon_id: salon.id, categorie: newDep.categorie, montant: parseFloat(newDep.montant), date: newDep.date, note: newDep.note })
       .select()
       .single();
+    if (error) { alert("Erreur : " + error.message); setAdding(false); return; }
     if (data) setDepenses(prev => [data as Depense, ...prev]);
     setNewDep(prev => ({ ...prev, montant: "", note: "" }));
     setAdding(false);
