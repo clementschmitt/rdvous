@@ -51,7 +51,7 @@ export default function ClientDetailPage() {
 
   async function load() {
     const supabase = createSupabase();
-    const queries: Promise<any>[] = [
+    const queries = [
       supabase.from("clients").select("*").eq("id", id).single(),
       supabase.from("rendez_vous").select("id, date_heure, statut, rendez_vous_prestations(prestations(nom, tarif))").eq("client_id", id).order("date_heure", { ascending: false }),
       supabase.from("app_settings").select("nb_visites_fidelite, montant_recompense").eq("salon_id", salon!.id).single(),
