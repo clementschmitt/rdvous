@@ -147,7 +147,7 @@ export default function NouveauClientPage() {
                   label={champ.label}
                   value={champsMetier[champ.key] || ""}
                   onChange={v => setChampsMetier(prev => ({ ...prev, [champ.key]: v }))}
-                  type={champ.type === "number" ? "number" : "text"}
+                  type={(champ.type as string) === "number" ? "number" : "text"}
                 />
               );
             })}
