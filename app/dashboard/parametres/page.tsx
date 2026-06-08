@@ -4,9 +4,15 @@ import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
+import {
+  DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter,
+  type DragStartEvent, type DragEndEvent, type DragOverEvent,
+} from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
-type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
+type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
 type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
@@ -34,6 +40,8 @@ export default function ParametresPage() {
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
@@ -80,7 +88,7 @@ export default function ParametresPage() {
   async function load() {
     const supabase = createSupabase();
     const [pRes, sRes, dRes, cRes, eRes, catRes] = await Promise.all([
-      supabase.from("prestations").select("*").eq("salon_id", salon!.id).order("nom"),
+      supabase.from("prestations").select("*").eq("salon_id", salon!.id).order("ordre"),
       supabase.from("app_settings").select("*").eq("salon_id", salon!.id).single(),
       supabase.from("disponibilites").select("*").eq("salon_id", salon!.id).order("jour_semaine"),
       supabase.from("conges").select("*").eq("salon_id", salon!.id).order("date_debut"),
@@ -131,8 +139,7 @@ export default function ParametresPage() {
   }
 
   async function toggleCategorieSelection(id: string, current: string) {
-    const cycle: Record<string, "unique" | "multiple" | "libre"> = { libre: "unique", unique: "multiple", multiple: "libre" };
-    const next = cycle[current] || "libre";
+    const next: "unique" | "multiple" = current === "unique" ? "multiple" : "unique";
     const supabase = createSupabase();
     await supabase.from("prestation_categories").update({ selection_type: next }).eq("id", id);
     setCategories(cats => cats.map(c => c.id === id ? { ...c, selection_type: next } : c));
@@ -166,6 +173,71 @@ export default function ParametresPage() {
     await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis, categorie_id: editPresta.categorie_id || null }).eq("id", editPresta.id);
     setEditPrestaId(null);
     load();
+  }
+
+  function reorderItems<T extends { id: string }>(items: T[], fromId: string, toId: string): T[] {
+    const from = items.findIndex(i => i.id === fromId);
+    const to = items.findIndex(i => i.id === toId);
+    if (from === -1 || to === -1 || from === to) return items;
+    const next = [...items];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  }
+
+  async function saveCatOrder(reordered: Category[]) {
+    const supabase = createSupabase();
+    await Promise.all(reordered.map((cat, i) => supabase.from("prestation_categories").update({ ordre: i }).eq("id", cat.id)));
+  }
+
+  async function savePrestaOrder(reordered: Prestation[]) {
+    const supabase = createSupabase();
+    await Promise.all(reordered.map((p, i) => supabase.from("prestations").update({ ordre: i }).eq("id", p.id)));
+  }
+  async function savePrestaOrderAndCat(reordered: Prestation[]) {
+    const supabase = createSupabase();
+    await Promise.all(reordered.map((p, i) => supabase.from("prestations").update({ ordre: i, categorie_id: p.categorie_id }).eq("id", p.id)));
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } })
+  );
+  function handleDragStart({ active }: DragStartEvent) {
+    setActiveId(active.id as string);
+  }
+  function handleDragOver({ over }: DragOverEvent) {
+    setOverId((over?.id as string) ?? null);
+  }
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    setActiveId(null); setOverId(null);
+    if (!over || active.id === over.id) return;
+    const activeIsCategory = categories.some(c => c.id === active.id);
+    const overIsCategory = categories.some(c => c.id === over.id);
+    if (activeIsCategory && overIsCategory) {
+      const reordered = arrayMove(categories, categories.findIndex(c => c.id === active.id), categories.findIndex(c => c.id === over.id));
+      setCategories(reordered); saveCatOrder(reordered); return;
+    }
+    if (!activeIsCategory) {
+      const dragged = prestations.find(p => p.id === active.id);
+      if (!dragged) return;
+      if (overIsCategory) {
+        const targetCatId = over.id as string;
+        if (dragged.categorie_id === targetCatId) return;
+        const without = prestations.filter(p => p.id !== active.id);
+        const updated = { ...dragged, categorie_id: targetCatId };
+        const lastIdx = without.reduce((acc, p, i) => p.categorie_id === targetCatId ? i : acc, -1);
+        if (lastIdx === -1) without.push(updated); else without.splice(lastIdx + 1, 0, updated);
+        setPrestations(without); savePrestaOrderAndCat(without);
+      } else {
+        const target = prestations.find(p => p.id === over.id);
+        if (!target) return;
+        const without = prestations.filter(p => p.id !== active.id);
+        const targetIdx = without.findIndex(p => p.id === over.id);
+        without.splice(targetIdx, 0, { ...dragged, categorie_id: target.categorie_id });
+        setPrestations(without); savePrestaOrderAndCat(without);
+      }
+    }
   }
 
   async function saveDispos() {
@@ -547,115 +619,124 @@ export default function ParametresPage() {
           <SaveButton sectionKey="google_business" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
         </Section>
 
-        {/* Catégories */}
-        <Section titre="Catégories" style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-            {categories.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune catégorie.</div>}
-            {categories.map(cat => (
-              <div key={cat.id} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "8px 12px", background: "#f9f9f9", borderRadius: 8 }}>
-                {editCategorieId === cat.id ? (
-                  <>
-                    <input value={editCategorieNom} onChange={e => setEditCategorieNom(e.target.value)} style={{ flex: 1, ...miniInput }} autoFocus />
-                    <button onClick={() => saveEditCategorie(cat.id)} style={btnSmall(m.couleur)}>✓</button>
-                    <button onClick={() => setEditCategorieId(null)} style={btnSmallGhost}>✕</button>
-                  </>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, wordBreak: "break-word" }}>{cat.nom}</span>
-                      <span style={{ fontSize: 11, color: "#bbb", whiteSpace: "nowrap" }}>{prestations.filter(p => p.categorie_id === cat.id).length} presta.</span>
-                      <button onClick={() => toggleCategorieSelection(cat.id, cat.selection_type || "libre")}
-                        style={{ fontSize: 11, padding: "3px 8px", borderRadius: 20, border: `1px solid ${cat.selection_type === "libre" || !cat.selection_type ? "#ddd" : m.couleur}`, color: cat.selection_type === "libre" || !cat.selection_type ? "#aaa" : "#fff", background: cat.selection_type === "libre" || !cat.selection_type ? "transparent" : m.couleur, cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
-                        {cat.selection_type === "unique" ? "Étape unique" : cat.selection_type === "multiple" ? "Étape multi" : "Libre"}
-                      </button>
-                      <button onClick={() => { setEditCategorieId(cat.id); setEditCategorieNom(cat.nom); }} style={btnSmallGhost}>Renommer</button>
-                    </div>
-                    <button onClick={() => deleteCategorie(cat.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", flexShrink: 0 }}>✕</button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <input value={newCategorie} onChange={e => setNewCategorie(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategorie()} placeholder="Ex: Couleurs, Soins, Coupes…" style={{ flex: 1, ...miniInput }} />
-            <button onClick={addCategorie} style={{ padding: "7px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
-          </div>
-        </Section>
-
-        {/* Prestations */}
-        <Section titre="Prestations" style={{ marginTop: 16 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-            {prestations.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune prestation.</div>}
-            {prestations.map(p => (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
-                {editPrestaId === p.id && editPresta ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, minWidth: 120, ...miniInput }} placeholder="Nom" />
-                      <input type="number" value={editPresta.duree_minutes} onChange={e => setEditPresta({ ...editPresta, duree_minutes: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
-                      <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} disabled={editPresta.sur_devis} />
-                      <button onClick={saveEditPresta} style={btnSmall(m.couleur)}>✓</button>
-                      <button onClick={() => setEditPrestaId(null)} style={btnSmallGhost}>✕</button>
-                    </div>
-                    <div style={{ display: "flex", gap: 16, alignItems: "center", paddingLeft: 2 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
-                        <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked, tarif: e.target.checked ? 0 : editPresta.tarif })} style={{ accentColor: m.couleur }} />
-                        Sur devis
-                      </label>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: "#555" }}>Catégorie :</span>
-                        <select value={editPresta.categorie_id || ""} onChange={e => setEditPresta({ ...editPresta, categorie_id: e.target.value || null })}
-                          style={{ ...miniInput, fontSize: 12 }}>
-                          <option value="">— Aucune —</option>
-                          {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.nom}</option>)}
-                        </select>
+        {/* Catégories & Prestations — arborescence */}
+        <Section titre="Catégories & prestations" style={{ marginTop: 16 }}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {categories.map(cat => {
+                  const catPrestas = prestations.filter(p => p.categorie_id === cat.id);
+                  const isPrestaDropTarget = !!activeId && !categories.some(c => c.id === activeId) && overId === cat.id;
+                  return (
+                    <SortableCategoryRow
+                      key={cat.id}
+                      cat={cat}
+                      catPrestas={catPrestas}
+                      isPrestaDropTarget={isPrestaDropTarget}
+                      editCategorieId={editCategorieId}
+                      editCategorieNom={editCategorieNom}
+                      setEditCategorieNom={setEditCategorieNom}
+                      saveEditCategorie={saveEditCategorie}
+                      setEditCategorieId={setEditCategorieId}
+                      toggleCategorieSelection={toggleCategorieSelection}
+                      deleteCategorie={deleteCategorie}
+                      couleur={m.couleur}
+                      editPrestaId={editPrestaId}
+                      editPresta={editPresta}
+                      setEditPresta={setEditPresta}
+                      saveEditPresta={saveEditPresta}
+                      setEditPrestaId={setEditPrestaId}
+                      deletePresta={deletePresta}
+                      categories={categories}
+                    />
+                  );
+                })}
+                {prestations.filter(p => !p.categorie_id).length > 0 && (
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.06em", padding: "10px 4px 6px" }}>Sans catégorie</div>
+                    <SortableContext items={prestations.filter(p => !p.categorie_id).map(p => p.id)} strategy={verticalListSortingStrategy}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {prestations.filter(p => !p.categorie_id).map(p => (
+                          <SortablePrestaRow
+                            key={p.id}
+                            p={p}
+                            editPrestaId={editPrestaId}
+                            editPresta={editPresta}
+                            setEditPresta={setEditPresta}
+                            saveEditPresta={saveEditPresta}
+                            setEditPrestaId={setEditPrestaId}
+                            deletePresta={deletePresta}
+                            categories={categories}
+                            couleur={m.couleur}
+                          />
+                        ))}
                       </div>
-                    </div>
+                    </SortableContext>
                   </div>
-                ) : (
-                  <>
-                    <div style={{ flex: 2, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{p.nom}</div>
-                      {p.categorie_id && <div style={{ fontSize: 11, color: m.couleur, marginTop: 1 }}>{categories.find(c => c.id === p.categorie_id)?.nom}</div>}
-                    </div>
-                    <span style={{ flex: 1, fontSize: 13, color: "#666" }}>{p.duree_minutes} min</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: p.sur_devis ? "#aaa" : "#1a1a1a" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
-                    <button onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={btnSmallGhost}>Modifier</button>
-                    <button onClick={() => deletePresta(p.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
-                  </>
                 )}
               </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div style={{ flex: 2, minWidth: 120 }}>
-                <label style={labelStyle}>Nom *</label>
-                <input value={newPresta.nom} onChange={e => setNewPresta(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Pose complète" style={{ ...miniInput, width: "100%" }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Durée (min)</label>
-                <input type="number" value={newPresta.duree_minutes} onChange={e => setNewPresta(p => ({ ...p, duree_minutes: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Tarif (€)</label>
-                <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} disabled={newPresta.sur_devis} />
-              </div>
-              {categories.length > 0 && (
-                <div style={{ flex: 1 }}>
-                  <label style={labelStyle}>Catégorie</label>
-                  <select value={newPresta.categorie_id} onChange={e => setNewPresta(p => ({ ...p, categorie_id: e.target.value }))} style={{ ...miniInput, width: "100%" }}>
-                    <option value="">— Aucune —</option>
-                    {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.nom}</option>)}
-                  </select>
-                </div>
-              )}
-              <button onClick={addPresta} style={{ padding: "9px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
+            </SortableContext>
+            <DragOverlay>
+              {activeId ? (
+                categories.some(c => c.id === activeId) ? (
+                  <div style={{ padding: "9px 12px", background: "#f5f5f5", borderRadius: 8, boxShadow: "0 4px 14px rgba(0,0,0,0.14)", fontSize: 13, fontWeight: 700 }}>
+                    {categories.find(c => c.id === activeId)?.nom}
+                  </div>
+                ) : (
+                  <div style={{ padding: "7px 10px", background: "#fafafa", borderRadius: 6, boxShadow: "0 4px 14px rgba(0,0,0,0.14)", fontSize: 13, fontWeight: 500 }}>
+                    {prestations.find(p => p.id === activeId)?.nom}
+                  </div>
+                )
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+          {/* Nouvelle catégorie */}
+          <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 12, marginTop: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Nouvelle catégorie</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input value={newCategorie} onChange={e => setNewCategorie(e.target.value)} onKeyDown={e => e.key === "Enter" && addCategorie()} placeholder="Ex: Couleurs, Soins, Coupes…" style={{ flex: 1, ...miniInput }} />
+              <button onClick={addCategorie} style={{ padding: "7px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
-              <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked, tarif: e.target.checked ? "0" : p.tarif }))} style={{ accentColor: m.couleur }} />
-              Prix sur devis (pas de tarif fixe)
-            </label>
+          </div>
+          {/* Nouvelle prestation */}
+          <div style={{ borderTop: "1px solid #f0f0f0", paddingTop: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Nouvelle prestation</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div style={{ flex: 2, minWidth: 120 }}>
+                  <label style={labelStyle}>Nom *</label>
+                  <input value={newPresta.nom} onChange={e => setNewPresta(p => ({ ...p, nom: e.target.value }))} placeholder="Ex: Pose complète" style={{ ...miniInput, width: "100%" }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Durée (min)</label>
+                  <input type="number" value={newPresta.duree_minutes} onChange={e => setNewPresta(p => ({ ...p, duree_minutes: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Tarif (€)</label>
+                  <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} disabled={newPresta.sur_devis} />
+                </div>
+                {categories.length > 0 && (
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>Catégorie</label>
+                    <select value={newPresta.categorie_id} onChange={e => setNewPresta(p => ({ ...p, categorie_id: e.target.value }))} style={{ ...miniInput, width: "100%" }}>
+                      <option value="">— Aucune —</option>
+                      {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.nom}</option>)}
+                    </select>
+                  </div>
+                )}
+                <button onClick={addPresta} style={{ padding: "9px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
+              </div>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
+                <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked, tarif: e.target.checked ? "0" : p.tarif }))} style={{ accentColor: m.couleur }} />
+                Prix sur devis (pas de tarif fixe)
+              </label>
+            </div>
           </div>
         </Section>
         </>
@@ -1208,3 +1289,138 @@ const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWe
 const miniInput: React.CSSProperties = { padding: "7px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13, boxSizing: "border-box" };
 function btnSmall(bg: string): React.CSSProperties { return { padding: "5px 10px", background: bg, color: "#fff", border: "none", borderRadius: 5, fontSize: 12, cursor: "pointer" }; }
 const btnSmallGhost: React.CSSProperties = { padding: "5px 10px", background: "none", border: "1px solid #ddd", borderRadius: 5, fontSize: 12, cursor: "pointer", color: "#555" };
+
+type SortablePrestaRowProps = {
+  p: Prestation;
+  editPrestaId: string | null;
+  editPresta: Prestation | null;
+  setEditPresta: (v: Prestation | null) => void;
+  saveEditPresta: () => void;
+  setEditPrestaId: (id: string | null) => void;
+  deletePresta: (id: string) => void;
+  categories: Category[];
+  couleur: string;
+};
+
+function SortablePrestaRow({ p, editPrestaId, editPresta, setEditPresta, saveEditPresta, setEditPrestaId, deletePresta, categories, couleur }: SortablePrestaRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: p.id,
+    data: { type: "prestation", categorie_id: p.categorie_id },
+    disabled: editPrestaId === p.id,
+  });
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "7px 44px 7px 10px", background: "#fafafa", borderRadius: 6, border: "1px solid #f0f0f0", opacity: isDragging ? 0.4 : 1 }}>
+      {editPrestaId === p.id && editPresta ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, minWidth: 120, ...miniInput }} placeholder="Nom" />
+            <input type="number" value={editPresta.duree_minutes} onChange={e => setEditPresta({ ...editPresta, duree_minutes: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
+            <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} disabled={editPresta.sur_devis} />
+            <button onClick={saveEditPresta} style={btnSmall(couleur)}>✓</button>
+            <button onClick={() => setEditPrestaId(null)} style={btnSmallGhost}>✕</button>
+          </div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center", paddingLeft: 2 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
+              <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked, tarif: e.target.checked ? 0 : editPresta.tarif })} style={{ accentColor: couleur }} />
+              Sur devis
+            </label>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12, color: "#555" }}>Catégorie :</span>
+              <select value={editPresta.categorie_id || ""} onChange={e => setEditPresta({ ...editPresta, categorie_id: e.target.value || null })} style={{ ...miniInput, fontSize: 12 }}>
+                <option value="">— Aucune —</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <span {...listeners} {...attributes} style={{ cursor: "grab", color: "#ccc", fontSize: 14, userSelect: "none", flexShrink: 0, touchAction: "none" }}>⠿</span>
+          <div onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 2, minWidth: 0, cursor: "pointer" }}>
+            <div style={{ fontSize: 13, fontWeight: 500, textDecoration: "underline", textDecorationStyle: "dotted", textDecorationColor: "#bbb" }}>{p.nom}</div>
+          </div>
+          <span onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 1, fontSize: 12, color: "#888", cursor: "pointer" }}>{p.duree_minutes} min</span>
+          <span onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 1, fontSize: 13, fontWeight: 600, color: p.sur_devis ? "#aaa" : "#1a1a1a", cursor: "pointer" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
+          <button onClick={() => deletePresta(p.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>✕</button>
+        </>
+      )}
+    </div>
+  );
+}
+
+type SortableCategoryRowProps = {
+  cat: Category;
+  catPrestas: Prestation[];
+  isPrestaDropTarget: boolean;
+  editCategorieId: string | null;
+  editCategorieNom: string;
+  setEditCategorieNom: (v: string) => void;
+  saveEditCategorie: (id: string) => void;
+  setEditCategorieId: (id: string | null) => void;
+  toggleCategorieSelection: (id: string, current: string) => void;
+  deleteCategorie: (id: string) => void;
+  couleur: string;
+  editPrestaId: string | null;
+  editPresta: Prestation | null;
+  setEditPresta: (v: Prestation | null) => void;
+  saveEditPresta: () => void;
+  setEditPrestaId: (id: string | null) => void;
+  deletePresta: (id: string) => void;
+  categories: Category[];
+};
+
+function SortableCategoryRow({
+  cat, catPrestas, isPrestaDropTarget,
+  editCategorieId, editCategorieNom, setEditCategorieNom, saveEditCategorie, setEditCategorieId,
+  toggleCategorieSelection, deleteCategorie, couleur,
+  editPrestaId, editPresta, setEditPresta, saveEditPresta, setEditPrestaId, deletePresta, categories,
+}: SortableCategoryRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: cat.id,
+    data: { type: "category" },
+  });
+  return (
+    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 }}>
+      <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, padding: "9px 44px 9px 12px", background: isPrestaDropTarget ? `${couleur}18` : "#f5f5f5", borderRadius: 8, border: `1.5px solid ${isPrestaDropTarget ? couleur + "60" : "transparent"}` }}>
+        <span {...listeners} {...attributes} style={{ cursor: "grab", color: "#bbb", fontSize: 14, userSelect: "none", flexShrink: 0, touchAction: "none" }}>⠿</span>
+        {editCategorieId === cat.id ? (
+          <>
+            <input value={editCategorieNom} onChange={e => setEditCategorieNom(e.target.value)} style={{ flex: 1, ...miniInput }} autoFocus />
+            <button onClick={() => saveEditCategorie(cat.id)} style={btnSmall(couleur)}>✓</button>
+            <button onClick={() => setEditCategorieId(null)} style={btnSmallGhost}>✕</button>
+          </>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
+            <span onClick={() => { setEditCategorieId(cat.id); setEditCategorieNom(cat.nom); }} style={{ fontSize: 13, fontWeight: 700, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", textDecorationColor: "#bbb" }}>{cat.nom}</span>
+            <span style={{ fontSize: 11, color: "#bbb" }}>{catPrestas.length} presta.</span>
+            <button onClick={() => toggleCategorieSelection(cat.id, cat.selection_type || "multiple")}
+              style={{ fontSize: 11, padding: "3px 8px", borderRadius: 20, border: `1px solid ${cat.selection_type === "unique" ? couleur : couleur + "60"}`, color: cat.selection_type === "unique" ? "#fff" : couleur, background: cat.selection_type === "unique" ? couleur : "transparent", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>
+              {cat.selection_type === "unique" ? "Choix unique" : "Choix multiple"}
+            </button>
+          </div>
+        )}
+        {editCategorieId !== cat.id && <button onClick={() => deleteCategorie(cat.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>✕</button>}
+      </div>
+      {catPrestas.length > 0 && (
+        <SortableContext items={catPrestas.map(p => p.id)} strategy={verticalListSortingStrategy}>
+          <div style={{ marginLeft: 22, borderLeft: "2px solid #eee", paddingLeft: 10, paddingTop: 3, display: "flex", flexDirection: "column", gap: 3 }}>
+            {catPrestas.map(p => (
+              <SortablePrestaRow
+                key={p.id}
+                p={p}
+                editPrestaId={editPrestaId}
+                editPresta={editPresta}
+                setEditPresta={setEditPresta}
+                saveEditPresta={saveEditPresta}
+                setEditPrestaId={setEditPrestaId}
+                deletePresta={deletePresta}
+                categories={categories}
+                couleur={couleur}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      )}
+    </div>
+  );
+}
