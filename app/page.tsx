@@ -94,6 +94,8 @@ export default function HomePage() {
           .rdv-search-bar { flex-direction: column !important; }
           .rdv-search-nom { border-right: none !important; border-bottom: 1px solid rgba(200,180,160,0.3) !important; }
           .rdv-search-btn { margin: 0 !important; border-radius: 0 0 10px 10px !important; padding: 13px 28px !important; }
+          .rdv-ville-row { position: relative !important; padding-right: 50px !important; padding-bottom: 14px !important; }
+          .rdv-geo-btn { position: absolute !important; right: 8px !important; top: 50% !important; transform: translateY(-50%) !important; }
           .rdv-cat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
           .rdv-etab-grid { grid-template-columns: 1fr !important; }
           .rdv-why-grid { grid-template-columns: 1fr !important; }
@@ -111,10 +113,10 @@ export default function HomePage() {
         <nav className="rdv-nav" style={{ background:"rgba(250,248,245,0.92)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
           <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, letterSpacing:"0.03em", color:"#1a1614" }}>rdvous</span>
           <div className="rdv-nav-links" style={{ display:"flex", alignItems:"center", gap:20 }}>
-            <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Inscrire mon entreprise</Link>
-            <Link href="/mon-compte" style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none", display:"flex", alignItems:"center", gap:7 }}>
+            <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Espace pro</Link>
+            <Link href="/login" style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none", display:"flex", alignItems:"center", gap:7 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-              Mon compte
+              Se connecter
             </Link>
           </div>
           <button className="rdv-hamburger" onClick={() => setMenuOpen(o => !o)}
@@ -124,8 +126,8 @@ export default function HomePage() {
         </nav>
         {menuOpen && (
           <div style={{ background:"rgba(250,248,245,0.98)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"4px 24px 12px", display:"flex", flexDirection:"column" }}>
-            <Link href="/mon-compte" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:"#6a5a4a", textDecoration:"none", borderBottom:"1px solid rgba(200,180,160,0.15)", display:"block" }}>Mon compte</Link>
-            <Link href="/pro" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:"#1a1614", textDecoration:"none", display:"block" }}>Inscrire mon entreprise →</Link>
+            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:"#6a5a4a", textDecoration:"none", borderBottom:"1px solid rgba(200,180,160,0.15)", display:"block" }}>Se connecter</Link>
+            <Link href="/pro" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:"#1a1614", textDecoration:"none", display:"block" }}>Espace pro →</Link>
           </div>
         )}
       </div>
@@ -162,7 +164,7 @@ export default function HomePage() {
 
           {/* Barre de recherche glassmorphism */}
           <div ref={searchRef} style={{ position:"relative" }}>
-            <div className="rdv-search-bar" style={{ display:"flex", gap:0, background:"rgba(255,255,255,0.75)", backdropFilter:"blur(20px)", border:"1px solid rgba(255,255,255,0.9)", borderRadius:18, padding:8, boxShadow:"0 20px 60px rgba(100,80,60,0.15), 0 2px 8px rgba(100,80,60,0.08)" }}>
+            <div className="rdv-search-bar" style={{ display:"flex", gap:0, background:"rgba(255,255,255,0.75)", backdropFilter:"blur(20px)", border:"1px solid rgba(255,255,255,0.9)", borderRadius:18, padding:8, boxShadow:"0 20px 60px rgba(100,80,60,0.15), 0 2px 8px rgba(100,80,60,0.08)", overflow:"hidden" }}>
               <div className="rdv-search-nom" style={{ flex:2, display:"flex", alignItems:"center", gap:10, padding:"8px 16px", borderRight:"1px solid rgba(200,180,160,0.3)" }}>
                 <span style={{ fontSize:16, opacity:0.5 }}>🔍</span>
                 <input
@@ -173,7 +175,7 @@ export default function HomePage() {
                   style={{ flex:1, border:"none", background:"transparent", fontSize:15, color:"#1a1614", outline:"none", fontFamily:"inherit" }}
                 />
               </div>
-              <div style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"8px 16px" }}>
+              <div className="rdv-ville-row" style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"8px 16px" }}>
                 <span style={{ fontSize:16, opacity:0.5 }}>📍</span>
                 <input
                   value={ville}
@@ -181,7 +183,7 @@ export default function HomePage() {
                   placeholder="Ville, quartier…"
                   style={{ flex:1, border:"none", background:"transparent", fontSize:15, color:"#1a1614", outline:"none", fontFamily:"inherit" }}
                 />
-                <button onClick={geolocate} disabled={geoLoading} title="Me géolocaliser"
+                <button onClick={geolocate} disabled={geoLoading} title="Me géolocaliser" className="rdv-geo-btn"
                   style={{ padding:"8px 10px", background:"rgba(200,180,160,0.2)", border:"1px solid rgba(200,180,160,0.4)", borderRadius:10, cursor:"pointer", fontSize:15, color:"#6a5a4a", flexShrink:0 }}>
                   {geoLoading ? "…" : (
                     <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -363,8 +365,9 @@ export default function HomePage() {
         <div style={{ display:"flex", gap:24 }}>
           <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Espace pro</Link>
           <Link href="/mon-compte" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Mon compte</Link>
+          <Link href="/mentions-legales" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Mentions légales</Link>
         </div>
-        <span style={{ fontSize:12, color:"#b8a898" }}>© 2025 rdvous</span>
+        <span style={{ fontSize:12, color:"#b8a898" }}>© 2026 rdvous</span>
       </footer>
 
     </div>
