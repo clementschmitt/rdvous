@@ -10,6 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
@@ -539,7 +540,7 @@ export default function ParametresPage() {
   const isFree = plan === "free";
 
   return (
-    <div className="params-wrap" style={{ padding: 32, maxWidth: 760, margin: "0 auto", overflowX: "hidden" }}>
+    <div className="params-wrap" style={{ padding: 32, maxWidth: 960, margin: "0 auto", overflowX: "hidden" }}>
       <style>{`
         @media (max-width: 640px) {
           .params-wrap { padding: 16px !important; }
@@ -547,6 +548,9 @@ export default function ParametresPage() {
           .params-abo { flex-direction: column !important; align-items: flex-start !important; }
           .params-tabs { display: none !important; }
           .params-select { display: block !important; }
+          .horaire-row { flex-wrap: wrap !important; }
+          .horaire-jour { width: 100% !important; margin-bottom: 4px; }
+          .horaire-plages { padding-left: 0 !important; }
         }
       `}</style>
 
@@ -746,42 +750,45 @@ export default function ParametresPage() {
       {tab === "dispos" && (
         <>
           <Section titre="Horaires de travail">
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", flexDirection: "column" }}>
               {JOURS.map((jour, i) => (
-                <div key={i} style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: dispos[i].actif ? 10 : 0 }}>
+                <div key={i} className="horaire-row" style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "10px 0", borderBottom: i < JOURS.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+                  {/* Toggle + jour */}
+                  <div className="horaire-jour" style={{ display: "flex", alignItems: "center", gap: 10, width: 130, flexShrink: 0, paddingTop: 4 }}>
                     <button type="button" onClick={() => setDispos(d => d.map((j, idx) => idx === i ? { ...j, actif: !j.actif } : j))}
-                      style={{ flexShrink: 0, width: 36, height: 20, borderRadius: 10, border: "none", background: dispos[i].actif ? m.couleur : "#ddd", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
-                      <div style={{ position: "absolute", top: 2, left: dispos[i].actif ? 18 : 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
+                      style={{ flexShrink: 0, width: 32, height: 18, borderRadius: 9, border: "none", background: dispos[i].actif ? m.couleur : "#e0e0e0", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                      <div style={{ position: "absolute", top: 2, left: dispos[i].actif ? 16 : 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.15)" }} />
                     </button>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: dispos[i].actif ? "#1a1a1a" : "#bbb", minWidth: 80 }}>{jour}</span>
-                    {!dispos[i].actif && <span style={{ fontSize: 12, color: "#ccc" }}>Fermé</span>}
+                    <span style={{ fontSize: 13, fontWeight: 600, color: dispos[i].actif ? "#1a1a1a" : "#bbb" }}>{jour}</span>
                   </div>
-                  {dispos[i].actif && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 48 }}>
+                  {/* Horaires */}
+                  {dispos[i].actif ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
                       {dispos[i].plages.map((plage, pi) => (
                         <div key={pi} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <input type="time" value={plage.heure_debut} onChange={e => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.map((p, pidx) => pidx === pi ? { ...p, heure_debut: e.target.value } : p) } : j))}
-                            style={{ ...miniInput, width: 110 }} />
-                          <span style={{ fontSize: 12, color: "#999" }}>→</span>
+                            style={{ ...miniInput, width: 105 }} />
+                          <span style={{ fontSize: 12, color: "#ccc" }}>—</span>
                           <input type="time" value={plage.heure_fin} onChange={e => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.map((p, pidx) => pidx === pi ? { ...p, heure_fin: e.target.value } : p) } : j))}
-                            style={{ ...miniInput, width: 110 }} />
+                            style={{ ...miniInput, width: 105 }} />
                           {dispos[i].plages.length > 1 && (
                             <button onClick={() => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.filter((_, pidx) => pidx !== pi) } : j))}
-                              style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", padding: "4px 8px" }}>✕</button>
+                              style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>✕</button>
                           )}
                         </div>
                       ))}
                       <button onClick={() => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: [...j.plages, defaultPlage()] } : j))}
-                        style={{ alignSelf: "flex-start", fontSize: 12, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
+                        style={{ alignSelf: "flex-start", fontSize: 11, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
                         + Ajouter une pause
                       </button>
                     </div>
+                  ) : (
+                    <span style={{ fontSize: 12, color: "#ccc", paddingTop: 5 }}>Fermé</span>
                   )}
                 </div>
               ))}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
               <button onClick={saveDispos} disabled={savingDispos}
                 style={{ padding: "8px 20px", background: savedDispos ? "#27ae60" : m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }}>
                 {savingDispos ? "Enregistrement…" : savedDispos ? "✓ Enregistré" : "Enregistrer"}
@@ -789,192 +796,16 @@ export default function ParametresPage() {
             </div>
           </Section>
 
-          <Section titre="Congés & fermetures" style={{ marginTop: 16 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-              {conges.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune période de fermeture.</div>}
-              {conges.map(c => (
-                <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{c.libelle || "Fermeture"}</span>
-                  <span style={{ fontSize: 12, color: "#666" }}>{c.date_debut} → {c.date_fin}</span>
-                  <button onClick={() => c.id && deleteConge(c.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
-                </div>
-              ))}
+          <Section titre="Disponibilités" style={{ marginTop: 16 }}>
+            <div style={{ fontSize: 12, color: "#999", marginBottom: 12, lineHeight: 1.6 }}>
+              Cliquez sur un jour pour le modifier. Glissez sur plusieurs jours pour poser une fermeture ou des horaires personnalisés.
             </div>
-            <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div>
-                <label style={labelStyle}>Date début</label>
-                <input type="date" value={newConge.date_debut} onChange={e => setNewConge(c => ({ ...c, date_debut: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Date fin</label>
-                <input type="date" value={newConge.date_fin} onChange={e => setNewConge(c => ({ ...c, date_fin: e.target.value }))} style={{ ...miniInput, width: "100%" }} />
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>Libellé (optionnel)</label>
-              <input value={newConge.libelle} onChange={e => setNewConge(c => ({ ...c, libelle: e.target.value }))} placeholder="Ex: Vacances d'été" style={{ ...miniInput, width: "100%", boxSizing: "border-box" }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={addConge} style={{ padding: "8px 20px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                Ajouter
-              </button>
-            </div>
-          </Section>
-
-          <Section titre="Horaires exceptionnels" style={{ marginTop: 16 }}>
-            <div style={{ background: "#f8f8f8", border: "1px solid #ebebeb", borderRadius: 8, padding: "10px 14px", fontSize: 12, color: "#666", lineHeight: 1.7 }}>
-              <div style={{ fontWeight: 700, color: "#444", marginBottom: 4 }}>Ordre de priorité</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <div>🔵 <strong>Horaires de travail</strong> — votre planning habituel, appliqué par défaut</div>
-                <div>🟡 <strong>Période</strong> — remplace les horaires habituels sur une plage de dates</div>
-                <div>🔴 <strong>Jour unique (Prioritaire)</strong> — toujours appliqué en dernier, écrase tout</div>
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
-              {exceptions.length === 0 && <div style={{ fontSize: 13, color: "#bbb" }}>Aucune exception à venir.</div>}
-              {exceptions.map(ex => (
-                <div key={ex.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#f9f9f9", borderRadius: 8 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, minWidth: 100 }}>{new Date(ex.date + "T12:00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
-                  {ex.ferme ? (
-                    <span style={{ fontSize: 13, color: "#e74c3c", fontWeight: 600 }}>Fermé</span>
-                  ) : (
-                    <span style={{ fontSize: 13, color: "#555", flex: 1 }}>
-                      {ex.plages.map((p, i) => <span key={i}>{i > 0 ? " · " : ""}{p.heure_debut}–{p.heure_fin}</span>)}
-                    </span>
-                  )}
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: ex.type === "periode" ? "#f0f0f0" : m.couleur + "18", color: ex.type === "periode" ? "#aaa" : m.couleur, marginLeft: 4 }}>
-                    {ex.type === "periode" ? "Période" : "Prioritaire"}
-                  </span>
-                  <button onClick={() => startEditException(ex)} style={{ ...btnSmallGhost, marginLeft: "auto" }}>✏️</button>
-                  <button onClick={() => deleteException(ex.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>✕</button>
-                </div>
-              ))}
-            </div>
-            {/* Toggle mode */}
-            <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3, alignSelf: "flex-start" }}>
-              {(["single", "period"] as const).map(mode => (
-                <button key={mode} onClick={() => setExceptionMode(mode)}
-                  style={{ padding: "6px 16px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: exceptionMode === mode ? "#fff" : "transparent", color: exceptionMode === mode ? "#1a1a1a" : "#999", boxShadow: exceptionMode === mode ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
-                  {mode === "single" ? "Jour unique" : "Période"}
-                </button>
-              ))}
-            </div>
-
-            {/* Jour unique */}
-            {exceptionMode === "single" && (
-              <div ref={exceptionFormRef} style={{ border: `1px solid ${editingExceptionId ? m.couleur + "60" : "#f0f0f0"}`, borderRadius: 8, padding: "14px 14px 10px" }}>
-                {editingExceptionId && (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: m.couleur, background: m.couleur + "12", borderRadius: 6, padding: "4px 10px", marginBottom: 10, display: "inline-block" }}>
-                    ✏️ Mode édition
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 10 }}>
-                  <div>
-                    <label style={labelStyle}>Date</label>
-                    <input type="date" value={newException.date} onChange={e => setNewException(ex => ({ ...ex, date: e.target.value }))} style={{ ...miniInput }} />
-                  </div>
-                  <div style={{ display: "flex", gap: 8, paddingBottom: 2 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${!newException.ferme ? m.couleur : "#e0e0e0"}`, borderRadius: 7, background: !newException.ferme ? m.couleur + "12" : "#fff" }}>
-                      <input type="radio" name="exFerme" checked={!newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: false }))} style={{ accentColor: m.couleur }} />
-                      Horaires spéciaux
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", padding: "7px 12px", border: `1.5px solid ${newException.ferme ? "#e74c3c" : "#e0e0e0"}`, borderRadius: 7, background: newException.ferme ? "#fef2f2" : "#fff" }}>
-                      <input type="radio" name="exFerme" checked={newException.ferme} onChange={() => setNewException(ex => ({ ...ex, ferme: true }))} />
-                      Fermé ce jour
-                    </label>
-                  </div>
-                </div>
-                {!newException.ferme && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                    {newException.plages.map((plage, pi) => (
-                      <div key={pi} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <input type="time" value={plage.heure_debut} onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_debut: e.target.value } : p) }))} style={{ ...miniInput, width: 110 }} />
-                        <span style={{ fontSize: 12, color: "#999" }}>→</span>
-                        <input type="time" value={plage.heure_fin} onChange={e => setNewException(ex => ({ ...ex, plages: ex.plages.map((p, i) => i === pi ? { ...p, heure_fin: e.target.value } : p) }))} style={{ ...miniInput, width: 110 }} />
-                        {newException.plages.length > 1 && (
-                          <button onClick={() => setNewException(ex => ({ ...ex, plages: ex.plages.filter((_, i) => i !== pi) }))} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", padding: "4px 8px" }}>✕</button>
-                        )}
-                      </div>
-                    ))}
-                    <button onClick={() => setNewException(ex => ({ ...ex, plages: [...ex.plages, defaultPlage()] }))} style={{ alignSelf: "flex-start", fontSize: 12, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>+ Ajouter une pause</button>
-                  </div>
-                )}
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                  {editingExceptionId && (
-                    <button onClick={cancelEditException} style={{ padding: "8px 16px", background: "#fff", color: "#666", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
-                  )}
-                  <button onClick={addException} disabled={!newException.date} style={{ padding: "8px 20px", background: newException.date ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newException.date ? "pointer" : "not-allowed" }}>{editingExceptionId ? "Modifier" : "Ajouter"}</button>
-                </div>
-              </div>
-            )}
-
-            {/* Période */}
-            {exceptionMode === "period" && (
-              <div style={{ border: "1px solid #f0f0f0", borderRadius: 8, padding: "14px 14px 12px" }}>
-                {/* Dates */}
-                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                  <div>
-                    <label style={labelStyle}>Du</label>
-                    <input type="date" value={newPeriod.date_debut} onChange={e => setNewPeriod(p => ({ ...p, date_debut: e.target.value }))} style={{ ...miniInput }} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Au</label>
-                    <input type="date" value={newPeriod.date_fin} onChange={e => setNewPeriod(p => ({ ...p, date_fin: e.target.value }))} style={{ ...miniInput }} />
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
-                    <label style={labelStyle}>Horaires communs</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <input type="time" value={newPeriod.commonDebut}
-                        onChange={e => setNewPeriod(p => ({ ...p, commonDebut: e.target.value, jours: p.jours.map(j => ({ ...j, heure_debut: e.target.value })) }))}
-                        style={{ ...miniInput, width: 100 }} />
-                      <span style={{ fontSize: 12, color: "#999" }}>→</span>
-                      <input type="time" value={newPeriod.commonFin}
-                        onChange={e => setNewPeriod(p => ({ ...p, commonFin: e.target.value, jours: p.jours.map(j => ({ ...j, heure_fin: e.target.value })) }))}
-                        style={{ ...miniInput, width: 100 }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ligne par jour */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
-                  {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((nom, i) => {
-                    const jour = newPeriod.jours[i];
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 7, background: jour.actif ? "#fafafa" : "#f5f5f5", opacity: jour.actif ? 1 : 0.5 }}>
-                        <button onClick={() => setNewPeriod(p => ({ ...p, jours: p.jours.map((j, idx) => idx === i ? { ...j, actif: !j.actif } : j) }))}
-                          style={{ flexShrink: 0, width: 32, height: 18, borderRadius: 9, border: "none", background: jour.actif ? m.couleur : "#ddd", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
-                          <div style={{ position: "absolute", top: 2, left: jour.actif ? 16 : 2, width: 14, height: 14, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
-                        </button>
-                        <span style={{ fontSize: 12, fontWeight: 700, minWidth: 26, color: jour.actif ? "#333" : "#bbb" }}>{nom}</span>
-                        {jour.actif ? (
-                          <>
-                            <input type="time" value={jour.heure_debut}
-                              onChange={e => setNewPeriod(p => ({ ...p, jours: p.jours.map((j, idx) => idx === i ? { ...j, heure_debut: e.target.value } : j) }))}
-                              style={{ ...miniInput, width: 95, fontSize: 12 }} />
-                            <span style={{ fontSize: 11, color: "#bbb" }}>→</span>
-                            <input type="time" value={jour.heure_fin}
-                              onChange={e => setNewPeriod(p => ({ ...p, jours: p.jours.map((j, idx) => idx === i ? { ...j, heure_fin: e.target.value } : j) }))}
-                              style={{ ...miniInput, width: 95, fontSize: 12 }} />
-                          </>
-                        ) : (
-                          <span style={{ fontSize: 12, color: "#ccc" }}>Fermé</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "#999" }}>
-                    {getPeriodPreview() > 0 ? `${getPeriodPreview()} jour${getPeriodPreview() > 1 ? "s" : ""} concerné${getPeriodPreview() > 1 ? "s" : ""}` : ""}
-                  </span>
-                  <button onClick={addPeriod} disabled={!newPeriod.date_debut || !newPeriod.date_fin || getPeriodPreview() === 0}
-                    style={{ padding: "8px 20px", background: getPeriodPreview() > 0 ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: getPeriodPreview() > 0 ? "pointer" : "not-allowed" }}>
-                    Générer {getPeriodPreview() > 0 ? `(${getPeriodPreview()})` : ""}
-                  </button>
-                </div>
-              </div>
-            )}
+            <DisponibilitesCalendrier
+              salonId={salon!.id}
+              couleur={m.couleur}
+              salonNom={salon!.nom}
+              onReload={load}
+            />
           </Section>
 
           <Section titre="Réservation en ligne" style={{ marginTop: 16 }}>

@@ -115,6 +115,28 @@ export function templateNouveauRdv({ clientPrenom, clientNom, clientTel, clientE
     </div>`;
 }
 
+export function templateAnnulation({ prenom, salonNom, dateStr, heureStr, prestations }: {
+  prenom: string;
+  salonNom: string;
+  dateStr: string;
+  heureStr: string;
+  prestations: { nom: string }[];
+}) {
+  const prestationsStr = prestations.map(p => p.nom).join(", ");
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+      <div style="background:#fef2f2;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #e74c3c">
+        <div style="font-size:15px;font-weight:700;color:#c0392b;margin-bottom:4px">Rendez-vous annulé</div>
+        <div style="font-size:22px;font-weight:700;margin-top:8px">${dateStr} à ${heureStr}</div>
+        <div style="font-size:14px;color:#666;margin-top:4px">${salonNom}</div>
+      </div>
+      <p style="font-size:14px;line-height:1.6">Bonjour ${prenom},</p>
+      <p style="font-size:14px;line-height:1.6">Nous vous informons que votre rendez-vous du <strong>${dateStr} à ${heureStr}</strong> chez <strong>${salonNom}</strong> a été annulé.</p>
+      ${prestationsStr ? `<p style="font-size:14px;color:#666;margin:0">Prestation(s) : ${prestationsStr}</p>` : ""}
+      <p style="font-size:14px;line-height:1.6;color:#666;margin-top:16px">Nous vous invitons à reprendre rendez-vous dès que possible. Toutes nos excuses pour la gêne occasionnée.</p>
+    </div>`;
+}
+
 export function templateRelance({ prenom, salonNom, contenu }: {
   prenom: string;
   salonNom: string;
