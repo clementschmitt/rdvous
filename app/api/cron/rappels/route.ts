@@ -28,9 +28,11 @@ export async function GET(req: NextRequest) {
   let sent = 0;
   for (const rdv of rdvs || []) {
     const salonCfg = (salonSettings || []).find(s => s.salon_id === rdv.salon_id);
-    if (salonCfg?.email_rappel_active === false) continue;
     const client = rdv.clients as unknown as { prenom: string; email: string | null; telephone: string | null } | null;
     if (!client?.email && !client?.telephone) continue;
+    const emailEnabled = salonCfg?.email_rappel_active !== false;
+    const smsEnabled = salonCfg?.sms_active === true;
+    if (!emailEnabled && !smsEnabled) continue;
 
     const salon = rdv.salons as unknown as { nom: string } | null;
     const prestations = (rdv.rendez_vous_prestations as unknown as { prestations: { nom: string; tarif: number; sur_devis: boolean } | null }[])
@@ -40,7 +42,7 @@ export async function GET(req: NextRequest) {
     const dateStr = new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     const heureStr = rdv.date_heure.slice(11, 16);
 
-    if (salonCfg?.email_rappel_active !== false && client.email) {
+    if (emailEnabled && client.email) {
       await sendEmail({
         to: client.email,
         toName: client.prenom,
@@ -50,7 +52,7 @@ export async function GET(req: NextRequest) {
         replyTo: salonCfg?.email_expediteur || undefined,
       });
     }
-    if (salonCfg?.sms_active && client.telephone) {
+    if (smsEnabled && client.telephone) {
       const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id });
       if (canSend) {
         await sendSMS({

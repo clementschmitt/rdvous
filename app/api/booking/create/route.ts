@@ -78,14 +78,23 @@ export async function POST(req: NextRequest) {
 
     // SMS de confirmation au client
     if (settings?.sms_active && telephone) {
-      const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id });
-      if (canSend) {
-        await sendSMS({
-          to: telephone,
-          content: smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr, contenu: settings?.sms_message_confirmation }),
-          sender: settings?.sms_expediteur || salonData?.nom || undefined,
-        });
+      try {
+        const { data: canSend, error: rpcError } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id });
+        if (rpcError) { console.error("SMS: decrement_sms_credits error:", rpcError); }
+        else if (!canSend) { console.warn("SMS: pas de crédits disponibles pour", salon_id); }
+        else {
+          await sendSMS({
+            to: telephone,
+            content: smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr, contenu: settings?.sms_message_confirmation }),
+            sender: settings?.sms_expediteur || salonData?.nom || undefined,
+          });
+        }
+      } catch (smsErr) {
+        console.error("SMS confirmation failed:", smsErr);
       }
+    } else {
+      if (!settings?.sms_active) console.log("SMS: désactivé pour", salon_id);
+      if (!telephone) console.warn("SMS: pas de numéro de téléphone");
     }
 
     // Notification nouveau RDV à l'artisan
