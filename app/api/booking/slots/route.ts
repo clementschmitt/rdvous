@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
 
   const [{ data: templatePlages }, { data: rdvs }, { data: exception }, { data: settings }, { data: conges }] = await Promise.all([
     admin.from("disponibilites").select("heure_debut, heure_fin").eq("salon_id", salon_id).eq("jour_semaine", jourSemaine),
+
     admin.from("rendez_vous")
       .select("date_heure, duree_minutes, rendez_vous_prestations(prestations(duree_minutes))")
       .eq("salon_id", salon_id)
@@ -22,9 +23,17 @@ export async function GET(req: NextRequest) {
       .gte("date_heure", `${date}T00:00:00`)
       .lte("date_heure", `${date}T23:59:59`),
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
-    admin.from("app_settings").select("delai_min_reservation_heures").eq("salon_id", salon_id).single(),
+    admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours").eq("salon_id", salon_id).single(),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
   ]);
+
+  // Horizon de planification : date au-delà de la limite
+  const horizonJours = settings?.planning_horizon_jours ?? 0;
+  if (horizonJours > 0) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const maxDate = new Date(today); maxDate.setDate(today.getDate() + horizonJours);
+    if (new Date(date + "T12:00:00") > maxDate) return NextResponse.json({ slots: [] });
+  }
 
   // Fermeture exceptionnelle (congés) : date dans une période de fermeture
   if (conges && conges.length > 0) return NextResponse.json({ slots: [] });

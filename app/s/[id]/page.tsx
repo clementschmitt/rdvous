@@ -29,6 +29,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const googleNote = (s?.google_note as number | undefined) || null;
   const googleNbAvis = (s?.google_nb_avis as number | undefined) || null;
   const delaiMinReservationHeures = (s?.delai_min_reservation_heures as number | undefined) || 0;
+  const planningHorizonJours = (s?.planning_horizon_jours as number | undefined) || 0;
   const messagePrestations = (s?.message_prestations as string | undefined) || "";
   return {
     salon,
@@ -41,6 +42,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     googleNote,
     googleNbAvis,
     delaiMinReservationHeures,
+    planningHorizonJours,
   };
 }
 

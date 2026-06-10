@@ -21,7 +21,7 @@ function getMondayOfWeek(offset: number) {
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function BookingWidget({
-  salonId, prestations, categories = [], couleur, deplacement, delaiMinHeures = 0, salonTel,
+  salonId, prestations, categories = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, salonTel,
 }: {
   salonId: string;
   prestations: Prestation[];
@@ -29,6 +29,7 @@ export default function BookingWidget({
   couleur: string;
   deplacement?: string;
   delaiMinHeures?: number;
+  planningHorizonJours?: number;
   salonTel?: string;
 }) {
   const [step, setStep] = useState<"select" | "contact" | "done">("select");
@@ -71,6 +72,9 @@ export default function BookingWidget({
   const monday = getMondayOfWeek(weekOffset);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const today = toISO(new Date());
+  const maxDate = planningHorizonJours > 0 ? toISO(addDays(new Date(), planningHorizonJours)) : null;
+  const maxWeekOffset = maxDate ? Math.floor((new Date(maxDate).getTime() - new Date().getTime()) / (7 * 86400000)) : Infinity;
+  const atMaxWeek = weekOffset >= maxWeekOffset;
 
   useEffect(() => {
     if (stepCategories.length > 0 && !openStepId) setOpenStepId(stepCategories[0].id);
@@ -260,9 +264,14 @@ export default function BookingWidget({
         <span style={{ fontSize: 12, fontWeight: 600, color: "#666" }}>
           {monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} — {addDays(monday, 6).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
         </span>
-        <button onClick={() => { setWeekOffset(w => w + 1); setSelectedDay(null); }}
-          style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 6, padding: "4px 10px", cursor: "pointer", color: "#555", fontSize: 16 }}>›</button>
+        <button onClick={() => { if (!atMaxWeek) { setWeekOffset(w => w + 1); setSelectedDay(null); } }} disabled={atMaxWeek}
+          style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 6, padding: "4px 10px", cursor: atMaxWeek ? "not-allowed" : "pointer", color: atMaxWeek ? "#ccc" : "#555", fontSize: 16 }}>›</button>
       </div>
+      {atMaxWeek && (
+        <div style={{ textAlign: "center", fontSize: 12, color: "#92400e", marginBottom: 8, padding: "8px 12px", background: "#fef3c7", borderRadius: 8, fontWeight: 500 }}>
+          Les réservations ne sont pas encore ouvertes au-delà de cette période.
+        </div>
+      )}
       {loadingSlots ? (
         <div style={{ textAlign: "center", padding: "20px 0", fontSize: 13, color: "#bbb" }}>Chargement…</div>
       ) : (
