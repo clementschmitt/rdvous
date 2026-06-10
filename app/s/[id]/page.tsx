@@ -200,7 +200,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
             {prestations.length > 0 && (
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", overflow: "hidden" }}>
                 <div style={{ padding: "16px 22px", borderBottom: "1px solid #f5f5f5" }}>
-                  <h2 style={{ fontSize: 11, fontWeight: 700, color: "#bbb", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>{prestationsLabel}</h2>
+                  <h2 style={{ fontSize: 20, fontWeight: 600, color: "#666", margin: 0 }}>{prestationsLabel}</h2>
                 </div>
                 {hasGroups ? (
                   groups.map(({ label, items }) => (
@@ -235,9 +235,9 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
 
             {/* Message informatif prestations */}
             {messagePrestations && (
-              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "12px 18px", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <span style={{ fontSize: 15, flexShrink: 0, marginTop: 1 }}>ℹ️</span>
-                <p style={{ margin: 0, fontSize: 13, color: "#777", lineHeight: 1.6 }}>{messagePrestations}</p>
+              <div style={{ background: "#fffbeb", borderRadius: 12, border: "1px solid #fde68a", padding: "14px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>ℹ️</span>
+                <p style={{ margin: 0, fontSize: 15, color: "#92400e", lineHeight: 1.6, fontWeight: 500 }}>{messagePrestations}</p>
               </div>
             )}
           </div>
