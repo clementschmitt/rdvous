@@ -75,7 +75,7 @@ function NouveauRDVContent() {
         .gte("date_heure", debut.toISOString())
         .lt("date_heure", fin.toISOString());
       if ((count ?? 0) >= 30) {
-        setError("Limite de 30 rendez-vous/mois atteinte. Passez à l'offre Indépendant pour continuer.");
+        setError("Limite de 30 rendez-vous/mois atteinte. Passez à l'offre Pro pour continuer.");
         setLoading(false);
         return;
       }

@@ -165,7 +165,7 @@ export default function StatsPage() {
             <div style={{ fontSize: 12, color: "#999" }}>Taux d'annulation · Top clientes · Projection CA · Graphiques évolution & répartition</div>
           </div>
           <a href="/dashboard/parametres" style={{ marginLeft: "auto", padding: "7px 16px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
-            Passer à Business — 39€/mois
+            Passer à Business — 49€/mois
           </a>
         </div>
         {/* Contenu flouté */}
@@ -241,10 +241,10 @@ export default function StatsPage() {
       {isFree ? (
         <div style={{ ...cardStyle, textAlign: "center", padding: "48px 32px" }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Stats disponibles en plan Indépendant</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Stats disponibles en plan Pro</div>
           <div style={{ fontSize: 13, color: "#999", marginBottom: 24 }}>Suivez votre CA, vos heures de travail et vos prestations les plus rentables.</div>
           <a href="/dashboard/parametres" style={{ padding: "10px 24px", background: m.couleur, color: "#fff", borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-            Passer à 19€/mois
+            Passer à 29€/mois
           </a>
         </div>
       ) : loading ? (
@@ -323,7 +323,7 @@ export default function StatsPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#555", textAlign: "center" }}>Graphique de répartition CA</div>
                       <div style={{ fontSize: 11, color: "#aaa", textAlign: "center" }}>Disponible en plan Business</div>
                       <a href="/dashboard/parametres" style={{ marginTop: 4, padding: "8px 16px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
-                        Passer à Business — 39€/mois
+                        Passer à Business — 49€/mois
                       </a>
                     </div>
                   )

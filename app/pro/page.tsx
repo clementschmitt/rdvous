@@ -107,7 +107,7 @@ const PLANS = [
 
 const TEMOIGNAGES = [
   { prenom: "Marie-Sophie", metier: "Onglérie, Lyon", note: 5, texte: "J'ai arrêté de perdre du temps avec mon carnet papier. Les rappels automatiques ont divisé mes annulations par trois. Je ne reviendrai pas en arrière." },
-  { prenom: "Karim", metier: "Barber, Paris 10e", note: 5, texte: "19€ par mois et j'ai l'impression d'avoir une assistante. Le système de fidélité a vraiment fidélisé mes clients réguliers." },
+  { prenom: "Karim", metier: "Barber, Paris 10e", note: 5, texte: "29€ par mois et j'ai l'impression d'avoir une assistante. Le système de fidélité a vraiment fidélisé mes clients réguliers." },
   { prenom: "Élise", metier: "Institut de beauté, Bordeaux", note: 5, texte: "Ce qui m'a convaincu c'est que l'outil comprend mon métier. Les fiches capsules pour mes clientes gel, ça change tout." },
 ];
 
@@ -205,6 +205,8 @@ export default function ProPage() {
     <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip" }}>
       <style>{`
         .pro-hamburger { display: none; }
+        .pro-bounce { animation: proBounce 1.6s ease-in-out infinite; }
+        @keyframes proBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
         @media (max-width: 640px) {
           .pro-nav { padding: 0 16px !important; }
           .pro-nav-links { display: none !important; }
@@ -409,6 +411,57 @@ export default function ProPage() {
                 }
               </div>
             ))}
+          </div>
+
+          {/* Accroche vers les agents IA */}
+          <a href="#agents" style={{ display:"block", textAlign:"center", marginTop:64, textDecoration:"none" }}>
+            <p style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(22px,3vw,32px)", fontWeight:500, color:C.text, margin:"0 0 12px" }}>
+              Et si vous alliez plus loin avec votre <span style={{ color:C.gold, fontStyle:"italic" }}>propre agent intelligent</span> ?
+            </p>
+            <span className="pro-bounce" style={{ display:"inline-block", fontSize:32, color:C.gold, lineHeight:1 }}>↓</span>
+          </a>
+        </div>
+      </section>
+
+      {/* ── AGENTS IA ── */}
+      <section id="agents" className="pro-section" style={{ background:C.dark, padding:"90px 60px", position:"relative", overflow:"hidden" }}>
+        <div aria-hidden style={{ position:"absolute", top:-80, right:-80, width:320, height:320, borderRadius:"50%", background:`${C.gold}0d` }} />
+        <div aria-hidden style={{ position:"absolute", bottom:-60, left:-60, width:240, height:240, borderRadius:"50%", background:`${C.sage}0a` }} />
+        <div style={{ maxWidth:1100, margin:"0 auto", position:"relative", zIndex:2 }}>
+          <div style={{ textAlign:"center", marginBottom:52 }}>
+            <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${C.gold}1f`, border:`1px solid ${C.gold}55`, borderRadius:24, padding:"6px 16px", fontSize:12, fontWeight:700, color:C.gold, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:24 }}>
+              <span style={{ width:6, height:6, borderRadius:"50%", background:C.gold, display:"inline-block" }} />
+              Agents IA sur mesure
+            </div>
+            <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,44px)", fontWeight:500, margin:"0 0 16px", color:"#fff" }}>
+              Et si une partie du travail<br />se faisait <span style={{ color:C.gold, fontStyle:"italic" }}>sans vous</span> ?
+            </h2>
+            <p style={{ fontSize:16, color:"rgba(255,255,255,0.55)", maxWidth:560, margin:"0 auto", lineHeight:1.7 }}>
+              Pendant que vous êtes en prestation, des agents intelligents répondent à vos clients et prennent les rendez-vous à votre place. Conçus pour votre métier.
+            </p>
+          </div>
+
+          <div className="pro-grid-3" style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:18, marginBottom:48 }}>
+            {[
+              { icon:"📞", titre:"Réceptionniste vocal", desc:"Installé sur votre boîte vocale. Quand vous ne pouvez pas décrocher, il répond, renseigne vos clients et prend les rendez-vous. Comme un répondeur qui travaille vraiment pour vous." },
+              { icon:"💬", titre:"Réceptionniste sur votre page", desc:"Sur votre page publique rdvous. Il répond aux questions de vos clients 24h/24, les guide vers la bonne prestation et réserve directement le créneau." },
+              { icon:"✨", titre:"Un agent sur mesure", desc:"Relance des clients, suivi des avis, remplissage des créneaux libérés. Décrivez votre besoin, on conçoit l'agent adapté à votre activité." },
+            ].map(a => (
+              <div key={a.titre} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:18, padding:"28px 24px" }}>
+                <div style={{ fontSize:30, marginBottom:14 }}>{a.icon}</div>
+                <div style={{ fontSize:16, fontWeight:700, color:"#fff", marginBottom:10 }}>{a.titre}</div>
+                <div style={{ fontSize:14, color:"rgba(255,255,255,0.55)", lineHeight:1.7 }}>{a.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ textAlign:"center" }}>
+            <a href="mailto:support@rdvous.fr?subject=Agents%20IA%20sur%20mesure" style={{ display:"inline-block", padding:"15px 40px", background:C.gold, color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
+              Contactez-nous pour en discuter
+            </a>
+            <p style={{ fontSize:13, color:"rgba(255,255,255,0.4)", margin:"16px 0 0" }}>
+              On échange 20 minutes pour cadrer vos besoins. Sans engagement.
+            </p>
           </div>
         </div>
       </section>

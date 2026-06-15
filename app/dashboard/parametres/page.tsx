@@ -878,10 +878,10 @@ export default function ParametresPage() {
               <div style={{ background: "#fafafa", border: "1px solid #e0e0e0", borderRadius: 8, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#555" }}>SMS non disponibles en plan Gratuit</div>
-                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Passez en plan Indépendant pour envoyer des SMS de confirmation et rappels — 50 SMS/mois inclus.</div>
+                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Passez en plan Pro pour envoyer des SMS de confirmation et rappels — 50 SMS/mois inclus.</div>
                 </div>
                 <button onClick={triggerCheckout} style={{ padding: "7px 14px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  Passer à 19€/mois
+                  Passer à 29€/mois
                 </button>
               </div>
             ) : (
@@ -1039,11 +1039,11 @@ export default function ParametresPage() {
               {isFree ? (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
                   <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3 }}>
-                    <button onClick={() => setBillingInterval("monthly")} style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "monthly" ? "#fff" : "transparent", color: billingInterval === "monthly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "monthly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Mensuel — 19€</button>
-                    <button onClick={() => setBillingInterval("yearly")} style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "yearly" ? "#fff" : "transparent", color: billingInterval === "yearly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "yearly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Annuel — 190€ <span style={{ color: m.couleur }}>-2 mois offerts</span></button>
+                    <button onClick={() => setBillingInterval("monthly")} style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "monthly" ? "#fff" : "transparent", color: billingInterval === "monthly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "monthly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Mensuel — 29€</button>
+                    <button onClick={() => setBillingInterval("yearly")} style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "yearly" ? "#fff" : "transparent", color: billingInterval === "yearly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "yearly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Annuel — 290€ <span style={{ color: m.couleur }}>-2 mois offerts</span></button>
                   </div>
                   <button onClick={startCheckout} disabled={billingLoading} style={{ padding: "10px 22px", background: m.couleur, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    {billingLoading ? "Chargement…" : "Passer à l'offre Indépendant"}
+                    {billingLoading ? "Chargement…" : "Passer à l'offre Pro"}
                   </button>
                 </div>
               ) : (

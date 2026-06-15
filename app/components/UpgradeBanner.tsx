@@ -57,7 +57,7 @@ export default function UpgradeBanner() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <button onClick={triggerCheckout} disabled={loading} className="upgrade-btn"
             style={{ flex: 1, padding: "6px 16px", background: "#c9a060", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-            {loading ? "Chargement…" : "Passer à l'offre Indépendant — 19€/mois →"}
+            {loading ? "Chargement…" : "Passer à l'offre Pro — 29€/mois →"}
           </button>
           <button onClick={() => setDismissed(true)}
             style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>

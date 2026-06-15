@@ -9,7 +9,7 @@ type Depense = { id: string; categorie: string; montant: number; date: string; n
 type RecettePresta = { nom: string; nb: number; ca: number };
 
 const CATEGORIES = ["Loyer", "Logiciels", "Assurance", "Achat produits", "Prévoyance", "Charges sociales", "Autres"];
-const TAUX_URSSAF = 0.22;
+const DEFAULT_TAUX_URSSAF = 22;
 
 function getMois(offset: number) {
   const now = new Date();
@@ -35,6 +35,8 @@ export default function FinancesPage() {
   const [caTotal, setCaTotal] = useState(0);
   const [objectif, setObjectif] = useState(0);
   const [objectifEdit, setObjectifEdit] = useState("");
+  const [tauxUrssaf, setTauxUrssaf] = useState(DEFAULT_TAUX_URSSAF);
+  const [tauxEdit, setTauxEdit] = useState(String(DEFAULT_TAUX_URSSAF));
   const [loading, setLoading] = useState(true);
   const [newDep, setNewDep] = useState({ categorie: "Loyer", montant: "", date: new Date().toISOString().split("T")[0], note: "" });
   const [savingObjectif, setSavingObjectif] = useState(false);
@@ -72,7 +74,7 @@ export default function FinancesPage() {
         .order("date", { ascending: false }),
       supabase
         .from("app_settings")
-        .select("objectif_ca_mensuel")
+        .select("objectif_ca_mensuel, taux_urssaf")
         .eq("salon_id", salon.id)
         .single(),
     ]);
@@ -98,6 +100,9 @@ export default function FinancesPage() {
     const obj = settingsRes.data?.objectif_ca_mensuel ?? 0;
     setObjectif(obj);
     setObjectifEdit(obj > 0 ? String(obj) : "");
+    const taux = settingsRes.data?.taux_urssaf ?? DEFAULT_TAUX_URSSAF;
+    setTauxUrssaf(taux);
+    setTauxEdit(String(taux));
     setLoading(false);
   }
 
@@ -133,6 +138,176 @@ export default function FinancesPage() {
     setTimeout(() => setSavedObjectif(false), 2000);
   }
 
+  async function saveTaux() {
+    if (!salon) return;
+    const valeur = Math.max(0, Math.min(100, parseFloat(tauxEdit) || 0));
+    if (valeur === tauxUrssaf) { setTauxEdit(String(valeur)); return; }
+    setTauxUrssaf(valeur);
+    setTauxEdit(String(valeur));
+    const supabase = createSupabase();
+    await supabase.from("app_settings").update({ taux_urssaf: valeur }).eq("salon_id", salon.id);
+  }
+
+  function download(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCSV() {
+    const totalDep = depenses.reduce((s, d) => s + d.montant, 0);
+    const urssafCalc = Math.round(caTotal * (tauxUrssaf / 100) * 100) / 100;
+    const bilan = caTotal - totalDep - urssafCalc;
+    const { label } = getMois(moisOffset);
+    const num = (n: number) => n.toFixed(2).replace(".", ",");
+    const cell = (v: string | number) => {
+      const s = String(v);
+      return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows: (string | number)[][] = [
+      ["Finances", label],
+      [],
+      ["Récapitulatif"],
+      ["CA brut", num(caTotal)],
+      ["Dépenses", num(totalDep)],
+      [`URSSAF (${tauxUrssaf}%)`, num(urssafCalc)],
+      ["Bilan net", num(bilan)],
+      [],
+      ["Recettes par prestation"],
+      ["Prestation", "Nombre", "CA"],
+      ...recettes.map(r => [r.nom, r.nb, num(r.ca)]),
+      [],
+      ["Dépenses détaillées"],
+      ["Date", "Catégorie", "Montant", "Note"],
+      ...depenses.map(d => [d.date, d.categorie, num(d.montant), d.note || ""]),
+    ];
+    const csv = "﻿" + rows.map(r => r.map(cell).join(";")).join("\r\n");
+    download(new Blob([csv], { type: "text/csv;charset=utf-8;" }), `finances-${label.replace(/\s+/g, "-")}.csv`);
+  }
+
+  async function exportPDF() {
+    const totalDep = depenses.reduce((s, d) => s + d.montant, 0);
+    const urssafCalc = Math.round(caTotal * (tauxUrssaf / 100) * 100) / 100;
+    const bilan = caTotal - totalDep - urssafCalc;
+    const { label } = getMois(moisOffset);
+    const { default: jsPDF } = await import("jspdf");
+    const autoTable = (await import("jspdf-autotable")).default;
+    const couleur = salon ? METIERS[salon.metier].couleur : "#6b2d42";
+    const hex = couleur.replace("#", "");
+    const rgb: [number, number, number] = [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+    const rouge: [number, number, number] = [220, 38, 38];
+    const ambre: [number, number, number] = [217, 119, 6];
+    const vert: [number, number, number] = [22, 163, 74];
+    const gris: [number, number, number] = [120, 120, 120];
+
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const PW = doc.internal.pageSize.getWidth();
+    const PH = doc.internal.pageSize.getHeight();
+    const M = 16;
+    const fmt = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 0 })} EUR`;
+    const dateEdition = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+
+    // ── Bandeau d'en-tête ──
+    doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+    doc.rect(0, 0, PW, 34, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(19);
+    doc.text(salon?.nom || "rdvous", M, 16);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Bilan financier · ${label}`, M, 25);
+    doc.setFontSize(8);
+    doc.text(`Édité le ${dateEdition}`, PW - M, 16, { align: "right" });
+
+    // ── Cartes KPI ──
+    const cards: { label: string; value: string; color: [number, number, number] }[] = [
+      { label: "CA BRUT", value: fmt(caTotal), color: rgb },
+      { label: "DÉPENSES", value: fmt(totalDep), color: rouge },
+      { label: `URSSAF (${tauxUrssaf}%)`, value: fmt(urssafCalc), color: ambre },
+      { label: "BILAN NET", value: fmt(bilan), color: bilan >= 0 ? vert : rouge },
+    ];
+    const gap = 4;
+    const cardW = (PW - 2 * M - 3 * gap) / 4;
+    const cardY = 44;
+    const cardH = 24;
+    cards.forEach((c, i) => {
+      const x = M + i * (cardW + gap);
+      doc.setFillColor(248, 247, 245);
+      doc.roundedRect(x, cardY, cardW, cardH, 2, 2, "F");
+      doc.setFillColor(c.color[0], c.color[1], c.color[2]);
+      doc.roundedRect(x, cardY, 1.6, cardH, 0.8, 0.8, "F");
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.text(c.label, x + 5, cardY + 8);
+      doc.setTextColor(c.color[0], c.color[1], c.color[2]);
+      doc.setFontSize(13);
+      doc.text(c.value, x + 5, cardY + 17);
+    });
+
+    const tableStyles = {
+      styles: { fontSize: 9, cellPadding: 2.6, textColor: [60, 60, 60] as [number, number, number], lineColor: [236, 234, 231] as [number, number, number], lineWidth: 0.1 },
+      headStyles: { fillColor: rgb, textColor: [255, 255, 255] as [number, number, number], fontStyle: "bold" as const, fontSize: 9 },
+      alternateRowStyles: { fillColor: [250, 249, 248] as [number, number, number] },
+      margin: { left: M, right: M, top: 22, bottom: 20 },
+    };
+
+    const section = (titre: string, y: number) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+      doc.text(titre, M, y);
+      return y + 3;
+    };
+
+    // ── Recettes ──
+    let y = section("Recettes par prestation", cardY + cardH + 12);
+    autoTable(doc, {
+      ...tableStyles,
+      startY: y,
+      head: [["Prestation", "Nombre", "CA"]],
+      body: recettes.length ? recettes.map(r => [r.nom, String(r.nb), fmt(r.ca)]) : [["Aucune recette ce mois", "", ""]],
+      foot: recettes.length ? [["Total", String(recettes.reduce((s, r) => s + r.nb, 0)), fmt(caTotal)]] : undefined,
+      footStyles: { fillColor: [245, 243, 241], textColor: rgb, fontStyle: "bold" },
+      columnStyles: { 1: { halign: "right" }, 2: { halign: "right" } },
+    });
+
+    // ── Dépenses ──
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    y = section("Dépenses détaillées", (doc as any).lastAutoTable.finalY + 10);
+    autoTable(doc, {
+      ...tableStyles,
+      startY: y,
+      head: [["Date", "Catégorie", "Montant", "Note"]],
+      body: depenses.length ? depenses.map(d => [d.date, d.categorie, fmt(d.montant), d.note || ""]) : [["Aucune dépense ce mois", "", "", ""]],
+      foot: depenses.length ? [["", "Total", fmt(totalDep), ""]] : undefined,
+      footStyles: { fillColor: [245, 243, 241], textColor: rouge, fontStyle: "bold" },
+      columnStyles: { 2: { halign: "right" } },
+    });
+
+    // ── Pied de page (date + pagination) ──
+    const pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(236, 234, 231);
+      doc.setLineWidth(0.2);
+      doc.line(M, PH - 14, PW - M, PH - 14);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(gris[0], gris[1], gris[2]);
+      doc.text("Généré par rdvous", M, PH - 9);
+      doc.text(`Page ${i} / ${pages}`, PW - M, PH - 9, { align: "right" });
+    }
+
+    doc.save(`finances-${label.replace(/\s+/g, "-")}.pdf`);
+  }
+
   if (!salon) return null;
   const m = METIERS[salon.metier];
 
@@ -145,14 +320,14 @@ export default function FinancesPage() {
           Suivez vos recettes et dépenses chaque mois, estimez votre URSSAF et pilotez votre bilan net — sans tableur.
         </p>
         <a href="/api/stripe/checkout?plan=business" style={{ background: m.couleur, color: T.white, padding: "12px 28px", borderRadius: T.radius, display: "inline-block", fontSize: 13, textDecoration: "none" }}>
-          Passer à Business — 39€/mois
+          Passer à Business — 49€/mois
         </a>
       </div>
     );
   }
 
   const totalDepenses = depenses.reduce((s, d) => s + d.montant, 0);
-  const urssaf = Math.round(caTotal * TAUX_URSSAF * 100) / 100;
+  const urssaf = Math.round(caTotal * (tauxUrssaf / 100) * 100) / 100;
   const bilanNet = caTotal - totalDepenses - urssaf;
   const progression = objectif > 0 ? Math.min((caTotal / objectif) * 100, 100) : 0;
   const { label } = getMois(moisOffset);
@@ -197,6 +372,16 @@ export default function FinancesPage() {
         </button>
       </div>
 
+      {/* Export */}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 14 }}>
+        <button onClick={exportCSV} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.white, color: T.text, border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "7px 14px", cursor: "pointer", fontSize: 12, fontFamily: T.body }}>
+          ↓ CSV (Excel)
+        </button>
+        <button onClick={exportPDF} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: m.couleur, color: T.white, border: "none", borderRadius: T.radiusSm, padding: "7px 14px", cursor: "pointer", fontSize: 12, fontFamily: T.body }}>
+          ↓ PDF
+        </button>
+      </div>
+
       {/* KPIs */}
       <div className="fin-kpis">
         <div className="fin-kpi">
@@ -210,7 +395,20 @@ export default function FinancesPage() {
         <div className="fin-kpi">
           <div style={{ ...T.ls, color: T.muted, marginBottom: 6 }}>URSSAF est.</div>
           <div style={{ fontFamily: T.heading, fontSize: 28, color: "#d97706" }}>{euro(urssaf)}</div>
-          <div style={{ fontSize: 10, color: T.faint, marginTop: 4 }}>22% du CA</div>
+          <div style={{ fontSize: 10, color: T.faint, marginTop: 4, display: "flex", alignItems: "center", gap: 3 }}>
+            <input
+              type="number"
+              value={tauxEdit}
+              min={0}
+              max={100}
+              onChange={e => setTauxEdit(e.target.value)}
+              onBlur={saveTaux}
+              onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              aria-label="Taux URSSAF en pourcentage"
+              style={{ width: 38, border: `1px solid ${T.border}`, borderRadius: 5, padding: "1px 4px", fontSize: 10, color: T.muted, background: T.bg, fontFamily: T.body, textAlign: "right" }}
+            />
+            <span>% du CA</span>
+          </div>
         </div>
         <div className="fin-kpi">
           <div style={{ ...T.ls, color: T.muted, marginBottom: 6 }}>Bilan net</div>
