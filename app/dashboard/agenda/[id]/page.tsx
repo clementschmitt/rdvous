@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
 
@@ -16,8 +16,8 @@ type RDV = {
 };
 
 const STATUTS = [
-  { value: "confirme", label: "Confirmé", color: "#2980b9" },
-  { value: "termine", label: "Terminé", color: "#27ae60" },
+  { value: "planifie", label: "Planifié", color: "#2980b9" },
+  { value: "effectue", label: "Effectué", color: "#27ae60" },
   { value: "annule", label: "Annulé", color: "#e74c3c" },
 ];
 
@@ -25,6 +25,8 @@ export default function RDVDetailPage() {
   const salon = useSalon();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
   const id = params.id as string;
 
   const [rdv, setRdv] = useState<RDV | null>(null);
@@ -138,7 +140,7 @@ export default function RDVDetailPage() {
     const client = rdv.clients;
     if (client) {
       const { data: settings } = await supabase.from("app_settings").select("nb_visites_fidelite, montant_recompense, montant_parrain, montant_filleul").eq("salon_id", salon!.id).single();
-      if (statut === "termine" && ancienStatut !== "termine") {
+      if (statut === "effectue" && ancienStatut !== "effectue") {
         const nbVisites = client.nb_visites + 1;
         let cagnotte = client.cagnotte;
         await supabase.from("clients").update({ nb_visites: nbVisites }).eq("id", client.id);
@@ -168,7 +170,7 @@ export default function RDVDetailPage() {
             ]);
           }
         }
-      } else if (ancienStatut === "termine" && statut !== "termine") {
+      } else if (ancienStatut === "effectue" && statut !== "effectue") {
         await supabase.from("clients").update({ nb_visites: Math.max(0, client.nb_visites - 1) }).eq("id", client.id);
       }
     }
@@ -200,9 +202,9 @@ export default function RDVDetailPage() {
   const selectedPrests = allPrestations.filter(p => selectedIds.has(p.id));
 
   return (
-    <div style={{ padding: 32, maxWidth: 600, margin: "0 auto" }}>
+    <div style={{ padding: 32, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <Link href="/dashboard/agenda" style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← Agenda</Link>
+        <Link href={from === "dashboard" ? "/dashboard" : "/dashboard/agenda"} style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← {from === "dashboard" ? "Dashboard" : "Agenda"}</Link>
         <button onClick={handleDelete} style={{ background: "none", border: "1px solid #e74c3c", borderRadius: 7, padding: "5px 14px", fontSize: 13, color: "#e74c3c", cursor: "pointer" }}>Supprimer</button>
       </div>
 
@@ -220,7 +222,7 @@ export default function RDVDetailPage() {
         </div>
 
         {rdv.clients && (
-          <Link href={`/dashboard/clients/${rdv.clients.id}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#f9f9f9", borderRadius: 8, textDecoration: "none", color: "inherit", marginBottom: 16 }}>
+          <Link href={`/dashboard/clients/${rdv.clients.id}?from=rdv&rdv_id=${rdv.id}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#f9f9f9", borderRadius: 8, textDecoration: "none", color: "inherit", marginBottom: 16 }}>
             <div style={{ width: 36, height: 36, borderRadius: "50%", background: `${m.couleur}20`, color: m.couleur, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 13 }}>
               {rdv.clients.prenom[0]}{rdv.clients.nom[0]}
             </div>

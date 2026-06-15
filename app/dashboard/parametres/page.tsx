@@ -540,7 +540,7 @@ export default function ParametresPage() {
   const isFree = plan === "free";
 
   return (
-    <div className="params-wrap" style={{ padding: 32, maxWidth: 960, margin: "0 auto", overflowX: "hidden" }}>
+    <div className="params-wrap" style={{ padding: 32, maxWidth: 1200, margin: "0 auto", overflowX: "hidden" }}>
       <style>{`
         @media (max-width: 640px) {
           .params-wrap { padding: 16px !important; }

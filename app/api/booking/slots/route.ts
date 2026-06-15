@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     admin.from("rendez_vous")
       .select("date_heure, duree_minutes, rendez_vous_prestations(prestations(duree_minutes))")
       .eq("salon_id", salon_id)
-      .eq("statut", "confirme")
+      .eq("statut", "planifie")
       .gte("date_heure", `${date}T00:00:00`)
       .lte("date_heure", `${date}T23:59:59`),
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),

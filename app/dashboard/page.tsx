@@ -15,9 +15,12 @@ export default function DashboardPage() {
   const salon = useSalon();
   const router = useRouter();
   const [caWeek, setCaWeek] = useState(0);
+  const [caWeekPrev, setCaWeekPrev] = useState(0);
   const [caMonth, setCaMonth] = useState(0);
-  const [caVisible, setCaVisible] = useState({ week: false, month: false });
+  const [caMonthPrev, setCaMonthPrev] = useState(0);
   const [rdvsToday, setRdvsToday] = useState<RdvToday[]>([]);
+  const [rdvsWeekConfirmed, setRdvsWeekConfirmed] = useState(0);
+  const [rdvsWeekEffectue, setRdvsWeekEffectue] = useState(0);
   const [anniversaires, setAnniversaires] = useState<Anniversaire[]>([]);
   const [relances, setRelances] = useState<Relance[]>([]);
   const [relanceConfirm, setRelanceConfirm] = useState<string | null>(null);
@@ -34,30 +37,46 @@ export default function DashboardPage() {
       weekStart.setDate(weekStart.getDate() - d + (d === 0 ? -6 : 1));
       weekStart.setHours(0, 0, 0, 0);
       const weekEnd = new Date(weekStart); weekEnd.setDate(weekEnd.getDate() + 7);
+      const weekPrevStart = new Date(weekStart); weekPrevStart.setDate(weekPrevStart.getDate() - 7);
+      const weekPrevEnd = new Date(weekStart);
 
       const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
       const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      const monthPrevStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+      const monthPrevEnd = new Date(today.getFullYear(), today.getMonth(), 1);
 
-      const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth()+1).padStart(2,'0')}-${String(weekStart.getDate()).padStart(2,'0')}`;
-      const weekEndStr = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth()+1).padStart(2,'0')}-${String(weekEnd.getDate()).padStart(2,'0')}`;
+      const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      const weekStartStr = fmt(weekStart);
+      const weekEndStr = fmt(weekEnd);
+      const weekPrevStartStr = fmt(weekPrevStart);
+      const weekPrevEndStr = fmt(weekPrevEnd);
       const monthStartStr = `${monthStart.getFullYear()}-${String(monthStart.getMonth()+1).padStart(2,'0')}-01`;
       const monthEndStr = `${monthEnd.getFullYear()}-${String(monthEnd.getMonth()+1).padStart(2,'0')}-01`;
+      const monthPrevStartStr = `${monthPrevStart.getFullYear()}-${String(monthPrevStart.getMonth()+1).padStart(2,'0')}-01`;
+      const monthPrevEndStr = `${monthPrevEnd.getFullYear()}-${String(monthPrevEnd.getMonth()+1).padStart(2,'0')}-01`;
 
-      const [rdvTodayRes, rdvWeekRes, rdvMonthRes, clientsRes, settingsRes, allRdvsRes] = await Promise.all([
+      const [rdvTodayRes, rdvWeekRes, rdvWeekPrevRes, rdvMonthRes, rdvMonthPrevRes, clientsRes, settingsRes, allRdvsRes, rdvWeekConfirmedRes] = await Promise.all([
         supabase.from("rendez_vous").select("id, date_heure, statut, clients(prenom, nom), rendez_vous_prestations(prestations(duree_minutes, tarif))").eq("salon_id", salon!.id).gte("date_heure", `${todayStr}T00:00:00`).lte("date_heure", `${todayStr}T23:59:59`).neq("statut", "annule").order("date_heure"),
-        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "termine"),
-        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${monthStartStr}T00:00:00`).lt("date_heure", `${monthEndStr}T00:00:00`).eq("statut", "termine"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${weekPrevStartStr}T00:00:00`).lt("date_heure", `${weekPrevEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${monthStartStr}T00:00:00`).lt("date_heure", `${monthEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${monthPrevStartStr}T00:00:00`).lt("date_heure", `${monthPrevEndStr}T00:00:00`).eq("statut", "effectue"),
         supabase.from("clients").select("id, prenom, nom, telephone, email, date_naissance").eq("salon_id", salon!.id),
         supabase.from("app_settings").select("delai_relance_mois").eq("salon_id", salon!.id).single(),
         supabase.from("rendez_vous").select("client_id, date_heure").eq("salon_id", salon!.id).neq("statut", "annule").order("date_heure", { ascending: false }),
+        supabase.from("rendez_vous").select("id", { count: "exact", head: true }).eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "planifie"),
       ]);
 
       const calcCA = (rows: { rendez_vous_prestations: { prestations: { tarif: number } | null }[] }[]) =>
         (rows || []).reduce((s, r) => s + (r.rendez_vous_prestations || []).reduce((ss, rp) => ss + (rp.prestations?.tarif || 0), 0), 0);
 
       setCaWeek(calcCA(rdvWeekRes.data as never || []));
+      setCaWeekPrev(calcCA(rdvWeekPrevRes.data as never || []));
       setCaMonth(calcCA(rdvMonthRes.data as never || []));
+      setCaMonthPrev(calcCA(rdvMonthPrevRes.data as never || []));
       setRdvsToday((rdvTodayRes.data || []) as unknown as RdvToday[]);
+      setRdvsWeekConfirmed(rdvWeekConfirmedRes.count || 0);
+      setRdvsWeekEffectue((rdvWeekRes.data || []).length);
 
       const clients = clientsRes.data || [];
       const now = new Date();
@@ -136,42 +155,77 @@ export default function DashboardPage() {
           .dash-main-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
-      <div style={{ marginBottom: "36px" }}>
-        <p style={{ ...ls, color: m.couleurMuted, margin: "0 0 6px" }}>
-          {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-        </p>
-        <h2 style={{ fontFamily: T.heading, fontSize: "32px", fontWeight: 300, color: T.text, margin: 0 }}>
-          Bonjour 👋
-        </h2>
+      {/* Header jour */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+        <div>
+          <p style={{ ...ls, color: m.couleurMuted, margin: "0 0 4px" }}>
+            {new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
+          <h2 style={{ fontFamily: T.heading, fontSize: "26px", fontWeight: 600, color: T.text, margin: 0 }}>
+            Agenda du jour
+          </h2>
+        </div>
       </div>
 
-      {/* CA */}
-      <div className="dash-ca-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
-        {([
-          { label: "CA cette semaine", value: caWeek, key: "week" as const },
-          { label: "CA ce mois", value: caMonth, key: "month" as const },
-        ]).map(({ label, value, key }) => (
-          <div key={key} onClick={() => setCaVisible(v => ({ ...v, [key]: !v[key] }))}
-            style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "20px 24px", overflow: "hidden", maxHeight: caVisible[key] ? "110px" : "52px", transition: "max-height 0.4s cubic-bezier(0.4,0,0.2,1)", cursor: "pointer" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: 0 }}>{label}</p>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={T.muted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                {caVisible[key] ? (<><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>) : (<><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>)}
-              </svg>
+      {/* Grille unifiée 3 colonnes — tuiles row1, planning+sidebar row2 */}
+      <div className="dash-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 320px", gap: "16px" }}>
+
+        {/* Tuile 1 — Semaine */}
+        {(() => {
+          const total = rdvsWeekEffectue + rdvsWeekConfirmed;
+          const pct = total > 0 ? Math.round(rdvsWeekEffectue / total * 100) : 0;
+          return (
+            <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "14px 16px" }}>
+              <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: "0 0 8px" }}>SEMAINE EN COURS</p>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: "15px", fontWeight: 700, color: "#16a34a" }}>{rdvsWeekEffectue} effectué{rdvsWeekEffectue > 1 ? "s" : ""}</span>
+                {rdvsWeekConfirmed > 0 && <span style={{ fontSize: "12px", color: m.couleurMuted }}>· {rdvsWeekConfirmed} à venir</span>}
+                {total === 0 && <span style={{ fontSize: "13px", color: m.couleurMuted }}>Aucun RDV</span>}
+              </div>
+              {total > 0 && (
+                <div style={{ height: 4, borderRadius: 2, background: m.couleurClaire, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: "#16a34a", borderRadius: 2, transition: "width 0.4s ease" }} />
+                </div>
+              )}
             </div>
-            <p style={{ fontFamily: T.heading, fontSize: "36px", fontWeight: 300, color: m.couleur, margin: "14px 0 0", opacity: caVisible[key] ? 1 : 0, transition: "opacity 0.25s ease 0.15s" }}>
-              {value.toFixed(0)} €
-            </p>
-          </div>
-        ))}
-      </div>
+          );
+        })()}
 
-      {/* Grille 2 colonnes */}
-      <div className="dash-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: "24px" }}>
+        {/* Tuile 2 — CA semaine */}
+        {(() => {
+          const pct = caWeekPrev > 0 ? Math.round((caWeek - caWeekPrev) / caWeekPrev * 100) : null;
+          const hausse = pct !== null && pct >= 0;
+          return (
+            <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "14px 16px" }}>
+              <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: "0 0 6px" }}>CA CETTE SEMAINE</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <p style={{ fontSize: "15px", fontWeight: 700, color: T.text, margin: 0 }}>{caWeek.toFixed(0)} €</p>
+                {pct !== null && <span style={{ fontSize: "11px", fontWeight: 600, color: hausse ? "#16a34a" : "#dc2626" }}>{hausse ? "↑" : "↓"} {Math.abs(pct)}%</span>}
+                {caWeekPrev === 0 && caWeek > 0 && <span style={{ fontSize: "11px", fontWeight: 600, color: "#16a34a" }}>↑ nouveau</span>}
+              </div>
+            </div>
+          );
+        })()}
 
-        {/* Planning du jour */}
-        <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "32px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
+        {/* Tuile 3 — CA mois (col 3, alignée avec sidebar) */}
+        {(() => {
+          const pct = caMonthPrev > 0 ? Math.round((caMonth - caMonthPrev) / caMonthPrev * 100) : null;
+          const hausse = pct !== null && pct >= 0;
+          return (
+            <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "14px 16px" }}>
+              <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: "0 0 6px" }}>CA CE MOIS</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <p style={{ fontSize: "15px", fontWeight: 700, color: T.text, margin: 0 }}>{caMonth.toFixed(0)} €</p>
+                {pct !== null && <span style={{ fontSize: "11px", fontWeight: 600, color: hausse ? "#16a34a" : "#dc2626" }}>{hausse ? "↑" : "↓"} {Math.abs(pct)}%</span>}
+                {caMonthPrev === 0 && caMonth > 0 && <span style={{ fontSize: "11px", fontWeight: 600, color: "#16a34a" }}>↑ nouveau</span>}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Planning du jour — span 2 colonnes */}
+        <div style={{ gridColumn: "span 2", backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "28px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: 0 }}>Planning du jour</p>
             <button onClick={() => router.push("/dashboard/agenda/nouveau")}
               style={{ ...ls, fontSize: "10px", backgroundColor: "transparent", border: "none", color: m.couleur, cursor: "pointer", padding: 0 }}>
@@ -181,33 +235,41 @@ export default function DashboardPage() {
           {rdvsToday.length === 0 ? (
             <div style={{ color: T.faint, fontSize: "14px", textAlign: "center", padding: "40px 0" }}>Aucun rendez-vous aujourd'hui</div>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {rdvsToday.map(rdv => {
                 const duree = rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0);
                 const tarif = rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.tarif || 0), 0);
                 return (
-                  <div key={rdv.id} onClick={() => router.push(`/dashboard/agenda/${rdv.id}`)}
-                    style={{ display: "flex", alignItems: "center", gap: "16px", padding: "16px", backgroundColor: `${m.couleur}08`, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, cursor: "pointer" }}>
-                    <div style={{ textAlign: "center", minWidth: "48px" }}>
-                      <p style={{ fontSize: "16px", fontWeight: 500, color: m.couleur, margin: 0 }}>{rdv.date_heure.slice(11, 16)}</p>
+                  <div key={rdv.id} onClick={() => router.push(`/dashboard/agenda/${rdv.id}?from=dashboard`)}
+                    style={{ display: "flex", alignItems: "center", gap: "12px", cursor: "pointer" }}>
+                    <div style={{ fontSize: "11px", color: m.couleurMuted, width: 38, flexShrink: 0, fontWeight: 600 }}>
+                      {rdv.date_heure.slice(11, 16)}
                     </div>
-                    <div style={{ borderLeft: `1px solid ${m.couleurClaire}`, paddingLeft: "16px", flex: 1 }}>
-                      <p style={{ fontSize: "14px", color: T.text, margin: "0 0 2px" }}>
-                        {rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}
+                    <div style={{ flex: 1, background: `${m.couleur}10`, border: `1px solid ${m.couleur}25`, borderLeft: `3px solid ${m.couleur}`, borderRadius: 8, padding: "8px 12px" }}>
+                      <p style={{ fontSize: "13px", fontWeight: 600, color: m.couleur, margin: "0 0 2px" }}>
+                        {rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom.charAt(0)}.` : "—"}
                       </p>
-                      <p style={{ ...ls, fontSize: "10px", color: T.muted, margin: 0 }}>
-                        {duree > 0 ? formatDuree(duree) : ""}{tarif > 0 ? ` · ${tarif} €` : ""}
-                      </p>
+                      {(duree > 0 || tarif > 0) && (
+                        <p style={{ ...ls, fontSize: "10px", color: T.muted, margin: 0 }}>
+                          {duree > 0 ? formatDuree(duree) : ""}{tarif > 0 ? ` · ${tarif} €` : ""}
+                        </p>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
+          {relanceConfirm && (
+            <div style={{ marginTop: 16, background: `${m.sage || "#7a9e8a"}12`, border: `1px solid ${m.sage || "#7a9e8a"}30`, borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14 }}>✅</span>
+              <p style={{ fontSize: "11px", color: m.sage || "#7a9e8a", fontWeight: 600, margin: 0 }}>{relanceConfirm}</p>
+            </div>
+          )}
         </div>
 
-        {/* Colonne droite */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+        {/* Sidebar — col 3 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Relances */}
           <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "24px" }}>
@@ -217,9 +279,6 @@ export default function DashboardPage() {
                 <span style={{ fontSize: "11px", backgroundColor: `${m.couleur}15`, color: m.couleur, padding: "2px 8px", borderRadius: "20px" }}>{relances.length}</span>
               )}
             </div>
-            {relanceConfirm && (
-              <p style={{ fontSize: "12px", color: "#16a34a", margin: "0 0 12px", padding: "8px 12px", background: "#f0fdf4", borderRadius: T.radiusSm }}>✓ {relanceConfirm}</p>
-            )}
             {relances.length === 0 ? (
               <div style={{ color: T.faint, fontSize: "13px" }}>Tout le monde est à jour</div>
             ) : (

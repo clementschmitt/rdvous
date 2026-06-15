@@ -99,7 +99,7 @@ export default function NouveauClientPage() {
   const labelSingulier = "Client";
 
   return (
-    <div style={{ padding: 32, maxWidth: 640, margin: "0 auto" }}>
+    <div style={{ padding: 32, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
         <Link href="/dashboard/clients" style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← {m.labelClients}</Link>
       </div>

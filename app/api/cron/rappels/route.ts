@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const { data: rdvs } = await admin
     .from("rendez_vous")
     .select("id, date_heure, salon_id, salons(nom), clients(prenom, email, telephone), rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
-    .eq("statut", "confirme")
+    .eq("statut", "planifie")
     .gte("date_heure", `${demainStr}T00:00:00`)
     .lte("date_heure", `${demainStr}T23:59:59`);
 

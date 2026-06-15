@@ -47,6 +47,7 @@ export default function AgendaPage() {
   const [moisCourant, setMoisCourant] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [rdvs, setRdvs] = useState<RDV[]>([]);
   const [jourDate, setJourDate] = useState(() => new Date());
+  const [dispos, setDispos] = useState<{jour_semaine: number; heure_debut: string; heure_fin: string}[]>([]);
 
   const loadSemaine = useCallback(async (lundi: Date) => {
     if (!salon) return;
@@ -90,12 +91,38 @@ export default function AgendaPage() {
     }
   }, [jourDate]);
 
+  useEffect(() => {
+    if (!salon) return;
+    const supabase = createSupabase();
+    supabase.from("disponibilites")
+      .select("jour_semaine, heure_debut, heure_fin")
+      .eq("salon_id", salon.id)
+      .then(({ data }) => setDispos((data || []) as {jour_semaine: number; heure_debut: string; heure_fin: string}[]));
+  }, [salon]);
+
   if (!salon) return null;
   const m = METIERS[salon.metier];
   const today = toDateStr(new Date());
 
   const rdvsForDay = (day: Date) => rdvs.filter(r => r.date_heure.slice(0, 10) === toDateStr(day));
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(semaine, i));
+
+  const PX_PAR_HEURE = 64;
+  const timeToMin = (t: string) => parseInt(t.split(":")[0]) * 60 + parseInt(t.split(":")[1] || "0");
+
+  const disposParJour = weekDays.map((_, i) => dispos.find(d => d.jour_semaine === i) || null);
+  const activeDispos = disposParJour.filter(Boolean) as {jour_semaine: number; heure_debut: string; heure_fin: string}[];
+
+  let grilleDebut = 8 * 60;
+  let grilleFin = 19 * 60;
+  if (activeDispos.length > 0) {
+    grilleDebut = Math.floor(Math.min(...activeDispos.map(d => timeToMin(d.heure_debut))) / 60) * 60;
+    grilleFin = Math.ceil(Math.max(...activeDispos.map(d => timeToMin(d.heure_fin))) / 60) * 60;
+  }
+
+  const nbHeures = (grilleFin - grilleDebut) / 60;
+  const heuresGrille = Array.from({ length: nbHeures + 1 }, (_, i) => grilleDebut / 60 + i);
+  const totalHeight = nbHeures * PX_PAR_HEURE;
 
   const jourRdvs = rdvsForDay(jourDate);
   const jourLabel = jourDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
@@ -188,44 +215,104 @@ export default function AgendaPage() {
       {/* Vues desktop */}
       <div className="agenda-desktop">
 
-      {/* Vue semaine — cartes */}
+      {/* Vue semaine — timeline */}
       {vue === "semaine" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 10 }}>
-          {weekDays.map((day, i) => {
-            const isToday = toDateStr(day) === today;
-            const dayRdvs = rdvsForDay(day);
-            return (
-              <div key={i}
-                onClick={() => router.push(`/dashboard/agenda/nouveau?date=${toDateStr(day)}`)}
-                style={{ background: "#fff", border: `1px solid ${isToday ? m.couleur : "#d0d0d0"}`, borderRadius: 10, minHeight: 180, cursor: "pointer", overflow: "hidden", boxShadow: isToday ? `0 3px 10px ${m.couleur}35` : "0 1px 4px rgba(0,0,0,0.07)" }}>
-                <div style={{ padding: "10px 12px", borderBottom: `1px solid ${isToday ? `${m.couleur}50` : "#e8e8e8"}`, background: isToday ? m.couleur : "#f5f5f5" }}>
-                  <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: isToday ? "rgba(255,255,255,0.8)" : "#aaa", marginBottom: 2 }}>{JOURS[i]}</div>
-                  <div style={{ fontSize: 22, fontWeight: 300, color: isToday ? "#fff" : "#1a1a1a", lineHeight: 1 }}>{day.getDate()}</div>
-                </div>
-                <div style={{ padding: 8 }}>
-                  {dayRdvs.length === 0
-                    ? <div style={{ fontSize: 11, color: "#ccc", textAlign: "center", padding: "18px 0" }}>—</div>
-                    : dayRdvs.map(rdv => {
-                        const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0);
-                        const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
-                        return (
-                          <div key={rdv.id}
-                            onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/${rdv.id}`); }}
-                            style={{ background: `${m.couleur}10`, border: `1px solid ${m.couleur}25`, borderRadius: 6, padding: "7px 9px", marginBottom: 6, cursor: "pointer" }}>
-                            <div style={{ fontSize: 12, fontWeight: 600, color: m.couleur, marginBottom: 2 }}>{formatHeure(rdv.date_heure)}</div>
-                            <div style={{ fontSize: 12, color: "#1a1a1a", marginBottom: 2 }}>
-                              {rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}
-                            </div>
-                            <div style={{ fontSize: 11, color: "#999", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {prestaNoms || "—"}{duree ? ` · ${formatDuree(duree)}` : ""}
-                            </div>
-                          </div>
-                        );
-                      })}
-                </div>
+        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e8e4e0", overflow: "clip", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+            {/* Header sticky — même grille que le corps */}
+            <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#fff", display: "grid", gridTemplateColumns: "52px repeat(7, 1fr)", borderBottom: "1px solid #ece8e4" }}>
+              <div style={{ borderRight: "1px solid #ece8e4" }} />
+              {weekDays.map((day, i) => {
+                const isToday = toDateStr(day) === today;
+                const hasDispo = !!disposParJour[i];
+                return (
+                  <div key={i} style={{ padding: "14px 12px", textAlign: "center", borderRight: i < 6 ? "1px solid #ece8e4" : "none", background: isToday ? `${m.couleur}08` : "transparent", opacity: hasDispo ? 1 : 0.45 }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: isToday ? m.couleur : "#bbb", marginBottom: 6 }}>{JOURS[i]}</div>
+                    <div style={{ width: 32, height: 32, borderRadius: "50%", background: isToday ? m.couleur : "transparent", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+                      <span style={{ fontSize: 15, fontWeight: isToday ? 700 : 400, color: isToday ? "#fff" : "#1a1a1a" }}>{day.getDate()}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Corps — même grille que le header */}
+            <div style={{ display: "grid", gridTemplateColumns: "52px repeat(7, 1fr)", height: totalHeight }}>
+              {/* Colonne heures */}
+              <div style={{ borderRight: "1px solid #ece8e4" }}>
+                {heuresGrille.slice(0, -1).map(h => (
+                  <div key={h} style={{ height: PX_PAR_HEURE, display: "flex", alignItems: "flex-start", justifyContent: "flex-end", paddingRight: 10, paddingTop: 4 }}>
+                    <span style={{ fontSize: 10, color: "#c0bbb5", fontWeight: 500 }}>{h}h</span>
+                  </div>
+                ))}
               </div>
-            );
-          })}
+
+              {/* 7 colonnes jours */}
+              {weekDays.map((day, i) => {
+                const isToday = toDateStr(day) === today;
+                const dispo = disposParJour[i];
+                const dayRdvs = rdvsForDay(day);
+                const dispoDebutMin = dispo ? timeToMin(dispo.heure_debut) : null;
+                const dispoFinMin = dispo ? timeToMin(dispo.heure_fin) : null;
+
+                return (
+                  <div key={i}
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      const y = e.clientY - rect.top;
+                      const totalMin = grilleDebut + Math.round((y / PX_PAR_HEURE) * 2) * 30;
+                      const h = Math.floor(totalMin / 60);
+                      const min = totalMin % 60;
+                      const heureStr = `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+                      router.push(`/dashboard/agenda/nouveau?date=${toDateStr(day)}&heure=${heureStr}`);
+                    }}
+                    style={{ position: "relative", borderRight: i < 6 ? "1px solid #ece8e4" : "none", background: isToday ? `${m.couleur}03` : "transparent", cursor: "pointer" }}>
+
+                    {/* Lignes séparatrices d'heures */}
+                    {heuresGrille.map((_, hi) => (
+                      <div key={hi} style={{ position: "absolute", top: hi * PX_PAR_HEURE, left: 0, right: 0, borderTop: "1px solid #f0ece8" }} />
+                    ))}
+
+                    {/* Zones hors horaires */}
+                    {dispo && dispoDebutMin !== null && dispoDebutMin > grilleDebut && (
+                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: (dispoDebutMin - grilleDebut) / 60 * PX_PAR_HEURE, background: "rgba(0,0,0,0.03)" }} />
+                    )}
+                    {dispo && dispoFinMin !== null && dispoFinMin < grilleFin && (
+                      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: (grilleFin - dispoFinMin) / 60 * PX_PAR_HEURE, background: "rgba(0,0,0,0.03)" }} />
+                    )}
+                    {!dispo && (
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.025)" }} />
+                    )}
+
+                    {/* RDVs positionnés */}
+                    {dayRdvs.map(rdv => {
+                      const rdvMin = timeToMin(rdv.date_heure.slice(11, 16));
+                      const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0) || 30;
+                      const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
+                      const top = (rdvMin - grilleDebut) / 60 * PX_PAR_HEURE;
+                      const height = Math.max(22, duree / 60 * PX_PAR_HEURE - 3);
+
+                      return (
+                        <div key={rdv.id}
+                          onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/${rdv.id}`); }}
+                          style={{ position: "absolute", top, left: 3, right: 3, height, background: `${m.couleur}18`, borderLeft: `3px solid ${m.couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: m.couleur, lineHeight: 1.3 }}>{formatHeure(rdv.date_heure)}</div>
+                          {height > 26 && (
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {rdv.clients ? rdv.clients.prenom : "—"}
+                            </div>
+                          )}
+                          {height > 44 && (
+                            <div style={{ fontSize: 10, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {prestaNoms}{duree ? ` · ${formatDuree(duree)}` : ""}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
         </div>
       )}
 

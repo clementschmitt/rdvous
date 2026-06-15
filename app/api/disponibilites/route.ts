@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       .from("rendez_vous")
       .select("id, date_heure, clients(prenom, nom, telephone, email), rendez_vous_prestations(prestations(nom))")
       .eq("salon_id", salon_id)
-      .eq("statut", "confirme")
+      .eq("statut", "planifie")
       .gte("date_heure", `${sorted[0]}T00:00:00`)
       .lte("date_heure", `${sorted[sorted.length - 1]}T23:59:59`);
     const datesSet = new Set(dates);

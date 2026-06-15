@@ -40,7 +40,7 @@ export default function ClientsPage() {
   }
 
   return (
-    <div className="clients-wrap" style={{ padding: 40, maxWidth: 900, margin: "0 auto" }}>
+    <div className="clients-wrap" style={{ padding: 40, maxWidth: 1200, margin: "0 auto" }}>
       <style>{`
         @media (max-width: 640px) {
           .clients-wrap { padding: 20px 16px !important; }

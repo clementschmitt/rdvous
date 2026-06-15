@@ -60,7 +60,7 @@ export default function FinancesPage() {
         .from("rendez_vous")
         .select("rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
         .eq("salon_id", salon.id)
-        .in("statut", ["confirme", "termine"])
+        .in("statut", ["planifie", "effectue"])
         .gte("date_heure", `${debut}T00:00:00`)
         .lte("date_heure", `${fin}T23:59:59`),
       supabase
@@ -158,7 +158,7 @@ export default function FinancesPage() {
   const { label } = getMois(moisOffset);
 
   return (
-    <div style={{ padding: "32px", maxWidth: 960, margin: "0 auto" }}>
+    <div style={{ padding: "32px", maxWidth: 1200, margin: "0 auto" }}>
       <style>{`
         .fin-kpis { display: flex; gap: 12px; flex-wrap: wrap; }
         .fin-kpi { flex: 1; background: ${T.white}; border: 1px solid ${T.border}; border-radius: ${T.radius}px; padding: 20px 24px; min-width: 160px; }

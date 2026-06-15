@@ -132,10 +132,10 @@ export default function MonComptePage() {
               const heure = rdv.date_heure.slice(11, 16);
               const prestations = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
               const isFuture = new Date(rdv.date_heure) > new Date();
-              const isConfirme = rdv.statut === "confirme";
-              const canAct = isFuture && isConfirme;
-              const statutColor = rdv.statut === "confirme" ? "#16a34a" : rdv.statut === "annule" ? "#e74c3c" : "#999";
-              const statutLabel = rdv.statut === "confirme" ? "Confirmé" : rdv.statut === "termine" ? "Terminé" : rdv.statut === "annule" ? "Annulé" : rdv.statut;
+              const isPlanifie = rdv.statut === "planifie";
+              const canAct = isFuture && isPlanifie;
+              const statutColor = rdv.statut === "planifie" ? "#16a34a" : rdv.statut === "annule" ? "#e74c3c" : "#999";
+              const statutLabel = rdv.statut === "planifie" ? "Planifié" : rdv.statut === "effectue" ? "Effectué" : rdv.statut === "annule" ? "Annulé" : rdv.statut;
               const isConfirming = confirm?.rdv_id === rdv.id;
 
               return (

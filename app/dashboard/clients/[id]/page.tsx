@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
 
@@ -28,6 +28,9 @@ export default function ClientDetailPage() {
   const salon = useSalon();
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
+  const fromRdv = searchParams.get("from") === "rdv";
+  const rdvId = searchParams.get("rdv_id");
   const id = params.id as string;
 
   const [client, setClient] = useState<Client | null>(null);
@@ -129,17 +132,17 @@ export default function ClientDetailPage() {
 
   const rdvsPage = rdvs.slice(rdvPage * RDV_PER_PAGE, (rdvPage + 1) * RDV_PER_PAGE);
 
-  const STATUT_COLORS: Record<string, string> = { confirme: "#2980b9", termine: "#27ae60", annule: "#e74c3c" };
-  const STATUT_LABELS: Record<string, string> = { confirme: "Confirmé", termine: "Terminé", annule: "Annulé" };
+  const STATUT_COLORS: Record<string, string> = { planifie: "#2980b9", effectue: "#27ae60", annule: "#e74c3c" };
+  const STATUT_LABELS: Record<string, string> = { planifie: "Planifié", effectue: "Effectué", annule: "Annulé" };
 
   function set(field: keyof Client, value: string) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
   return (
-    <div style={{ padding: 32, maxWidth: 760, margin: "0 auto" }}>
+    <div style={{ padding: 32, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-        <Link href="/dashboard/clients" style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← {m.labelClients}</Link>
+        <Link href={fromRdv && rdvId ? `/dashboard/agenda/${rdvId}` : "/dashboard/clients"} style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← {fromRdv ? "Rendez-vous" : m.labelClients}</Link>
         <div style={{ display: "flex", gap: 8 }}>
           {editing ? (
             <>

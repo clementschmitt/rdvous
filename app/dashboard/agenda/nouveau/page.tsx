@@ -117,7 +117,7 @@ function NouveauRDVContent() {
   const CRENEAUX = Array.from({ length: 25 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`).filter(h => h <= "20:00");
 
   return (
-    <div style={{ padding: 32, maxWidth: 640, margin: "0 auto" }}>
+    <div style={{ padding: 32, maxWidth: 1200, margin: "0 auto" }}>
       <div style={{ marginBottom: 24 }}>
         <Link href="/dashboard/agenda" style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← Agenda</Link>
       </div>

@@ -98,7 +98,7 @@ export default function StatsPage() {
       // Projection CA (RDV futurs confirmés)
       supabase.from("rendez_vous")
         .select("date_heure, rendez_vous_prestations(prestations(tarif, sur_devis))")
-        .eq("salon_id", salon.id).eq("statut", "confirme")
+        .eq("salon_id", salon.id).eq("statut", "planifie")
         .gte("date_heure", `${todayStr}T00:00:00`),
     ]);
 
@@ -207,7 +207,7 @@ export default function StatsPage() {
   const bigNum: React.CSSProperties = { fontSize: 32, fontWeight: 700, color: "#1a1a1a", lineHeight: 1 };
 
   return (
-    <div className="stats-wrap" style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }}>
+    <div className="stats-wrap" style={{ padding: "32px 24px", maxWidth: 1200, margin: "0 auto" }}>
       <style>{`
         @media (max-width: 640px) {
           .stats-wrap { padding: 16px !important; }

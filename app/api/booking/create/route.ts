@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   // Créer le RDV
   const cancelToken = crypto.randomUUID();
   const { data: rdv, error } = await admin.from("rendez_vous")
-    .insert({ salon_id, client_id: clientId, date_heure: `${date}T${heure}:00`, statut: "confirme", adresse_domicile: adresse_domicile || null, cancel_token: cancelToken })
+    .insert({ salon_id, client_id: clientId, date_heure: `${date}T${heure}:00`, statut: "planifie", adresse_domicile: adresse_domicile || null, cancel_token: cancelToken })
     .select("id")
     .single();
 

@@ -18,7 +18,7 @@ const C = {
 /* ── data ── */
 const PAIN_POINTS = [
   { icon: "📅", pb: "Un agenda surchargé",       sol: "Planning clair, réservations automatisées, zéro double-booking." },
-  { icon: "💸", pb: "Des outils trop chers",      sol: "19€/mois. Pas de commission. Pas de frais cachés." },
+  { icon: "💸", pb: "Des outils trop chers",      sol: "29€/mois. Pas de commission. Pas de frais cachés." },
   { icon: "🔕", pb: "Les annulations de dernière minute", sol: "Rappels SMS & email automatiques pour réduire les no-shows." },
   { icon: "🌐", pb: "Invisible en ligne",          sol: "Un profil local référencé, visible dès votre inscription." },
   { icon: "🗂️", pb: "Des fiches clients éparpillées", sol: "Tout centralisé : historique, notes, cagnotte, mesures." },
@@ -37,7 +37,7 @@ const METIERS_LIST = [
 const FEATURES = [
   { icon: "📆", titre: "Agenda intelligent",         desc: "Vue semaine et mois. Créez un RDV en 10 secondes." },
   { icon: "🔗", titre: "Réservation en ligne",        desc: "Vos clients réservent directement depuis votre profil RDVOUS." },
-  { icon: "✉️", titre: "Emails & SMS auto",            desc: "Confirmation et rappel 24h avant par email et SMS. 50 SMS/mois inclus dans l'offre Indépendant." },
+  { icon: "✉️", titre: "Emails & SMS auto",            desc: "Confirmation et rappel 24h avant par email et SMS. 50 SMS/mois inclus dans l'offre Pro." },
   { icon: "👥", titre: "Fiches clients",               desc: "Historique complet, notes, mesures, cagnotte par client." },
   { icon: "⭐", titre: "Programme fidélité",           desc: "Récompensez vos fidèles automatiquement selon vos règles." },
   { icon: "🤝", titre: "Parrainage intégré",           desc: "Vos clients vous recommandent, les deux sont récompensés." },
@@ -54,28 +54,53 @@ const PLANS = [
     nom: "Gratuit", prix: "0€", duree: "/mois", badge: "Pour démarrer",
     badgeColor: C.sage, highlight: false,
     desc: "Lancez-vous sans engagement. Aucune carte requise.",
-    items: ["Jusqu'à 30 rendez-vous/mois", "Profil public sur rdvous.fr", "Fiches clients", "Emails de confirmation & rappels (email uniquement, pas de SMS)", "Agenda simple"],
+    items: [
+      "Jusqu'à 30 rendez-vous/mois",
+      "Profil public sur rdvous.fr",
+      "Fiches clients",
+      "Emails de confirmation & rappels",
+    ],
     cta: "Commencer gratuitement", ctaBg: "#fff", ctaColor: C.dark, ctaBorder: C.border,
   },
   {
-    nom: "Indépendant", prix: "19€", duree: "/mois", badge: "Prix de lancement",
+    nom: "Pro", prix: "29€", duree: "/mois", badge: "Prix de lancement",
     badgeColor: C.gold, highlight: true,
     desc: "L'essentiel pour gérer votre activité au quotidien.",
-    items: ["Agenda intelligent & illimité", "Prise de RDV en ligne", "Emails & SMS de confirmation & rappels — 50 SMS/mois inclus", "Fiches clients personnalisées", "Fidélité & parrainage", "Visibilité locale", "Statistiques basiques", "Support inclus"],
+    items: [
+      "Tout le plan Gratuit inclus",
+      "Rendez-vous illimités",
+      "Prise de RDV en ligne",
+      "SMS confirmation & rappels — 50/mois",
+      "Fidélité & parrainage",
+      "Statistiques basiques",
+      "Support inclus",
+    ],
     cta: "Commencer", ctaBg: C.dark, ctaColor: "#fff", ctaBorder: "transparent",
   },
   {
-    nom: "Business", prix: "39€", duree: "/mois", badge: "Pour développer",
+    nom: "Business", prix: "49€", duree: "/mois", badge: "Pour développer",
     badgeColor: "#7c3aed", highlight: false,
     desc: "Pour piloter et développer votre activité avec des données avancées.",
-    items: ["Tout l'offre Indépendant", "150 SMS/mois inclus", "Statistiques avancées (projection CA, top clientes, taux d'annulation)", "Rapport mensuel automatique par email", "Support prioritaire"],
+    items: [
+      "Tout le plan Pro inclus",
+      "150 SMS/mois",
+      "Statistiques avancées (projection CA, top clientes, taux d'annulation)",
+      "Rapport mensuel automatique par email",
+      "Support prioritaire",
+    ],
     cta: "Commencer", ctaBg: "#7c3aed", ctaColor: "#fff", ctaBorder: "transparent",
   },
   {
     nom: "Équipe", prix: "Sur devis", duree: "", badge: "Multi-praticiens",
     badgeColor: C.light, highlight: false,
-    desc: "Pour les instituts avec plusieurs collaborateurs. Contactez-nous pour un tarif adapté.",
-    items: ["Tout l'offre Business", "Plusieurs praticiens", "Agenda individuel par praticien", "Statistiques par praticien", "Support dédié"],
+    desc: "Pour les instituts avec plusieurs collaborateurs.",
+    items: [
+      "Tout le plan Business inclus",
+      "Plusieurs praticiens",
+      "Agenda individuel par praticien",
+      "Statistiques par praticien",
+      "Support dédié",
+    ],
     cta: "Nous contacter", ctaBg: "#fff", ctaColor: C.muted, ctaBorder: C.border,
   },
 ];
@@ -97,49 +122,63 @@ const FAQ_ITEMS = [
 
 /* ── Dashboard mockup ── */
 function DashboardMockup() {
+  const couleur = "#6b2d42";
   const rdvs = [
-    { heure: "09:00", prenom: "Sophie M.", duree: 2, color: "#6b2d42" },
-    { heure: "11:00", prenom: "Anaïs R.",  duree: 1, color: "#7a9e8a" },
-    { heure: "14:30", prenom: "Laura T.",  duree: 3, color: "#6b2d42" },
-    { heure: "17:00", prenom: "Jade K.",   duree: 2, color: "#7a9e8a" },
+    { heure: "09:00", prenom: "Sophie M.", detail: "1H30 · 45€" },
+    { heure: "11:00", prenom: "Julie B.",  detail: "1H15 · 40€" },
+    { heure: "14:30", prenom: "Emma P.",   detail: "1H · 35€"   },
+    { heure: "17:00", prenom: "Camille D.",detail: "1H · 35€"   },
   ];
   return (
-    <div style={{ background:"#fff", borderRadius:20, padding:20, boxShadow:"0 24px 80px rgba(100,80,60,0.18)", border:"1px solid rgba(200,180,160,0.2)", width:340, flexShrink:0 }}>
-      {/* Header mockup */}
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+    <div style={{ background:"#faf8f5", borderRadius:20, padding:24, boxShadow:"0 24px 80px rgba(100,80,60,0.18)", border:"1px solid rgba(200,180,160,0.2)", width:360, flexShrink:0 }}>
+      {/* Header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
         <div>
-          <div style={{ fontSize:12, color:C.light, fontWeight:500 }}>Mercredi 21 mai</div>
-          <div style={{ fontSize:16, fontWeight:700, color:C.text }}>Agenda du jour</div>
+          <div style={{ fontSize:11, color:C.light, fontWeight:500, textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:3 }}>Lundi 15 juin</div>
+          <div style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:20, fontWeight:600, color:C.text }}>Agenda du jour</div>
         </div>
-        <div style={{ background:`${C.gold}20`, borderRadius:10, padding:"4px 10px", fontSize:11, fontWeight:700, color:C.gold }}>4 RDVs</div>
+        <div style={{ background:`${couleur}18`, borderRadius:10, padding:"4px 12px", fontSize:11, fontWeight:700, color:couleur }}>4 RDVs</div>
       </div>
 
       {/* Stats */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
-        {[["Cette semaine","12 RDVs"],["Clients actifs","38"],["CA estimé","486 €"]].map(([label, val]) => (
-          <div key={label} style={{ background:C.warm, borderRadius:10, padding:"8px 10px" }}>
-            <div style={{ fontSize:10, color:C.light, marginBottom:3 }}>{label}</div>
-            <div style={{ fontSize:13, fontWeight:700, color:C.text }}>{val}</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:20 }}>
+        <div style={{ background:"#fff", borderRadius:10, padding:"10px 12px", border:"1px solid #e8e4e0" }}>
+          <div style={{ fontSize:9, color:C.light, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:5 }}>RDVs semaine</div>
+          <div style={{ fontSize:14, fontWeight:700, color:C.text }}>2 RDVs</div>
+        </div>
+        <div style={{ background:"#fff", borderRadius:10, padding:"10px 12px", border:"1px solid #e8e4e0" }}>
+          <div style={{ fontSize:9, color:C.light, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:5 }}>CA semaine</div>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <span style={{ fontSize:14, fontWeight:700, color:C.text }}>85€</span>
+            <span style={{ fontSize:10, fontWeight:700, color:"#e74c3c" }}>↓37%</span>
           </div>
-        ))}
+        </div>
+        <div style={{ background:"#fff", borderRadius:10, padding:"10px 12px", border:"1px solid #e8e4e0" }}>
+          <div style={{ fontSize:9, color:C.light, fontWeight:600, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:5 }}>CA mois</div>
+          <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+            <span style={{ fontSize:14, fontWeight:700, color:C.text }}>355€</span>
+            <span style={{ fontSize:10, fontWeight:700, color:"#27ae60" }}>↑97%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Planning header */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+        <div style={{ fontSize:10, fontWeight:700, color:C.light, letterSpacing:"0.08em", textTransform:"uppercase" }}>Planning du jour</div>
+        <div style={{ fontSize:11, fontWeight:600, color:couleur }}>+ RDV</div>
       </div>
 
       {/* Timeline */}
       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
         {rdvs.map(r => (
           <div key={r.heure} style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <div style={{ fontSize:10, color:C.light, width:36, flexShrink:0, fontWeight:600 }}>{r.heure}</div>
-            <div style={{ flex:1, background:`${r.color}12`, border:`1px solid ${r.color}30`, borderRadius:8, padding:"6px 10px", borderLeft:`3px solid ${r.color}` }}>
-              <div style={{ fontSize:12, fontWeight:600, color:r.color }}>{r.prenom}</div>
+            <div style={{ fontSize:11, color:C.light, width:38, flexShrink:0, fontWeight:600 }}>{r.heure}</div>
+            <div style={{ flex:1, background:"#fff", border:`1px solid ${couleur}18`, borderRadius:8, padding:"8px 12px", borderLeft:`3px solid ${couleur}` }}>
+              <div style={{ fontSize:13, fontWeight:600, color:C.text }}>{r.prenom}</div>
+              <div style={{ fontSize:11, color:C.light, marginTop:2 }}>{r.detail}</div>
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Notification */}
-      <div style={{ marginTop:14, background:`${C.sage}12`, border:`1px solid ${C.sage}30`, borderRadius:10, padding:"8px 12px", display:"flex", alignItems:"center", gap:8 }}>
-        <span style={{ fontSize:14 }}>✅</span>
-        <div style={{ fontSize:11, color:C.sage, fontWeight:600 }}>Rappel envoyé à Sophie M.</div>
       </div>
     </div>
   );
@@ -366,7 +405,7 @@ export default function ProPage() {
                 </div>
                 {p.nom === "Équipe"
                   ? <a href="mailto:support@rdvous.fr" style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</a>
-                  : <Link href={p.nom === "Indépendant" ? "/signup?plan=solo" : p.nom === "Business" ? "/signup?plan=business" : "/signup"} style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</Link>
+                  : <Link href={p.nom === "Pro" ? "/signup?plan=solo" : p.nom === "Business" ? "/signup?plan=business" : "/signup"} style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</Link>
                 }
               </div>
             ))}
@@ -449,7 +488,7 @@ export default function ProPage() {
               Prêt à simplifier<br />votre quotidien ?
             </h2>
             <p style={{ fontSize:15, color:"rgba(255,255,255,0.5)", margin:"0 0 36px" }}>
-              Démarrez gratuitement. Passez en illimité à 19€/mois — prix de lancement.
+              Démarrez gratuitement. Passez en illimité à 29€/mois — prix de lancement.
             </p>
             <Link href="/login" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
               Commencer gratuitement
