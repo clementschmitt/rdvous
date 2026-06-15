@@ -261,9 +261,9 @@ export default function DashboardPage() {
             </div>
           )}
           {relanceConfirm && (
-            <div style={{ marginTop: 16, background: `${m.sage || "#7a9e8a"}12`, border: `1px solid ${m.sage || "#7a9e8a"}30`, borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ marginTop: 16, background: `${"#7a9e8a"}12`, border: `1px solid ${"#7a9e8a"}30`, borderRadius: 10, padding: "8px 12px", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 14 }}>✅</span>
-              <p style={{ fontSize: "11px", color: m.sage || "#7a9e8a", fontWeight: 600, margin: 0 }}>{relanceConfirm}</p>
+              <p style={{ fontSize: "11px", color: "#7a9e8a", fontWeight: 600, margin: 0 }}>{relanceConfirm}</p>
             </div>
           )}
         </div>
