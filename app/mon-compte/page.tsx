@@ -79,8 +79,8 @@ export default function MonComptePage() {
       setConfirm(null);
     } else {
       const rdv = rdvs.find(r => r.id === confirm.rdv_id);
-      const slug = rdv?.salons?.slug || rdv?.salon_id;
-      router.push(`/s/${slug}?email=${encodeURIComponent(email || "")}`);
+      const path = rdv?.salons?.slug ? `/${rdv.salons.slug}` : `/s/${rdv?.salon_id}`;
+      router.push(`${path}?email=${encodeURIComponent(email || "")}`);
     }
 
     setActionLoading(false);
