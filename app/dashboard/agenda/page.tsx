@@ -47,6 +47,7 @@ export default function AgendaPage() {
   const [moisCourant, setMoisCourant] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [rdvs, setRdvs] = useState<RDV[]>([]);
   const [jourDate, setJourDate] = useState(() => new Date());
+  const [vueMobile, setVueMobile] = useState<"jour" | "semaine" | "mois">("jour");
 
   const loadSemaine = useCallback(async (lundi: Date) => {
     if (!salon) return;
@@ -79,9 +80,9 @@ export default function AgendaPage() {
   }, [salon]);
 
   useEffect(() => {
-    if (vue === "semaine") loadSemaine(semaine);
-    else loadMois(moisCourant);
-  }, [salon, vue, semaine, moisCourant, loadSemaine, loadMois]);
+    if (vue === "mois" || vueMobile === "mois") loadMois(moisCourant);
+    else loadSemaine(semaine);
+  }, [salon, vue, vueMobile, semaine, moisCourant, loadSemaine, loadMois]);
 
   useEffect(() => {
     const monday = getMonday(jourDate);
@@ -123,40 +124,114 @@ export default function AgendaPage() {
             + RDV
           </Link>
         </div>
+        {/* Sélecteur Jour / Semaine / Mois */}
+        <div style={{ display: "flex", border: `1px solid ${m.couleur}30`, borderRadius: 8, overflow: "hidden" }}>
+          {(["jour", "semaine", "mois"] as const).map((v, i) => (
+            <button key={v} onClick={() => setVueMobile(v)}
+              style={{ flex: 1, padding: "8px 0", border: "none", borderLeft: i > 0 ? `1px solid ${m.couleur}20` : "none", background: vueMobile === v ? m.couleur : "transparent", color: vueMobile === v ? "#fff" : "#888", fontSize: 13, fontWeight: vueMobile === v ? 600 : 400, cursor: "pointer" }}>
+              {v === "jour" ? "Jour" : v === "semaine" ? "Semaine" : "Mois"}
+            </button>
+          ))}
+        </div>
+        {/* Navigation contextuelle */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => setJourDate(d => addDays(d, -1))} style={navBtn}>‹</button>
+          <button onClick={() => {
+            if (vueMobile === "jour") setJourDate(d => addDays(d, -1));
+            else if (vueMobile === "semaine") setSemaine(d => addDays(d, -7));
+            else setMoisCourant(d => addMonths(d, -1));
+          }} style={navBtn}>‹</button>
           <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#333", textTransform: "capitalize" }}>{jourLabel}</div>
-            {!isJourToday && (
+            <div style={{ fontSize: 14, fontWeight: 600, color: "#333", textTransform: "capitalize" }}>
+              {vueMobile === "jour" ? jourLabel
+                : vueMobile === "semaine" ? `Semaine du ${semaine.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`
+                : moisCourant.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+            </div>
+            {vueMobile === "jour" && !isJourToday && (
               <button onClick={() => setJourDate(new Date())} style={{ fontSize: 11, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>Aujourd'hui</button>
             )}
           </div>
-          <button onClick={() => setJourDate(d => addDays(d, 1))} style={navBtn}>›</button>
+          <button onClick={() => {
+            if (vueMobile === "jour") setJourDate(d => addDays(d, 1));
+            else if (vueMobile === "semaine") setSemaine(d => addDays(d, 7));
+            else setMoisCourant(d => addMonths(d, 1));
+          }} style={navBtn}>›</button>
         </div>
       </div>
 
-      {/* Liste RDVs du jour — mobile */}
-      <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 10 }}>
-        {jourRdvs.length === 0 ? (
-          <div style={{ textAlign: "center", color: "#bbb", padding: "40px 0", fontSize: 14 }}>Aucun rendez-vous ce jour</div>
-        ) : jourRdvs.map(rdv => {
-          const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0);
-          const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
-          return (
-            <div key={rdv.id} onClick={() => router.push(`/dashboard/agenda/${rdv.id}`)}
-              style={{ background: "#fff", border: `1px solid ${m.couleur}25`, borderLeft: `4px solid ${m.couleur}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: m.couleur, marginBottom: 2 }}>{formatHeure(rdv.date_heure)}</div>
-                  <div style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 600 }}>{rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}</div>
-                  <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{prestaNoms || "—"}{duree ? ` · ${formatDuree(duree)}` : ""}</div>
+      {/* Vue JOUR — mobile */}
+      {vueMobile === "jour" && (
+        <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 10 }}>
+          {jourRdvs.length === 0 ? (
+            <div style={{ textAlign: "center", color: "#bbb", padding: "40px 0", fontSize: 14 }}>Aucun rendez-vous ce jour</div>
+          ) : jourRdvs.map(rdv => {
+            const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0);
+            const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
+            return (
+              <div key={rdv.id} onClick={() => router.push(`/dashboard/agenda/${rdv.id}`)}
+                style={{ background: "#fff", border: `1px solid ${m.couleur}25`, borderLeft: `4px solid ${m.couleur}`, borderRadius: 10, padding: "14px 16px", cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: m.couleur, marginBottom: 2 }}>{formatHeure(rdv.date_heure)}</div>
+                    <div style={{ fontSize: 14, color: "#1a1a1a", fontWeight: 600 }}>{rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}</div>
+                    <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{prestaNoms || "—"}{duree ? ` · ${formatDuree(duree)}` : ""}</div>
+                  </div>
+                  <span style={{ color: "#ccc", fontSize: 18 }}>›</span>
                 </div>
-                <span style={{ color: "#ccc", fontSize: 18 }}>›</span>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Vue SEMAINE — mobile : liste verticale des 7 jours */}
+      {vueMobile === "semaine" && (
+        <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 18 }}>
+          {weekDays.map(day => {
+            const dayRdvs = rdvsForDay(day);
+            const isT = toDateStr(day) === today;
+            return (
+              <div key={toDateStr(day)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: isT ? m.couleur : "#333", textTransform: "capitalize" }}>
+                    {day.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "short" })}
+                  </span>
+                  {isT && <span style={{ fontSize: 10, fontWeight: 700, color: m.couleur, background: `${m.couleur}15`, padding: "1px 7px", borderRadius: 10 }}>Aujourd'hui</span>}
+                </div>
+                {dayRdvs.length === 0 ? (
+                  <div style={{ fontSize: 12, color: "#ccc", paddingLeft: 2 }}>Aucun rendez-vous</div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {dayRdvs.map(rdv => {
+                      const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0);
+                      const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
+                      return (
+                        <div key={rdv.id} onClick={() => router.push(`/dashboard/agenda/${rdv.id}`)}
+                          style={{ background: "#fff", border: `1px solid ${m.couleur}25`, borderLeft: `4px solid ${m.couleur}`, borderRadius: 8, padding: "10px 12px", cursor: "pointer" }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: m.couleur }}>{formatHeure(rdv.date_heure)}</span>
+                          <span style={{ fontSize: 13, color: "#1a1a1a", marginLeft: 8 }}>{rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}</span>
+                          <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{prestaNoms || "—"}{duree ? ` · ${formatDuree(duree)}` : ""}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Vue MOIS — mobile : grille calendrier réutilisée */}
+      {vueMobile === "mois" && (
+        <div className="agenda-mobile" style={{ display: "none", flexDirection: "column" }}>
+          <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #d0d0d0" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "2px solid #e0e0e0" }}>
+              {JOURS.map(j => <div key={j} style={{ padding: "8px 2px", textAlign: "center", fontSize: 10, fontWeight: 600, color: "#aaa" }}>{j}</div>)}
             </div>
-          );
-        })}
-      </div>
+            <MoisGrid moisCourant={moisCourant} rdvsForDay={rdvsForDay} couleur={m.couleur} today={today} router={router} />
+          </div>
+        </div>
+      )}
 
       {/* Toolbar desktop */}
       <div className="agenda-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>

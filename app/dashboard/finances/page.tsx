@@ -333,7 +333,7 @@ export default function FinancesPage() {
   const { label } = getMois(moisOffset);
 
   return (
-    <div style={{ padding: "32px", maxWidth: 1200, margin: "0 auto" }}>
+    <div className="fin-wrap" style={{ padding: "32px", maxWidth: 1200, margin: "0 auto" }}>
       <style>{`
         .fin-kpis { display: flex; gap: 12px; flex-wrap: wrap; }
         .fin-kpi { flex: 1; background: ${T.white}; border: 1px solid ${T.border}; border-radius: ${T.radius}px; padding: 20px 24px; min-width: 160px; }
@@ -345,10 +345,13 @@ export default function FinancesPage() {
         .fin-add { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 20px; }
         .fin-add input, .fin-add select { border: 1px solid ${T.border}; border-radius: ${T.radiusSm}px; padding: 8px 10px; font-size: 13px; background: ${T.bg}; color: ${T.text}; font-family: ${T.body}; min-width: 0; }
         @media (max-width: 640px) {
+          .fin-wrap { padding: 20px 16px !important; }
+          .fin-section { padding: 16px !important; }
           .fin-kpi { min-width: calc(50% - 6px); }
           .fin-add { flex-direction: column; }
           .fin-add input, .fin-add select, .fin-add button { width: 100% !important; }
           .fin-table th:nth-child(3), .fin-table td:nth-child(3) { display: none; }
+          .fin-table th, .fin-table td { padding: 8px 6px !important; font-size: 12px !important; }
         }
       `}</style>
 

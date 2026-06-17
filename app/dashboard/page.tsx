@@ -153,6 +153,7 @@ export default function DashboardPage() {
           .dash-main { padding: 20px 16px !important; }
           .dash-ca-grid { grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
           .dash-main-grid { grid-template-columns: 1fr !important; }
+          .dash-main-grid > * { grid-column: auto !important; }
         }
       `}</style>
       {/* Header jour */}
