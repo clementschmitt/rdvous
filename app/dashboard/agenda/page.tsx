@@ -179,6 +179,9 @@ export default function AgendaPage() {
           <button onClick={() => vue === "semaine" ? setSemaine(d => addDays(d, 7)) : setMoisCourant(d => addMonths(d, 1))} style={navBtn}>›</button>
           <button onClick={() => { setSemaine(getMonday(new Date())); setMoisCourant(new Date(new Date().getFullYear(), new Date().getMonth(), 1)); }} style={{ ...navBtn, fontSize: 12, padding: "5px 12px" }}>Auj.</button>
 
+          <Link href="/dashboard/attente" style={{ padding: "8px 14px", background: "transparent", color: m.couleur, border: `1px solid ${m.couleur}55`, borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+            🔔 Liste d'attente
+          </Link>
           <Link href="/dashboard/agenda/nouveau" style={{ padding: "8px 18px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
             + Nouveau RDV
           </Link>

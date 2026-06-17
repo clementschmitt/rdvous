@@ -11,21 +11,21 @@ export async function GET(req: NextRequest) {
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
+  // Une cliente peut avoir une fiche par salon (même email) → on agrège toutes ses fiches.
   const { data: clientRows } = await admin
     .from("clients")
     .select("id, cagnotte")
-    .eq("email", user.email)
-    .limit(1);
+    .eq("email", user.email);
 
   if (!clientRows || clientRows.length === 0) return NextResponse.json({ rdvs: [], cagnotte: 0 });
 
-  const clientId = clientRows[0].id;
+  const clientIds = clientRows.map((c: { id: string }) => c.id);
   const cagnotte = clientRows.reduce((s: number, c: { cagnotte?: number }) => s + (c.cagnotte || 0), 0);
 
   const { data: rdvs } = await admin
     .from("rendez_vous")
     .select("id, date_heure, statut, salon_id, salons(nom, slug), rendez_vous_prestations(prestations(nom))")
-    .eq("client_id", clientId)
+    .in("client_id", clientIds)
     .order("date_heure", { ascending: false })
     .limit(20);
 

@@ -32,7 +32,7 @@ export default function BookingWidget({
   planningHorizonJours?: number;
   salonTel?: string;
 }) {
-  const [step, setStep] = useState<"select" | "contact" | "done">("select");
+  const [step, setStep] = useState<"select" | "contact" | "done" | "waitlist" | "waitlist_done">("select");
   const [selected, setSelected] = useState<Prestation[]>([]);
   const [openStepId, setOpenStepId] = useState<string | null>(null);
   const [confirmedSteps, setConfirmedSteps] = useState<Set<string>>(new Set());
@@ -51,6 +51,9 @@ export default function BookingWidget({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [website, setWebsite] = useState("");
+  const [waitlistDate, setWaitlistDate] = useState("");
+  const [wlSubmitting, setWlSubmitting] = useState(false);
+  const [wlError, setWlError] = useState("");
 
   // Catégories dans le stepper = unique + multiple (dans l'ordre)
   const stepCategories = categories.filter(c => c.selection_type === "unique" || c.selection_type === "multiple");
@@ -157,6 +160,29 @@ export default function BookingWidget({
     setStep("done");
   }
 
+  function openWaitlist() {
+    setWaitlistDate(selectedDay || today);
+    setWlError("");
+    setStep("waitlist");
+  }
+
+  async function handleWaitlistSubmit() {
+    if (!prenom.trim() || !nom.trim()) { setWlError("Prénom et nom requis."); return; }
+    if (!email.trim()) { setWlError("Email requis."); return; }
+    if (!/^[a-zA-Z0-9_%+\-]([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-])?@[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$/.test(email) || email.includes("..")) { setWlError("Adresse email invalide."); return; }
+    if (!telephone.trim()) { setWlError("Téléphone requis."); return; }
+    if (!waitlistDate) { setWlError("Choisissez une date souhaitée."); return; }
+    setWlError(""); setWlSubmitting(true);
+    const res = await fetch("/api/waitlist/join", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salonId, prenom, nom, email, telephone, prestation_ids: selected.map(p => p.id), date: waitlistDate, website }),
+    });
+    const json = await res.json();
+    setWlSubmitting(false);
+    if (!json.ok) { setWlError(json.error || "Erreur, veuillez réessayer."); return; }
+    setStep("waitlist_done");
+  }
+
   const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 14, boxSizing: "border-box" };
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5 };
 
@@ -183,6 +209,52 @@ export default function BookingWidget({
           </a>
         </div>
       </div>
+    </div>
+  );
+
+  if (step === "waitlist_done") return (
+    <div style={{ textAlign: "center", padding: "28px 0 12px" }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
+      <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>Vous êtes sur la liste d'attente !</div>
+      <div style={{ fontSize: 14, color: "#666", lineHeight: 1.6, maxWidth: 340, margin: "0 auto" }}>
+        Si une place se libère le {waitlistDate.split("-").reverse().join("/")}, vous recevrez un message pour réserver en priorité.
+      </div>
+      {email && <div style={{ fontSize: 13, color: "#999", marginTop: 12 }}>Un email de confirmation vous a été envoyé.</div>}
+    </div>
+  );
+
+  if (step === "waitlist") return (
+    <div>
+      <button onClick={() => setStep("select")} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 13, padding: 0, marginBottom: 16 }}>← Retour</button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 20 }}>🔔</span>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a" }}>Être prévenu·e d'une place</div>
+      </div>
+      <div style={{ fontSize: 13, color: "#888", marginBottom: 18, lineHeight: 1.5 }}>
+        Laissez vos coordonnées. Si un créneau se libère le jour souhaité, vous recevrez un message pour réserver en priorité.
+      </div>
+      <div style={{ background: "#f5f5f5", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 13, color: "#555" }}>
+        <strong style={{ color: couleur }}>{selected.map(p => p.nom).join(" + ")}</strong> · {formatDuree(dureeTotal)}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, pointerEvents: "none" }} aria-hidden>
+          <input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} name="_b3acon" />
+        </div>
+        <div><label style={labelStyle}>Jour souhaité *</label>
+          <input type="date" value={waitlistDate} min={today} max={maxDate || undefined} onChange={e => setWaitlistDate(e.target.value)} style={inputStyle} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div><label style={labelStyle}>Prénom *</label><input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={inputStyle} /></div>
+          <div><label style={labelStyle}>Nom *</label><input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" style={inputStyle} /></div>
+        </div>
+        <div><label style={labelStyle}>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marie@email.com" style={inputStyle} /></div>
+        <div><label style={labelStyle}>Téléphone *</label><input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="06 00 00 00 00" style={inputStyle} /></div>
+      </div>
+      {wlError && <div style={{ marginTop: 12, fontSize: 13, color: "#e74c3c" }}>{wlError}</div>}
+      <button onClick={handleWaitlistSubmit} disabled={wlSubmitting}
+        style={{ marginTop: 20, width: "100%", padding: "13px", background: couleur, color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: wlSubmitting ? "not-allowed" : "pointer", opacity: wlSubmitting ? 0.7 : 1 }}>
+        {wlSubmitting ? "Inscription…" : "M'inscrire sur la liste d'attente"}
+      </button>
     </div>
   );
 
@@ -331,6 +403,10 @@ export default function BookingWidget({
           Continuer → {choix.date.split("-").reverse().join("/")} à {choix.heure}
         </button>
       )}
+      <button onClick={openWaitlist}
+        style={{ marginTop: 12, width: "100%", padding: "10px", background: "none", border: `1px dashed ${couleur}66`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: couleur, cursor: "pointer" }}>
+        🔔 Aucun créneau qui vous convient ? Être prévenu·e
+      </button>
     </div>
   );
 

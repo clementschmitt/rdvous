@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
+import { sendSMS } from "@/lib/sms";
 
 export async function POST(req: NextRequest) {
   const { token } = await req.json();
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   const dateStr = rdvDate.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const heureStr = rdv.date_heure.slice(11, 16);
 
-  const { data: settings } = await admin.from("app_settings").select("email_expediteur, email_reception, email_expediteur_nom").eq("salon_id", rdv.salon_id).single();
+  const { data: settings } = await admin.from("app_settings").select("email_expediteur, email_reception, email_expediteur_nom, sms_active, sms_expediteur").eq("salon_id", rdv.salon_id).single();
   let artisanEmail = settings?.email_reception?.trim() || settings?.email_expediteur?.trim() || null;
   if (!artisanEmail) {
     const { data: su } = await admin.from("salon_users").select("user_id").eq("salon_id", rdv.salon_id).limit(1).single();
@@ -58,6 +59,69 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("Cancel notification email failed:", e);
     }
+  }
+
+  // ── Notification de la liste d'attente ──
+  // Une place vient de se libérer ce jour-là : on prévient les personnes en attente.
+  try {
+    const dateRdv = rdv.date_heure.slice(0, 10);
+    const { data: waiting } = await admin
+      .from("liste_attente")
+      .select("id, prenom, email, telephone")
+      .eq("salon_id", rdv.salon_id)
+      .eq("date_souhaitee", dateRdv)
+      .eq("statut", "en_attente");
+
+    if (waiting && waiting.length > 0) {
+      const { data: salonInfo } = await admin.from("salons").select("slug").eq("id", rdv.salon_id).single();
+      const origin = new URL(req.url).origin;
+      const bookingUrl = salonInfo?.slug ? `${origin}/${salonInfo.slug}` : `${origin}/s/${rdv.salon_id}`;
+      const salonNom = salon?.nom || "votre salon";
+
+      for (const w of waiting) {
+        // Email
+        if (w.email) {
+          try {
+            await sendEmail({
+              to: w.email,
+              toName: w.prenom,
+              subject: `Une place s'est libérée — ${salonNom} le ${dateStr}`,
+              html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+                <div style="background:#ecfdf5;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #10b981">
+                  <div style="font-size:16px;font-weight:700;color:#059669">Une place s'est libérée !</div>
+                  <div style="font-size:22px;font-weight:700;margin-top:8px">${dateStr}</div>
+                </div>
+                <p style="font-size:14px;line-height:1.6">Bonjour ${w.prenom}, une place vient de se libérer chez <strong>${salonNom}</strong> le ${dateStr}. Réservez vite, le premier qui réserve obtient le créneau.</p>
+                <p style="text-align:center;margin:28px 0"><a href="${bookingUrl}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:15px;font-weight:700">Réserver maintenant</a></p>
+              </div>`,
+              fromName: settings?.email_expediteur_nom || salonNom,
+              replyTo: settings?.email_expediteur || undefined,
+            });
+          } catch (e) { console.error("Waitlist email failed:", e); }
+        }
+        // SMS (si activé et crédits disponibles)
+        if (settings?.sms_active && w.telephone) {
+          try {
+            const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id });
+            if (canSend) {
+              await sendSMS({
+                to: w.telephone,
+                content: `Bonjour ${w.prenom}, une place s'est liberee chez ${salonNom} le ${dateStr}. Reservez vite : ${bookingUrl}`,
+                sender: settings?.sms_expediteur || salonNom,
+              });
+            }
+          } catch (e) { console.error("Waitlist SMS failed:", e); }
+        }
+      }
+
+      // Marquer ces personnes comme notifiées
+      await admin
+        .from("liste_attente")
+        .update({ statut: "notifie", notifie_le: new Date().toISOString() })
+        .in("id", waiting.map(w => w.id));
+    }
+  } catch (e) {
+    console.error("Waitlist notification block failed:", e);
   }
 
   return NextResponse.json({ ok: true, salon_nom: salon?.nom, dateStr, heureStr });

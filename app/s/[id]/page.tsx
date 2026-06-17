@@ -3,6 +3,7 @@ import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import VitrineHeader from "./VitrineHeader";
+import ChatWidget from "@/app/components/ChatWidget";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
@@ -330,6 +331,8 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
         <Link href="/" style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, textDecoration: "none", color: "#1a1a1a" }}>rdvous</Link>
         <div style={{ fontSize: 11, color: "#ccc", marginTop: 4 }}>Gérez votre salon sur rdvous.fr</div>
       </div>
+
+      <ChatWidget salonId={salon.id} couleur={couleur} />
     </div>
   );
 }
