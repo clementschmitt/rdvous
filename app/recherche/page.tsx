@@ -26,9 +26,8 @@ export default function RecherchePage() {
     setSearched(true);
     const supabase = createSupabase();
     let query = supabase
-      .from("salons")
+      .from("salons_public")
       .select("id, nom, metier, ville, adresse, description, slug")
-      .eq("visible_recherche", true)
       .order("nom")
       .limit(20);
     if (nom.trim()) query = query.ilike("nom", `%${nom.trim()}%`);

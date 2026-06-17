@@ -63,7 +63,7 @@ export default function HomePage() {
   async function rechercher() {
     setLoading(true); setSearched(true);
     const supabase = createSupabase();
-    let q = supabase.from("salons").select("id,nom,metier,ville,adresse,description,slug").eq("visible_recherche", true).order("nom").limit(8);
+    let q = supabase.from("salons_public").select("id,nom,metier,ville,adresse,description,slug").order("nom").limit(8);
     if (nom.trim())   q = q.ilike("nom",  `%${nom.trim()}%`);
     if (ville.trim()) q = q.ilike("ville",`%${ville.trim()}%`);
     const { data } = await q;
