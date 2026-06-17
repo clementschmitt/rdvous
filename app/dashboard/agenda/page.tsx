@@ -221,17 +221,40 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* Vue MOIS — mobile : grille calendrier réutilisée */}
-      {vueMobile === "mois" && (
-        <div className="agenda-mobile" style={{ display: "none", flexDirection: "column" }}>
-          <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #d0d0d0" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "2px solid #e0e0e0" }}>
-              {JOURS.map(j => <div key={j} style={{ padding: "8px 2px", textAlign: "center", fontSize: 10, fontWeight: 600, color: "#aaa" }}>{j}</div>)}
+      {/* Vue MOIS — mobile : grille compacte, numéro + nombre de RDV */}
+      {vueMobile === "mois" && (() => {
+        const firstDay = new Date(moisCourant.getFullYear(), moisCourant.getMonth(), 1);
+        const offset = (firstDay.getDay() + 6) % 7;
+        const start = addDays(firstDay, -offset);
+        const cells = Array.from({ length: 42 }, (_, i) => addDays(start, i));
+        return (
+          <div className="agenda-mobile" style={{ display: "none", flexDirection: "column" }}>
+            <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #e0d8d3" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", borderBottom: "1px solid #ece8e4" }}>
+                {JOURS.map(j => <div key={j} style={{ padding: "8px 0", textAlign: "center", fontSize: 10, fontWeight: 600, color: "#bbb" }}>{j}</div>)}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
+                {cells.map((d, i) => {
+                  const str = toDateStr(d);
+                  const isToday = str === today;
+                  const inMonth = d.getMonth() === moisCourant.getMonth();
+                  const count = rdvsForDay(d).length;
+                  return (
+                    <button key={i} onClick={() => { setJourDate(d); setVueMobile("jour"); }}
+                      style={{ minWidth: 0, aspectRatio: "1", border: "none", borderRight: "1px solid #f3efeb", borderBottom: "1px solid #f3efeb", background: isToday ? `${m.couleur}10` : "#fff", opacity: inMonth ? 1 : 0.35, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: 0 }}>
+                      <span style={{ width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : "#333", background: isToday ? m.couleur : "transparent" }}>{d.getDate()}</span>
+                      {count > 0
+                        ? <span style={{ fontSize: 10, fontWeight: 700, color: m.couleur, background: `${m.couleur}18`, borderRadius: 10, padding: "0 6px", lineHeight: 1.5 }}>{count}</span>
+                        : <span style={{ height: 15 }} />}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <MoisGrid moisCourant={moisCourant} rdvsForDay={rdvsForDay} couleur={m.couleur} today={today} router={router} />
+            <p style={{ textAlign: "center", fontSize: 11, color: "#aaa", marginTop: 10 }}>Touchez un jour pour voir le détail</p>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Toolbar desktop */}
       <div className="agenda-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
@@ -282,7 +305,7 @@ export default function AgendaPage() {
       {/* Vue mois */}
       {vue === "mois" && (
         <div style={{ background: "#fff", borderRadius: 10, overflow: "hidden", border: "1px solid #d0d0d0", boxShadow: "0 1px 4px rgba(0,0,0,0.07)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", borderBottom: "2px solid #e0e0e0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))", borderBottom: "2px solid #e0e0e0" }}>
             {JOURS.map(j => <div key={j} style={{ padding: "10px", textAlign: "center", fontSize: 11, fontWeight: 600, color: "#aaa", letterSpacing: "0.05em" }}>{j}</div>)}
           </div>
           <MoisGrid moisCourant={moisCourant} rdvsForDay={rdvsForDay} couleur={m.couleur} today={today} router={router} />
@@ -303,7 +326,7 @@ function MoisGrid({ moisCourant, rdvsForDay, couleur, today, router }: { moisCou
   const cells = Array.from({ length: 42 }, (_, i) => addDays(addDays(firstDay, -offset), i));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(7, minmax(0, 1fr))" }}>
       {cells.map((d, i) => {
         const str = toDateStr(d);
         const isToday = str === today;
@@ -312,7 +335,7 @@ function MoisGrid({ moisCourant, rdvsForDay, couleur, today, router }: { moisCou
         return (
           <div key={i}
             onClick={() => router.push(`/dashboard/agenda/nouveau?date=${str}`)}
-            style={{ minHeight: 100, padding: 8, borderRight: "1px solid #e8e8e8", borderBottom: "1px solid #e8e8e8", background: isToday ? `${couleur}12` : "transparent", opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer" }}>
+            style={{ minWidth: 0, minHeight: 100, padding: 8, borderRight: "1px solid #e8e8e8", borderBottom: "1px solid #e8e8e8", background: isToday ? `${couleur}12` : "transparent", opacity: isCurrentMonth ? 1 : 0.35, cursor: "pointer" }}>
             <div style={{ width: 26, height: 26, borderRadius: "50%", background: isToday ? couleur : "transparent", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
               <span style={{ fontSize: 13, color: isToday ? "#fff" : "#333" }}>{d.getDate()}</span>
             </div>
