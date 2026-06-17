@@ -33,6 +33,7 @@ export default function FinancesPage() {
   const [depenses, setDepenses] = useState<Depense[]>([]);
   const [recettes, setRecettes] = useState<RecettePresta[]>([]);
   const [caTotal, setCaTotal] = useState(0);
+  const [caAVenir, setCaAVenir] = useState(0);
   const [objectif, setObjectif] = useState(0);
   const [objectifEdit, setObjectifEdit] = useState("");
   const [tauxUrssaf, setTauxUrssaf] = useState(DEFAULT_TAUX_URSSAF);
@@ -60,7 +61,7 @@ export default function FinancesPage() {
     const [rdvRes, depRes, settingsRes] = await Promise.all([
       supabase
         .from("rendez_vous")
-        .select("rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
+        .select("statut, rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
         .eq("salon_id", salon.id)
         .in("statut", ["planifie", "effectue"])
         .gte("date_heure", `${debut}T00:00:00`)
@@ -80,21 +81,27 @@ export default function FinancesPage() {
     ]);
 
     const map: Record<string, { nb: number; ca: number }> = {};
-    let total = 0;
+    let totalRealise = 0;
+    let totalAVenir = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rdvRes.data || []).forEach((rdv: any) => {
       (rdv.rendez_vous_prestations || []).forEach((rp: any) => {
         const p = rp.prestations;
         if (!p || p.sur_devis) return;
-        if (!map[p.nom]) map[p.nom] = { nb: 0, ca: 0 };
-        map[p.nom].nb++;
-        map[p.nom].ca += p.tarif;
-        total += p.tarif;
+        if (rdv.statut === "effectue") {
+          if (!map[p.nom]) map[p.nom] = { nb: 0, ca: 0 };
+          map[p.nom].nb++;
+          map[p.nom].ca += p.tarif;
+          totalRealise += p.tarif;
+        } else {
+          totalAVenir += p.tarif;
+        }
       });
     });
 
     setRecettes(Object.entries(map).map(([nom, v]) => ({ nom, ...v })).sort((a, b) => b.ca - a.ca));
-    setCaTotal(total);
+    setCaTotal(totalRealise);
+    setCaAVenir(totalAVenir);
     setDepenses((depRes.data || []) as Depense[]);
 
     const obj = settingsRes.data?.objectif_ca_mensuel ?? 0;
@@ -173,7 +180,8 @@ export default function FinancesPage() {
       ["Finances", label],
       [],
       ["Récapitulatif"],
-      ["CA brut", num(caTotal)],
+      ["CA réalisé", num(caTotal)],
+      ["CA à venir", num(caAVenir)],
       ["Dépenses", num(totalDep)],
       [`URSSAF (${tauxUrssaf}%)`, num(urssafCalc)],
       ["Bilan net", num(bilan)],
@@ -227,7 +235,7 @@ export default function FinancesPage() {
 
     // ── Cartes KPI ──
     const cards: { label: string; value: string; color: [number, number, number] }[] = [
-      { label: "CA BRUT", value: fmt(caTotal), color: rgb },
+      { label: "CA RÉALISÉ", value: fmt(caTotal), color: rgb },
       { label: "DÉPENSES", value: fmt(totalDep), color: rouge },
       { label: `URSSAF (${tauxUrssaf}%)`, value: fmt(urssafCalc), color: ambre },
       { label: "BILAN NET", value: fmt(bilan), color: bilan >= 0 ? vert : rouge },
@@ -388,8 +396,14 @@ export default function FinancesPage() {
       {/* KPIs */}
       <div className="fin-kpis">
         <div className="fin-kpi">
-          <div style={{ ...T.ls, color: T.muted, marginBottom: 6 }}>CA brut</div>
+          <div style={{ ...T.ls, color: T.muted, marginBottom: 6 }}>CA réalisé</div>
           <div style={{ fontFamily: T.heading, fontSize: 28, color: m.couleur }}>{euro(caTotal)}</div>
+          <div style={{ fontSize: 10, color: T.faint, marginTop: 4 }}>RDV effectués</div>
+        </div>
+        <div className="fin-kpi">
+          <div style={{ ...T.ls, color: T.muted, marginBottom: 6 }}>CA à venir</div>
+          <div style={{ fontFamily: T.heading, fontSize: 28, color: T.muted }}>{euro(caAVenir)}</div>
+          <div style={{ fontSize: 10, color: T.faint, marginTop: 4 }}>RDV réservés</div>
         </div>
         <div className="fin-kpi">
           <div style={{ ...T.ls, color: T.muted, marginBottom: 6 }}>Dépenses</div>
@@ -461,7 +475,7 @@ export default function FinancesPage() {
       <div className="fin-section">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
           <h2 style={{ fontFamily: T.heading, fontSize: 20, margin: 0 }}>Recettes</h2>
-          <span style={{ fontSize: 11, color: T.muted, letterSpacing: "0.04em" }}>Calculées depuis vos RDV confirmés</span>
+          <span style={{ fontSize: 11, color: T.muted, letterSpacing: "0.04em" }}>Calculées depuis vos RDV effectués</span>
         </div>
         {loading ? (
           <div style={{ color: T.muted, fontSize: 13 }}>Chargement...</div>

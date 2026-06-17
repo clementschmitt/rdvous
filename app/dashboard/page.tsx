@@ -57,18 +57,18 @@ export default function DashboardPage() {
 
       const [rdvTodayRes, rdvWeekRes, rdvWeekPrevRes, rdvMonthRes, rdvMonthPrevRes, clientsRes, settingsRes, allRdvsRes, rdvWeekConfirmedRes] = await Promise.all([
         supabase.from("rendez_vous").select("id, date_heure, statut, clients(prenom, nom), rendez_vous_prestations(prestations(duree_minutes, tarif))").eq("salon_id", salon!.id).gte("date_heure", `${todayStr}T00:00:00`).lte("date_heure", `${todayStr}T23:59:59`).neq("statut", "annule").order("date_heure"),
-        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "effectue"),
-        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${weekPrevStartStr}T00:00:00`).lt("date_heure", `${weekPrevEndStr}T00:00:00`).eq("statut", "effectue"),
-        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${monthStartStr}T00:00:00`).lt("date_heure", `${monthEndStr}T00:00:00`).eq("statut", "effectue"),
-        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif))").eq("salon_id", salon!.id).gte("date_heure", `${monthPrevStartStr}T00:00:00`).lt("date_heure", `${monthPrevEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif, sur_devis))").eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif, sur_devis))").eq("salon_id", salon!.id).gte("date_heure", `${weekPrevStartStr}T00:00:00`).lt("date_heure", `${weekPrevEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif, sur_devis))").eq("salon_id", salon!.id).gte("date_heure", `${monthStartStr}T00:00:00`).lt("date_heure", `${monthEndStr}T00:00:00`).eq("statut", "effectue"),
+        supabase.from("rendez_vous").select("rendez_vous_prestations(prestations(tarif, sur_devis))").eq("salon_id", salon!.id).gte("date_heure", `${monthPrevStartStr}T00:00:00`).lt("date_heure", `${monthPrevEndStr}T00:00:00`).eq("statut", "effectue"),
         supabase.from("clients").select("id, prenom, nom, telephone, email, date_naissance").eq("salon_id", salon!.id),
         supabase.from("app_settings").select("delai_relance_mois").eq("salon_id", salon!.id).single(),
         supabase.from("rendez_vous").select("client_id, date_heure").eq("salon_id", salon!.id).neq("statut", "annule").order("date_heure", { ascending: false }),
         supabase.from("rendez_vous").select("id", { count: "exact", head: true }).eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "planifie"),
       ]);
 
-      const calcCA = (rows: { rendez_vous_prestations: { prestations: { tarif: number } | null }[] }[]) =>
-        (rows || []).reduce((s, r) => s + (r.rendez_vous_prestations || []).reduce((ss, rp) => ss + (rp.prestations?.tarif || 0), 0), 0);
+      const calcCA = (rows: { rendez_vous_prestations: { prestations: { tarif: number; sur_devis?: boolean } | null }[] }[]) =>
+        (rows || []).reduce((s, r) => s + (r.rendez_vous_prestations || []).reduce((ss, rp) => ss + (rp.prestations?.sur_devis ? 0 : (rp.prestations?.tarif || 0)), 0), 0);
 
       setCaWeek(calcCA(rdvWeekRes.data as never || []));
       setCaWeekPrev(calcCA(rdvWeekPrevRes.data as never || []));
@@ -214,7 +214,7 @@ export default function DashboardPage() {
           const hausse = pct !== null && pct >= 0;
           return (
             <div style={{ backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "14px 16px" }}>
-              <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: "0 0 6px" }}>CA CE MOIS</p>
+              <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: "0 0 6px" }}>CA RÉALISÉ CE MOIS</p>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <p style={{ fontSize: "15px", fontWeight: 700, color: T.text, margin: 0 }}>{caMonth.toFixed(0)} €</p>
                 {pct !== null && <span style={{ fontSize: "11px", fontWeight: 600, color: hausse ? "#16a34a" : "#dc2626" }}>{hausse ? "↑" : "↓"} {Math.abs(pct)}%</span>}
