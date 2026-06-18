@@ -4,6 +4,7 @@ import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
+import { formatPrix } from "@/lib/prix";
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter,
   type DragStartEvent, type DragEndEvent, type DragOverEvent,
@@ -12,9 +13,9 @@ import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide" };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -32,12 +33,12 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0 });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu" });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
   const [editCategorieNom, setEditCategorieNom] = useState("");
-  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "" });
+  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "", description: "" });
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -173,8 +174,8 @@ export default function ParametresPage() {
   async function addPresta() {
     if (!newPresta.nom.trim()) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis, categorie_id: newPresta.categorie_id || null });
-    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "" });
+    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis, categorie_id: newPresta.categorie_id || null, description: newPresta.description.trim() || null });
+    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "", description: "" });
     load();
   }
 
@@ -188,7 +189,7 @@ export default function ParametresPage() {
   async function saveEditPresta() {
     if (!editPresta) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis, categorie_id: editPresta.categorie_id || null }).eq("id", editPresta.id);
+    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis, categorie_id: editPresta.categorie_id || null, description: editPresta.description?.trim() || null }).eq("id", editPresta.id);
     setEditPrestaId(null);
     load();
   }
@@ -603,6 +604,21 @@ export default function ParametresPage() {
               <textarea value={settings.message_prestations} onChange={e => setSettings(s => ({ ...s, message_prestations: e.target.value }))} placeholder="Ex : Tous les tarifs sont susceptibles d'évoluer sans préavis." rows={2} style={{ ...miniInput, width: "100%", boxSizing: "border-box", resize: "vertical" }} />
               <div style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>Affiché en bas de la liste de vos prestations sur votre page publique. Laissez vide pour masquer.</div>
             </div>
+            <div>
+              <label style={labelStyle}>Mode de réservation</label>
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                {([
+                  { v: "menu", titre: "Menu", desc: "Toutes les prestations affichées, la cliente choisit librement (recommandé)" },
+                  { v: "guide", titre: "Parcours guidé", desc: "Sélection étape par étape, catégorie par catégorie" },
+                ] as const).map(opt => (
+                  <button key={opt.v} type="button" onClick={() => setSettings(s => ({ ...s, mode_reservation: opt.v }))}
+                    style={{ flex: 1, textAlign: "left", padding: "10px 12px", borderRadius: 8, cursor: "pointer", border: `1.5px solid ${settings.mode_reservation === opt.v ? m.couleur : "#e0e0e0"}`, background: settings.mode_reservation === opt.v ? `${m.couleur}0c` : "#fff" }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: settings.mode_reservation === opt.v ? m.couleur : "#444" }}>{opt.titre}</div>
+                    <div style={{ fontSize: 11, color: "#999", marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <SaveButton sectionKey="prestations_label" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
           </div>
         </Section>
@@ -740,7 +756,7 @@ export default function ParametresPage() {
                 </div>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Tarif (€)</label>
-                  <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} disabled={newPresta.sur_devis} />
+                  <input type="number" value={newPresta.tarif} onChange={e => setNewPresta(p => ({ ...p, tarif: e.target.value }))} style={{ ...miniInput, width: "100%" }} placeholder={newPresta.sur_devis ? "à partir de…" : ""} />
                 </div>
                 {categories.length > 0 && (
                   <div style={{ flex: 1 }}>
@@ -753,9 +769,13 @@ export default function ParametresPage() {
                 )}
                 <button onClick={addPresta} style={{ padding: "9px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Ajouter</button>
               </div>
+              <div>
+                <label style={labelStyle}>Description (optionnelle)</label>
+                <textarea value={newPresta.description} onChange={e => setNewPresta(p => ({ ...p, description: e.target.value }))} placeholder="Ce qui est inclus, à savoir avant le rendez-vous…" rows={2} style={{ ...miniInput, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit" }} />
+              </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
-                <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked, tarif: e.target.checked ? "0" : p.tarif }))} style={{ accentColor: m.couleur }} />
-                Prix sur devis (pas de tarif fixe)
+                <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked }))} style={{ accentColor: m.couleur }} />
+                Prix variable — laisse un tarif pour afficher « à partir de X € », ou 0 pour « sur devis »
               </label>
             </div>
           </div>
@@ -1191,13 +1211,13 @@ function SortablePrestaRow({ p, editPrestaId, editPresta, setEditPresta, saveEdi
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <input value={editPresta.nom} onChange={e => setEditPresta({ ...editPresta, nom: e.target.value })} style={{ flex: 2, minWidth: 120, ...miniInput }} placeholder="Nom" />
             <input type="number" value={editPresta.duree_minutes} onChange={e => setEditPresta({ ...editPresta, duree_minutes: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} />
-            <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} disabled={editPresta.sur_devis} />
+            <input type="number" value={editPresta.tarif} onChange={e => setEditPresta({ ...editPresta, tarif: Number(e.target.value) })} style={{ flex: 1, ...miniInput }} placeholder={editPresta.sur_devis ? "à partir de…" : ""} />
             <button onClick={saveEditPresta} style={btnSmall(couleur)}>✓</button>
             <button onClick={() => setEditPrestaId(null)} style={btnSmallGhost}>✕</button>
           </div>
           <div style={{ display: "flex", gap: 16, alignItems: "center", paddingLeft: 2 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
-              <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked, tarif: e.target.checked ? 0 : editPresta.tarif })} style={{ accentColor: couleur }} />
+              <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked })} style={{ accentColor: couleur }} />
               Sur devis
             </label>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -1208,15 +1228,17 @@ function SortablePrestaRow({ p, editPrestaId, editPresta, setEditPresta, saveEdi
               </select>
             </div>
           </div>
+          <textarea value={editPresta.description || ""} onChange={e => setEditPresta({ ...editPresta, description: e.target.value })} placeholder="Description (optionnelle)" rows={2} style={{ ...miniInput, width: "100%", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", fontSize: 12 }} />
         </div>
       ) : (
         <>
           <span {...listeners} {...attributes} style={{ cursor: "grab", color: "#ccc", fontSize: 14, userSelect: "none", flexShrink: 0, touchAction: "none" }}>⠿</span>
           <div onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 2, minWidth: 0, cursor: "pointer" }}>
             <div style={{ fontSize: 13, fontWeight: 500, textDecoration: "underline", textDecorationStyle: "dotted", textDecorationColor: "#bbb" }}>{p.nom}</div>
+            {p.description && <div style={{ fontSize: 11, color: "#aaa", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.description}</div>}
           </div>
           <span onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 1, fontSize: 12, color: "#888", cursor: "pointer" }}>{p.duree_minutes} min</span>
-          <span onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 1, fontSize: 13, fontWeight: 600, color: p.sur_devis ? "#aaa" : "#1a1a1a", cursor: "pointer" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
+          <span onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 1, fontSize: 13, fontWeight: 600, color: p.sur_devis ? "#aaa" : "#1a1a1a", cursor: "pointer" }}>{formatPrix(p.tarif, p.sur_devis)}</span>
           <button onClick={() => deletePresta(p.id)} style={{ ...btnSmallGhost, color: "#e74c3c", borderColor: "#e74c3c", position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>✕</button>
         </>
       )}

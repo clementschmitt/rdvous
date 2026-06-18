@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
+import { formatPrix } from "@/lib/prix";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean; categorie_id?: string | null };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean; categorie_id?: string | null; description?: string | null };
 type Category = { id: string; nom: string; selection_type: "unique" | "multiple" | "libre" };
 type Slot = { date: string; heure: string };
 
@@ -21,7 +22,7 @@ function getMondayOfWeek(offset: number) {
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function BookingWidget({
-  salonId, prestations, categories = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, salonTel,
+  salonId, prestations, categories = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, salonTel, modeReservation = "menu",
 }: {
   salonId: string;
   prestations: Prestation[];
@@ -31,6 +32,7 @@ export default function BookingWidget({
   delaiMinHeures?: number;
   planningHorizonJours?: number;
   salonTel?: string;
+  modeReservation?: "menu" | "guide";
 }) {
   const [step, setStep] = useState<"select" | "contact" | "done" | "waitlist" | "waitlist_done">("select");
   const [selected, setSelected] = useState<Prestation[]>([]);
@@ -54,9 +56,15 @@ export default function BookingWidget({
   const [waitlistDate, setWaitlistDate] = useState("");
   const [wlSubmitting, setWlSubmitting] = useState(false);
   const [wlError, setWlError] = useState("");
+  const [openDesc, setOpenDesc] = useState<Set<string>>(new Set());
+  const toggleDesc = (id: string) => setOpenDesc(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set());
+  const toggleCat = (id: string) => setOpenCats(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  // Catégories dans le stepper = unique + multiple (dans l'ordre)
-  const stepCategories = categories.filter(c => c.selection_type === "unique" || c.selection_type === "multiple");
+  // Mode menu : pas d'étapes, toutes les prestations groupées en sélection libre (type Planity)
+  const isMenu = modeReservation === "menu";
+  // Catégories dans le stepper = unique + multiple (dans l'ordre) — désactivé en mode menu
+  const stepCategories = isMenu ? [] : categories.filter(c => c.selection_type === "unique" || c.selection_type === "multiple");
   const libreCategories = categories.filter(c => c.selection_type === "libre");
   const hasSteps = stepCategories.length > 0;
 
@@ -307,19 +315,31 @@ export default function BookingWidget({
           {isSelected && <span style={{ fontSize: 9, color: "#fff", fontWeight: 900, lineHeight: 1 }}>✓</span>}
         </div>
       )}
-      <span style={{ flex: 1, fontSize: 13, fontWeight: isSelected ? 600 : 400, color: "#1a1a1a" }}>{p.nom}</span>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+        <span style={{ fontSize: 13, fontWeight: isSelected ? 600 : 400, color: "#1a1a1a" }}>{p.nom}</span>
+        {p.description && (
+          <div style={{ fontSize: 11, color: "#999", marginTop: 2, lineHeight: 1.4 }}>
+            <span style={openDesc.has(p.id) ? { display: "block" } : { display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.description}</span>
+            {p.description.length > 55 && (
+              <span onClick={e => { e.stopPropagation(); toggleDesc(p.id); }} style={{ color: couleur, cursor: "pointer", fontWeight: 600 }}>
+                {openDesc.has(p.id) ? "réduire" : "plus de détails"}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 12, alignItems: "center", flexShrink: 0, marginLeft: 10 }}>
         <span style={{ fontSize: 12, color: "#bbb" }}>{formatDuree(p.duree_minutes)}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: p.sur_devis ? "#aaa" : couleur, minWidth: 52, textAlign: "right" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: p.sur_devis ? "#aaa" : couleur, minWidth: 52, textAlign: "right", whiteSpace: "nowrap" }}>{formatPrix(p.tarif, p.sur_devis)}</span>
       </div>
     </button>
   );
 
-  const LibreGroup = ({ label, items }: { label: string; items: Prestation[] }) => {
+  const LibreGroup = ({ label, items, optionnel = true }: { label: string; items: Prestation[]; optionnel?: boolean }) => {
     if (items.length === 0) return null;
     return (
       <div style={{ border: "1px solid #ebebeb", borderRadius: 10, overflow: "hidden" }}>
-        <div style={{ padding: "9px 14px", background: "#f9f9f9", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label} — optionnel</div>
+        <div style={{ padding: "9px 14px", background: "#f9f9f9", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}{optionnel ? " — optionnel" : ""}</div>
         <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
           {items.map(p => <PrestationRow key={p.id} p={p} onClick={() => toggleLibre(p)} isSelected={selected.some(s => s.id === p.id)} />)}
         </div>
@@ -423,7 +443,40 @@ export default function BookingWidget({
           </span>
         </div>
       )}
-      {hasSteps ? (
+      {isMenu ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {[
+            ...categories.map(c => ({ id: c.id, nom: c.nom, items: prestations.filter(p => p.categorie_id === c.id) })),
+            { id: "__autres__", nom: "Autres", items: prestations.filter(p => !p.categorie_id) },
+          ].filter(g => g.items.length > 0).map(g => {
+            const isOpen = openCats.has(g.id);
+            const nbSel = g.items.filter(p => selected.some(s => s.id === p.id)).length;
+            return (
+              <div key={g.id} style={{ border: `1px solid ${nbSel > 0 ? couleur + "55" : "#e8e8e8"}`, borderRadius: 10, overflow: "hidden" }}>
+                <button onClick={() => toggleCat(g.id)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, width: "100%", padding: "13px 14px", background: isOpen ? `${couleur}0e` : "#fff", border: "none", borderLeft: `3px solid ${couleur}`, cursor: "pointer", textAlign: "left" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, color: couleur, flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>▸</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: couleur, textTransform: "uppercase", letterSpacing: "0.05em" }}>{g.nom}</span>
+                    <span style={{ fontSize: 11, color: "#bbb", flexShrink: 0 }}>{g.items.length} prestation{g.items.length > 1 ? "s" : ""}</span>
+                  </div>
+                  {nbSel > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: couleur, borderRadius: 20, padding: "2px 9px", flexShrink: 0, whiteSpace: "nowrap" }}>{nbSel} ✓</span>}
+                </button>
+                {isOpen && (
+                  <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${couleur}18`, background: "#fafafa" }}>
+                    {g.items.map(p => <PrestationRow key={p.id} p={p} onClick={() => toggleLibre(p)} isSelected={selected.some(s => s.id === p.id)} />)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {selected.length > 0 && (
+            <div style={{ padding: "10px 14px", background: "#f5f5f5", borderRadius: 8, fontSize: 12, color: "#555" }}>
+              {selected.map(p => p.nom).join(" + ")} · <strong>{formatDuree(dureeTotal)}</strong> · <strong style={{ color: couleur }}>{hasSurDevis ? (tarifTotal > 0 ? `${tarifTotal} € + sur devis` : "Sur devis") : `${tarifTotal} €`}</strong>
+            </div>
+          )}
+        </div>
+      ) : hasSteps ? (
         <>
           {stepCategories.map((cat, idx) => {
             const catPrestations = prestations.filter(p => p.categorie_id === cat.id);
@@ -514,7 +567,7 @@ export default function BookingWidget({
             }} style={{ width: "100%", padding: "10px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, background: "#fff", cursor: "pointer" }}>
               <option value="" disabled>{selected.length === 0 ? "Choisissez une prestation…" : "Ajouter une prestation…"}</option>
               {prestations.filter(p => !selected.find(s => s.id === p.id)).map(p => (
-                <option key={p.id} value={p.id}>{p.nom} — {formatDuree(p.duree_minutes)}{p.sur_devis ? " · Sur devis" : ` · ${p.tarif} €`}</option>
+                <option key={p.id} value={p.id}>{p.nom} — {formatDuree(p.duree_minutes)} · {formatPrix(p.tarif, p.sur_devis)}</option>
               ))}
             </select>
           </div>
@@ -524,7 +577,7 @@ export default function BookingWidget({
                 {selected.map(p => (
                   <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", background: couleur + "15", border: `1px solid ${couleur}40`, borderRadius: 20, fontSize: 13 }}>
                     <span style={{ fontWeight: 600, color: couleur }}>{p.nom}</span>
-                    <span style={{ fontSize: 11, color: "#999" }}>{formatDuree(p.duree_minutes)}{p.sur_devis ? " · Sur devis" : ` · ${p.tarif}€`}</span>
+                    <span style={{ fontSize: 11, color: "#999" }}>{formatDuree(p.duree_minutes)} · {formatPrix(p.tarif, p.sur_devis)}</span>
                     <button onClick={() => setSelected(s => s.filter(x => x.id !== p.id))} style={{ background: "none", border: "none", color: "#aaa", cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}>✕</button>
                   </div>
                 ))}

@@ -10,6 +10,7 @@ type Periode = "semaine" | "mois" | "mois_precedent" | "annee";
 type RdvRow = {
   date_heure: string;
   statut: string;
+  tarif: number | null;
   rendez_vous_prestations: {
     prestations: { nom: string; tarif: number; duree_minutes: number; sur_devis: boolean } | null;
   }[];
@@ -72,7 +73,7 @@ export default function StatsPage() {
     const [rdvRes, evoRes, annulesRes, topRes] = await Promise.all([
       supabase
         .from("rendez_vous")
-        .select("date_heure, statut, rendez_vous_prestations(prestations(nom, tarif, duree_minutes, sur_devis))")
+        .select("date_heure, statut, tarif, rendez_vous_prestations(prestations(nom, tarif, duree_minutes, sur_devis))")
         .eq("salon_id", salon.id)
         .gte("date_heure", `${debut}T00:00:00`)
         .lte("date_heure", `${fin}T23:59:59`)
@@ -80,7 +81,7 @@ export default function StatsPage() {
       // 12 derniers mois pour l'évolution (réalisé + à venir, filtré à l'affichage)
       supabase
         .from("rendez_vous")
-        .select("date_heure, statut, rendez_vous_prestations(prestations(tarif, sur_devis))")
+        .select("date_heure, statut, tarif, rendez_vous_prestations(prestations(tarif, sur_devis))")
         .eq("salon_id", salon.id)
         .gte("date_heure", (() => { const d = new Date(); d.setMonth(d.getMonth() - 11); d.setDate(1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01T00:00:00`; })())
         .neq("statut", "annule"),
@@ -151,7 +152,10 @@ export default function StatsPage() {
   const previsionnelActifGlobal = previsionnelGlobal && hasPrevisionnelGlobal;
 
   // Aides de calcul
-  const sumCA = (list: RdvRow[]) => list.reduce((s, r) => s + r.rendez_vous_prestations.reduce((ss, rp) => ss + (rp.prestations?.sur_devis ? 0 : rp.prestations?.tarif || 0), 0), 0);
+  const sumCA = (list: RdvRow[]) => list.reduce((s, r) => {
+    if (r.statut === "effectue" && r.tarif != null) return s + r.tarif;
+    return s + r.rendez_vous_prestations.reduce((ss, rp) => ss + (rp.prestations?.sur_devis ? 0 : rp.prestations?.tarif || 0), 0);
+  }, 0);
   const sumMin = (list: RdvRow[]) => list.reduce((s, r) => s + r.rendez_vous_prestations.reduce((ss, rp) => ss + (rp.prestations?.duree_minutes || 0), 0), 0);
   const fmtH = (min: number) => `${Math.floor(min / 60)}h${min % 60 > 0 ? min % 60 : ""}`;
 
@@ -190,9 +194,9 @@ export default function StatsPage() {
   for (const r of evoRows) {
     const key = r.date_heure.slice(0, 7);
     if (!evoMap[key]) evoMap[key] = { ca: 0, nb: 0, caAVenir: 0, nbAVenir: 0 };
-    const ca = r.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.sur_devis ? 0 : rp.prestations?.tarif || 0), 0);
-    if (r.statut === "effectue") { evoMap[key].nb++; evoMap[key].ca += ca; }
-    else if (estAVenir(r)) { evoMap[key].nbAVenir++; evoMap[key].caAVenir += ca; }
+    const caEstim = r.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.sur_devis ? 0 : rp.prestations?.tarif || 0), 0);
+    if (r.statut === "effectue") { evoMap[key].nb++; evoMap[key].ca += (r.tarif != null ? r.tarif : caEstim); }
+    else if (estAVenir(r)) { evoMap[key].nbAVenir++; evoMap[key].caAVenir += caEstim; }
   }
   const evolution = Object.entries(evoMap).sort(([a], [b]) => a.localeCompare(b)).map(([mois, v]) => ({ mois, ...v }));
 

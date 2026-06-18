@@ -3,8 +3,10 @@ import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import VitrineHeader from "./VitrineHeader";
+import { formatPrix } from "@/lib/prix";
+import PrestationDescription from "./PrestationDescription";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description?: string | null };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
@@ -18,7 +20,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     .single();
   if (!salon || salon.visible_recherche === false) return null;
   const [{ data: prestations }, { data: appSettings }, { data: categories }, { data: dispos }] = await Promise.all([
-    admin.from("prestations").select("id, nom, duree_minutes, tarif, sur_devis, categorie_id").eq("salon_id", salon.id).eq("actif", true).order("nom"),
+    admin.from("prestations").select("id, nom, duree_minutes, tarif, sur_devis, categorie_id, description").eq("salon_id", salon.id).eq("actif", true).order("nom"),
     admin.from("app_settings").select("*").eq("salon_id", salon.id).single(),
     admin.from("prestation_categories").select("id, nom, ordre, selection_type").eq("salon_id", salon.id).order("ordre"),
     admin.from("disponibilites").select("jour_semaine, heure_debut, heure_fin").eq("salon_id", salon.id).order("jour_semaine"),
@@ -31,6 +33,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const delaiMinReservationHeures = (s?.delai_min_reservation_heures as number | undefined) || 0;
   const planningHorizonJours = (s?.planning_horizon_jours as number | undefined) || 0;
   const messagePrestations = (s?.message_prestations as string | undefined) || "";
+  const modeReservation = ((s?.mode_reservation as string | undefined) === "guide" ? "guide" : "menu") as "menu" | "guide";
   return {
     salon,
     prestations: (prestations || []) as Prestation[],
@@ -43,6 +46,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     googleNbAvis,
     delaiMinReservationHeures,
     planningHorizonJours,
+    modeReservation,
   };
 }
 
@@ -126,7 +130,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.75) 100%)" }} />
           {/* Salon info overlaid */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 32px 28px" }}>
-            <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div className="vitrine-hero-text">
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}</span>
@@ -153,7 +157,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
       ) : (
         <div style={{ height: 220, background: `linear-gradient(135deg, ${couleur} 0%, ${couleur}cc 100%)`, position: "relative", display: "flex", alignItems: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35) 100%)" }} />
-          <div style={{ padding: "28px 32px", width: "100%", maxWidth: 900, margin: "0 auto", position: "relative" }}>
+          <div style={{ padding: "28px 32px", width: "100%", maxWidth: 1200, margin: "0 auto", position: "relative" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}</div>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 500, color: "#fff", margin: 0, lineHeight: 1.2, textShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>{salon.nom}</h1>
             {(deplacement === "possible" || deplacement === "uniquement") && (
@@ -167,7 +171,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
         </div>
       )}
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 16px" }}>
         <div className="vitrine-layout" style={{ display: "flex", gap: 20, alignItems: "flex-start", paddingBottom: 48, paddingTop: 24 }}>
 
           {/* Colonne gauche */}
@@ -209,11 +213,14 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                         <span style={{ fontSize: 11, fontWeight: 700, color: couleur, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
                       </div>
                       {items.map((p, i) => (
-                        <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 22px", borderBottom: i < items.length - 1 ? "1px solid #f9f9f9" : "none" }}>
-                          <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                        <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "13px 22px", borderBottom: i < items.length - 1 ? "1px solid #f9f9f9" : "none" }}>
+                          <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                            <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                            {p.description && <PrestationDescription text={p.description} couleur={couleur} />}
+                          </div>
                           <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
                             <span style={{ fontSize: 12, color: "#ccc" }}>{formatDuree(p.duree_minutes)}</span>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: p.sur_devis ? "#888" : couleur, minWidth: 44, textAlign: "right" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: p.sur_devis ? "#888" : couleur, minWidth: 44, textAlign: "right", whiteSpace: "nowrap" }}>{formatPrix(p.tarif, p.sur_devis)}</span>
                           </div>
                         </div>
                       ))}
@@ -221,11 +228,14 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                   ))
                 ) : (
                   prestations.map((p, i) => (
-                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 22px", borderBottom: i < prestations.length - 1 ? "1px solid #f9f9f9" : "none" }}>
-                      <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "13px 22px", borderBottom: i < prestations.length - 1 ? "1px solid #f9f9f9" : "none" }}>
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                            <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                            {p.description && <PrestationDescription text={p.description} couleur={couleur} />}
+                          </div>
                       <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
                         <span style={{ fontSize: 12, color: "#ccc" }}>{formatDuree(p.duree_minutes)}</span>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: p.sur_devis ? "#888" : couleur, minWidth: 44, textAlign: "right" }}>{p.sur_devis ? "Sur devis" : `${p.tarif} €`}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: p.sur_devis ? "#888" : couleur, minWidth: 44, textAlign: "right", whiteSpace: "nowrap" }}>{formatPrix(p.tarif, p.sur_devis)}</span>
                       </div>
                     </div>
                   ))

@@ -10,7 +10,7 @@ import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
 type RDV = {
   id: string; date_heure: string; statut: string; notes: string | null;
-  montant_cagnotte_utilise: number; client_id: string;
+  montant_cagnotte_utilise: number; tarif: number | null; client_id: string;
   clients: { id: string; prenom: string; nom: string; nb_visites: number; cagnotte: number; email: string | null; champs_metier: Record<string, string> } | null;
   rendez_vous_prestations: { prestation_id: string; prestations: Prestation | null }[];
 };
@@ -44,6 +44,9 @@ export default function RDVDetailPage() {
   const [cagnotteInput, setCagnotteInput] = useState(0);
   const [editingCagnotte, setEditingCagnotte] = useState(false);
 
+  const [montantInput, setMontantInput] = useState(0);
+  const [editingMontant, setEditingMontant] = useState(false);
+
   useEffect(() => {
     if (!salon) return;
     load();
@@ -53,7 +56,7 @@ export default function RDVDetailPage() {
     const supabase = createSupabase();
     const { data } = await supabase
       .from("rendez_vous")
-      .select("id, date_heure, statut, notes, montant_cagnotte_utilise, client_id, clients(id, prenom, nom, nb_visites, cagnotte, email, champs_metier), rendez_vous_prestations(prestation_id, prestations(id, nom, duree_minutes, tarif))")
+      .select("id, date_heure, statut, notes, montant_cagnotte_utilise, tarif, client_id, clients(id, prenom, nom, nb_visites, cagnotte, email, champs_metier), rendez_vous_prestations(prestation_id, prestations(id, nom, duree_minutes, tarif))")
       .eq("id", id)
       .single();
     if (!data) { router.push("/dashboard/agenda"); return; }
@@ -131,12 +134,14 @@ export default function RDVDetailPage() {
     setSaving(false);
   }
 
-  async function changeStatut(statut: string) {
+  async function changeStatut(statut: string, montant?: number) {
     if (!rdv) return;
     setSaving(true);
     const supabase = createSupabase();
     const ancienStatut = rdv.statut;
-    await supabase.from("rendez_vous").update({ statut, notes }).eq("id", id);
+    const updates: { statut: string; notes: string; tarif?: number } = { statut, notes };
+    if (statut === "effectue" && montant != null) updates.tarif = montant;
+    await supabase.from("rendez_vous").update(updates).eq("id", id);
     const client = rdv.clients;
     if (client) {
       const { data: settings } = await supabase.from("app_settings").select("nb_visites_fidelite, montant_recompense, montant_parrain, montant_filleul").eq("salon_id", salon!.id).single();
@@ -184,6 +189,27 @@ export default function RDVDetailPage() {
     await supabase.from("rendez_vous").update({ notes }).eq("id", id);
     load();
     setSaving(false);
+  }
+
+  // Ouvre la saisie du montant avant de marquer effectué
+  function demarrerEffectue() {
+    if (!rdv) return;
+    setMontantInput(rdv.tarif != null ? rdv.tarif : tarifTotal);
+    setEditingMontant(true);
+  }
+
+  async function saveMontant() {
+    if (!rdv) return;
+    if (rdv.statut !== "effectue") {
+      await changeStatut("effectue", montantInput);
+    } else {
+      setSaving(true);
+      const supabase = createSupabase();
+      await supabase.from("rendez_vous").update({ tarif: montantInput }).eq("id", id);
+      await load();
+      setSaving(false);
+    }
+    setEditingMontant(false);
   }
 
   async function handleDelete() {
@@ -348,11 +374,41 @@ export default function RDVDetailPage() {
           <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} onBlur={saveNotes} style={{ width: "100%", padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13, boxSizing: "border-box", resize: "vertical" }} />
         </div>
 
+        {/* Montant encaissé */}
+        {(rdv.statut === "effectue" || editingMontant) && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#aaa", textTransform: "uppercase" }}>Montant encaissé</div>
+              {rdv.statut === "effectue" && !editingMontant && (
+                <button onClick={() => { setMontantInput(rdv.tarif != null ? rdv.tarif : tarifTotal); setEditingMontant(true); }} style={btnGhost}>Modifier</button>
+              )}
+            </div>
+            {editingMontant ? (
+              <div style={{ background: "#f9f9f9", borderRadius: 8, padding: "12px 14px" }}>
+                <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>Montant réellement facturé pour ce RDV. Pré-rempli avec le tarif des prestations, ajuste-le si besoin (sur devis, à partir de…).</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <input type="number" min={0} step={0.5} value={montantInput} onChange={e => setMontantInput(Math.max(0, Number(e.target.value)))} style={{ flex: 1, minWidth: 100, padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 14 }} />
+                  <span style={{ fontSize: 13, color: "#999" }}>€</span>
+                  <button onClick={saveMontant} disabled={saving} style={{ padding: "8px 16px", background: "#27ae60", color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+                    {saving ? "..." : rdv.statut === "effectue" ? "Enregistrer" : "Valider effectué"}
+                  </button>
+                  <button onClick={() => setEditingMontant(false)} style={btnGhost}>Annuler</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: "#f0fdf4", borderRadius: 8, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: "#666" }}>Chiffre d'affaires de ce rendez-vous</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: "#27ae60" }}>{(rdv.tarif != null ? rdv.tarif : tarifTotal).toFixed(2)} €</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#aaa", marginBottom: 8, textTransform: "uppercase" }}>Statut</div>
           <div style={{ display: "flex", gap: 8 }}>
             {STATUTS.map(s => (
-              <button key={s.value} onClick={() => changeStatut(s.value)} disabled={saving || rdv.statut === s.value}
+              <button key={s.value} onClick={() => s.value === "effectue" ? demarrerEffectue() : changeStatut(s.value)} disabled={saving || rdv.statut === s.value}
                 style={{ flex: 1, padding: "9px", border: `2px solid ${rdv.statut === s.value ? s.color : "#e0e0e0"}`, borderRadius: 8, background: rdv.statut === s.value ? `${s.color}15` : "#fff", color: rdv.statut === s.value ? s.color : "#666", fontWeight: rdv.statut === s.value ? 700 : 400, fontSize: 13, cursor: saving || rdv.statut === s.value ? "default" : "pointer" }}>
                 {s.label}
               </button>

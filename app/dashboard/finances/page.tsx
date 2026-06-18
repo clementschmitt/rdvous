@@ -61,7 +61,7 @@ export default function FinancesPage() {
     const [rdvRes, depRes, settingsRes] = await Promise.all([
       supabase
         .from("rendez_vous")
-        .select("statut, rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
+        .select("statut, tarif, rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
         .eq("salon_id", salon.id)
         .in("statut", ["planifie", "effectue"])
         .gte("date_heure", `${debut}T00:00:00`)
@@ -85,18 +85,24 @@ export default function FinancesPage() {
     let totalAVenir = 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rdvRes.data || []).forEach((rdv: any) => {
-      (rdv.rendez_vous_prestations || []).forEach((rp: any) => {
-        const p = rp.prestations;
-        if (!p || p.sur_devis) return;
-        if (rdv.statut === "effectue") {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const prestas = (rdv.rendez_vous_prestations || []).map((rp: any) => rp.prestations).filter((p: any) => p);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sommePresta = prestas.reduce((s: number, p: any) => s + (p.sur_devis ? 0 : (p.tarif || 0)), 0);
+      if (rdv.statut === "effectue") {
+        // Montant réel encaissé saisi à la validation, sinon estimation des prestations
+        const caRdv = rdv.tarif != null ? rdv.tarif : sommePresta;
+        totalRealise += caRdv;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        prestas.forEach((p: any) => {
           if (!map[p.nom]) map[p.nom] = { nb: 0, ca: 0 };
           map[p.nom].nb++;
-          map[p.nom].ca += p.tarif;
-          totalRealise += p.tarif;
-        } else {
-          totalAVenir += p.tarif;
-        }
-      });
+          const poids = sommePresta > 0 ? (p.sur_devis ? 0 : (p.tarif || 0)) / sommePresta : (prestas.length ? 1 / prestas.length : 0);
+          map[p.nom].ca += caRdv * poids;
+        });
+      } else {
+        totalAVenir += sommePresta;
+      }
     });
 
     setRecettes(Object.entries(map).map(([nom, v]) => ({ nom, ...v })).sort((a, b) => b.ca - a.ca));

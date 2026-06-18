@@ -4,11 +4,14 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { METIERS, type Metier } from "@/lib/metiers";
 import { T } from "@/lib/theme";
+import { formatPrix } from "@/lib/prix";
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL!;
 
 type Salon = { id: string; nom: string; metier: Metier; email: string | null; created_at: string; visible_recherche: boolean | null };
 type InviteForm = { email: string; password: string; salon_id: string };
+type PrestaImport = { nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; description?: string };
+type CatImport = { nom: string; prestations: PrestaImport[] };
 
 export default function AdminPage() {
   const router = useRouter();
@@ -21,6 +24,12 @@ export default function AdminPage() {
   const [invite, setInvite] = useState<InviteForm>({ email: "", password: "", salon_id: "" });
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState("");
+  const [impSalon, setImpSalon] = useState("");
+  const [impUrl, setImpUrl] = useState("");
+  const [impLoading, setImpLoading] = useState(false);
+  const [impPreview, setImpPreview] = useState<CatImport[] | null>(null);
+  const [impExclude, setImpExclude] = useState<Set<number>>(new Set());
+  const [impMsg, setImpMsg] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -70,6 +79,36 @@ export default function AdminPage() {
       setInviteMsg(`Erreur : ${json.error}`);
     }
     setInviting(false);
+  }
+
+  async function previewPlanity() {
+    if (!impUrl.trim()) return;
+    setImpLoading(true); setImpMsg(""); setImpPreview(null);
+    const res = await fetch("/api/admin/import-planity", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "preview", url: impUrl.trim() }),
+    });
+    const json = await res.json();
+    setImpLoading(false);
+    if (!res.ok) { setImpMsg(`Erreur : ${json.error}`); return; }
+    setImpPreview(json.categories);
+    setImpExclude(new Set());
+  }
+
+  async function importPlanity() {
+    if (!impSalon || !impPreview) return;
+    const categories = impPreview.filter((_, i) => !impExclude.has(i));
+    if (categories.length === 0) { setImpMsg("Sélectionne au moins une catégorie."); return; }
+    setImpLoading(true); setImpMsg("");
+    const res = await fetch("/api/admin/import-planity", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "import", salon_id: impSalon, categories }),
+    });
+    const json = await res.json();
+    setImpLoading(false);
+    if (!res.ok) { setImpMsg(`Erreur : ${json.error}`); return; }
+    setImpMsg(`✓ ${json.nbCat} catégories et ${json.nbPresta} prestations importées.`);
+    setImpPreview(null); setImpUrl("");
   }
 
   async function toggleVisibilite(s: Salon) {
@@ -147,6 +186,61 @@ export default function AdminPage() {
             </button>
           </div>
           {inviteMsg && <p style={{ fontSize: 12, color: inviteMsg.startsWith("✓") ? "#16a34a" : "#B91C1C", marginTop: 10, marginBottom: 0 }}>{inviteMsg}</p>}
+        </div>
+
+        {/* Importer depuis Planity */}
+        <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 24, marginBottom: 24 }}>
+          <p style={{ ...T.ls, fontSize: "10px", color: T.muted, margin: "0 0 16px" }}>Importer un catalogue depuis Planity</p>
+          <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ flex: 2, minWidth: 150 }}>
+              <label style={labelStyle}>Salon de destination</label>
+              <select value={impSalon} onChange={e => setImpSalon(e.target.value)} style={inputStyle}>
+                <option value="">— choisir —</option>
+                {salons.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: 3, minWidth: 220 }}>
+              <label style={labelStyle}>URL publique Planity</label>
+              <input value={impUrl} onChange={e => setImpUrl(e.target.value)} placeholder="https://www.planity.com/..." style={inputStyle} />
+            </div>
+            <button onClick={previewPlanity} disabled={impLoading || !impUrl.trim()} style={{ ...T.ls, fontSize: "9px", background: T.text, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "10px 16px", cursor: "pointer", opacity: impLoading || !impUrl.trim() ? 0.4 : 1 }}>
+              {impLoading && !impPreview ? "..." : "Prévisualiser"}
+            </button>
+          </div>
+          {impMsg && <p style={{ fontSize: 12, color: impMsg.startsWith("✓") ? "#16a34a" : "#B91C1C", marginTop: 10, marginBottom: 0 }}>{impMsg}</p>}
+
+          {impPreview && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: 12, color: T.muted, marginBottom: 10 }}>{impPreview.length} catégories détectées — décoche celles à ne pas importer.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
+                {impPreview.map((cat, i) => (
+                  <div key={i} style={{ border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "10px 14px", opacity: impExclude.has(i) ? 0.45 : 1 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontWeight: 600, fontSize: 13, color: T.text }}>
+                      <input type="checkbox" checked={!impExclude.has(i)} onChange={() => setImpExclude(s => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n; })} />
+                      {cat.nom} <span style={{ color: T.muted, fontWeight: 400 }}>· {cat.prestations.length} prestation{cat.prestations.length > 1 ? "s" : ""}</span>
+                    </label>
+                    <div style={{ marginTop: 6, paddingLeft: 24, display: "flex", flexDirection: "column", gap: 3 }}>
+                      {cat.prestations.map((p, pi) => (
+                        <div key={pi} style={{ fontSize: 12 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                            <span style={{ color: T.text }}>{p.nom}</span>
+                            <span style={{ color: T.muted, whiteSpace: "nowrap" }}>{p.duree_minutes} min · {formatPrix(p.tarif, p.sur_devis)}</span>
+                          </div>
+                          {p.description && <div style={{ color: T.faint, fontSize: 11, marginTop: 1 }}>{p.description}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
+                <button onClick={importPlanity} disabled={impLoading || !impSalon} style={{ ...T.ls, fontSize: "9px", background: "#16a34a", color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "10px 18px", cursor: "pointer", opacity: impLoading || !impSalon ? 0.4 : 1 }}>
+                  {impLoading ? "Import en cours..." : "Importer dans le salon"}
+                </button>
+                {!impSalon && <span style={{ fontSize: 11, color: "#B91C1C" }}>Choisis un salon de destination en haut</span>}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Créer un salon test */}
