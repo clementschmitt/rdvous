@@ -48,6 +48,23 @@ export default function ParametresPage() {
   const [billingInterval, setBillingInterval] = useState<"monthly" | "yearly">("monthly");
   const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
   const defaultPlage = (): Plage => ({ heure_debut: "09:00", heure_fin: "18:00" });
+
+  // Ajouter une pause = découper le dernier créneau autour d'un trou (déjeuner 12-14 par défaut).
+  const ajouterPause = (jour: JourDispo): JourDispo => {
+    const toMin = (t: string) => parseInt(t.slice(0, 2)) * 60 + parseInt(t.slice(3, 5));
+    const toTime = (mn: number) => `${String(Math.floor(mn / 60)).padStart(2, "0")}:${String(mn % 60).padStart(2, "0")}`;
+    const plages = [...jour.plages];
+    const last = plages[plages.length - 1];
+    const debut = toMin(last.heure_debut), fin = toMin(last.heure_fin);
+    let pStart = 12 * 60, pEnd = 14 * 60;
+    if (pStart <= debut + 30 || pEnd >= fin - 30 || pStart >= pEnd) {
+      const mid = Math.round((debut + fin) / 2 / 30) * 30;
+      pStart = mid - 30; pEnd = mid + 30;
+    }
+    plages[plages.length - 1] = { ...last, heure_fin: toTime(pStart) };
+    plages.push({ heure_debut: toTime(pEnd), heure_fin: toTime(fin) });
+    return { ...jour, plages };
+  };
   const [dispos, setDispos] = useState<JourDispo[]>(JOURS.map(() => ({ actif: false, plages: [defaultPlage()] })));
   const [conges, setConges] = useState<Conge[]>([]);
   const [newConge, setNewConge] = useState<Conge>({ date_debut: "", date_fin: "", libelle: "" });
@@ -765,19 +782,26 @@ export default function ParametresPage() {
                   {dispos[i].actif ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1 }}>
                       {dispos[i].plages.map((plage, pi) => (
-                        <div key={pi} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <input type="time" value={plage.heure_debut} onChange={e => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.map((p, pidx) => pidx === pi ? { ...p, heure_debut: e.target.value } : p) } : j))}
-                            style={{ ...miniInput, width: 105 }} />
-                          <span style={{ fontSize: 12, color: "#ccc" }}>—</span>
-                          <input type="time" value={plage.heure_fin} onChange={e => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.map((p, pidx) => pidx === pi ? { ...p, heure_fin: e.target.value } : p) } : j))}
-                            style={{ ...miniInput, width: 105 }} />
-                          {dispos[i].plages.length > 1 && (
-                            <button onClick={() => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.filter((_, pidx) => pidx !== pi) } : j))}
-                              style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>✕</button>
+                        <div key={pi}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <input type="time" value={plage.heure_debut} onChange={e => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.map((p, pidx) => pidx === pi ? { ...p, heure_debut: e.target.value } : p) } : j))}
+                              style={{ ...miniInput, width: 105 }} />
+                            <span style={{ fontSize: 12, color: "#ccc" }}>—</span>
+                            <input type="time" value={plage.heure_fin} onChange={e => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.map((p, pidx) => pidx === pi ? { ...p, heure_fin: e.target.value } : p) } : j))}
+                              style={{ ...miniInput, width: 105 }} />
+                            {dispos[i].plages.length > 1 && (
+                              <button onClick={() => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: j.plages.filter((_, pidx) => pidx !== pi) } : j))}
+                                style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 14, padding: "0 4px", lineHeight: 1 }}>✕</button>
+                            )}
+                          </div>
+                          {pi < dispos[i].plages.length - 1 && (
+                            <div style={{ fontSize: 11, color: m.couleur, opacity: 0.75, padding: "3px 0 3px 2px" }}>
+                              ↳ pause de {plage.heure_fin} à {dispos[i].plages[pi + 1].heure_debut}
+                            </div>
                           )}
                         </div>
                       ))}
-                      <button onClick={() => setDispos(d => d.map((j, idx) => idx === i ? { ...j, plages: [...j.plages, defaultPlage()] } : j))}
+                      <button onClick={() => setDispos(d => d.map((j, idx) => idx === i ? ajouterPause(j) : j))}
                         style={{ alignSelf: "flex-start", fontSize: 11, color: m.couleur, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}>
                         + Ajouter une pause
                       </button>

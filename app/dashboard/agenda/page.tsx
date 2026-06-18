@@ -427,12 +427,15 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
   useEffect(() => { load(); }, [load]);
 
   // ── Grille ──
-  const disposParJour = weekDays.map((_, i) => dispos.find(d => d.jour_semaine === i) || null);
-  const activeDispos = disposParJour.filter(Boolean) as JourDispo[];
+  // Un jour avec pause = plusieurs lignes en base → on regroupe toutes les plages du jour.
+  const disposPlagesParJour = weekDays.map((_, i) =>
+    dispos.filter(d => d.jour_semaine === i)
+      .map(d => ({ heure_debut: d.heure_debut, heure_fin: d.heure_fin }))
+      .sort((a, b) => timeToMin(a.heure_debut) - timeToMin(b.heure_debut)));
   let grilleDebut = 8 * 60, grilleFin = 19 * 60;
-  if (activeDispos.length > 0) {
-    grilleDebut = Math.floor(Math.min(...activeDispos.map(d => timeToMin(d.heure_debut))) / 60) * 60;
-    grilleFin = Math.ceil(Math.max(...activeDispos.map(d => timeToMin(d.heure_fin))) / 60) * 60;
+  if (dispos.length > 0) {
+    grilleDebut = Math.floor(Math.min(...dispos.map(d => timeToMin(d.heure_debut))) / 60) * 60;
+    grilleFin = Math.ceil(Math.max(...dispos.map(d => timeToMin(d.heure_fin))) / 60) * 60;
   }
   const nbHeures = (grilleFin - grilleDebut) / 60;
   const heuresGrille = Array.from({ length: nbHeures + 1 }, (_, i) => grilleDebut / 60 + i);
@@ -441,12 +444,12 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
   function dayInfo(i: number) {
     const day = weekDays[i];
     const dateStr = toDateStr(day);
-    const dispo = disposParJour[i];
+    const plages = disposPlagesParJour[i];
     const conge = conges.find(c => c.date_debut <= dateStr && c.date_fin >= dateStr) || null;
     const exc = exceptions.find(e => e.date === dateStr) || null;
     const closed = !!conge || (!!exc && exc.ferme);
     const custom = exc && !exc.ferme && exc.plages.length > 0 ? exc.plages : null;
-    return { day, dateStr, dispo, conge, exc, closed, custom };
+    return { day, dateStr, plages, conge, exc, closed, custom };
   }
 
   function rdvsForDay(dateStr: string) {
@@ -508,12 +511,10 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
 
   function openZonePopup(col: number, zDebut: number, zFin: number) {
     const info = dayInfo(col);
-    const baseDebut = info.dispo ? timeToMin(info.dispo.heure_debut) : grilleDebut;
-    const baseFin = info.dispo ? timeToMin(info.dispo.heure_fin) : grilleFin;
+    const basePlages: Plage[] = info.custom || info.plages;
+    const baseDebut = basePlages.length ? timeToMin(basePlages[0].heure_debut) : grilleDebut;
+    const baseFin = basePlages.length ? timeToMin(basePlages[basePlages.length - 1].heure_fin) : grilleFin;
     const isFullDay = zDebut <= baseDebut && zFin >= baseFin;
-    const basePlages: Plage[] = info.custom
-      ? info.custom
-      : info.dispo ? [{ heure_debut: info.dispo.heure_debut, heure_fin: info.dispo.heure_fin }] : [];
     const restantes = soustraireIntervalle(basePlages, zDebut, zFin);
     setPopup({ kind: "zone", col, dateStr: info.dateStr, zDebut, zFin, isFullDay, conge: info.conge, alreadyClosed: info.closed, canReopen: !!info.exc || !!info.conge });
     setPopupMode(isFullDay ? "ferme" : "custom");
@@ -635,7 +636,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
           {weekDays.map((day, i) => {
             const isToday = toDateStr(day) === today;
             const info = dayInfo(i);
-            const hasDispo = !!info.dispo;
+            const hasDispo = info.plages.length > 0;
             const selected = inHRange(i);
             return (
               <div key={i} data-col={i}
@@ -672,13 +673,11 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
             const isToday = toDateStr(day) === today;
             const info = dayInfo(i);
             const dayRdvs = rdvsForDay(info.dateStr);
-            const baseDebut = info.dispo ? timeToMin(info.dispo.heure_debut) : null;
-            const baseFin = info.dispo ? timeToMin(info.dispo.heure_fin) : null;
-
-            // Zones fermées (gris) : complément des plages custom, ou hors-horaires de la dispo
+            // Zones fermées (gris) : complément des plages ouvertes (exception custom, ou horaires habituels avec pauses)
+            const plagesOuvertes = info.custom || info.plages;
             const zonesFermees: { top: number; height: number }[] = [];
-            if (info.custom) {
-              const plages = [...info.custom].sort((a, b) => timeToMin(a.heure_debut) - timeToMin(b.heure_debut));
+            if (plagesOuvertes.length > 0) {
+              const plages = [...plagesOuvertes].sort((a, b) => timeToMin(a.heure_debut) - timeToMin(b.heure_debut));
               let cursor = grilleDebut;
               for (const p of plages) {
                 const pd = timeToMin(p.heure_debut), pf = timeToMin(p.heure_fin);
@@ -686,9 +685,6 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
                 cursor = Math.max(cursor, pf);
               }
               if (cursor < grilleFin) zonesFermees.push({ top: (cursor - grilleDebut) / 60 * PX_PAR_HEURE, height: (grilleFin - cursor) / 60 * PX_PAR_HEURE });
-            } else if (info.dispo) {
-              if (baseDebut! > grilleDebut) zonesFermees.push({ top: 0, height: (baseDebut! - grilleDebut) / 60 * PX_PAR_HEURE });
-              if (baseFin! < grilleFin) zonesFermees.push({ top: (baseFin! - grilleDebut) / 60 * PX_PAR_HEURE, height: (grilleFin - baseFin!) / 60 * PX_PAR_HEURE });
             } else if (!info.closed) {
               zonesFermees.push({ top: 0, height: totalHeight });
             }
