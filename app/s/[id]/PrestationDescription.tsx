@@ -1,14 +1,35 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function PrestationDescription({ text, couleur }: { text: string; couleur: string }) {
   const [open, setOpen] = useState(false);
+  const [needsToggle, setNeedsToggle] = useState(false);
+  const [measured, setMeasured] = useState(false);
   const innerRef = useRef<HTMLDivElement>(null);
-  const long = text.length > 90;
   const COLLAPSED = 34; // ~2 lignes
 
-  // Hauteur animée : repliée = 2 lignes, dépliée = hauteur réelle du texte
-  const maxHeight = !long ? undefined : open ? (innerRef.current?.scrollHeight ?? 600) : COLLAPSED;
+  // On mesure la hauteur réelle du texte (selon la largeur de l'écran) pour
+  // savoir s'il déborde vraiment des 2 lignes. Re-mesuré au redimensionnement.
+  useEffect(() => {
+    const check = () => {
+      const el = innerRef.current;
+      if (!el) return;
+      setNeedsToggle(el.scrollHeight > COLLAPSED + 4);
+      setMeasured(true);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [text]);
+
+  // Avant mesure : clampé (évite un flash). Après : plein si court, repliable si long.
+  const maxHeight = !measured
+    ? COLLAPSED
+    : !needsToggle
+      ? undefined
+      : open
+        ? (innerRef.current?.scrollHeight ?? 600)
+        : COLLAPSED;
 
   return (
     <div style={{ marginTop: 2 }}>
@@ -17,7 +38,7 @@ export default function PrestationDescription({ text, couleur }: { text: string;
           {text}
         </div>
       </div>
-      {long && (
+      {needsToggle && (
         <button onClick={() => setOpen(o => !o)}
           style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", padding: 0, marginTop: 4, fontSize: 11, color: "#aaa", fontWeight: 500, cursor: "pointer" }}>
           {open ? "Moins de détails" : "Plus de détails"}
