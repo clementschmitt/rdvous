@@ -28,7 +28,7 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
       <VitrineHeader />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "76px 16px 48px" }}>
-        <Link href={`/s/${salon.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#999", textDecoration: "none", marginBottom: 20, fontWeight: 500 }}>
+        <Link href={salon.slug ? `/${salon.slug}` : `/s/${salon.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#999", textDecoration: "none", marginBottom: 20, fontWeight: 500 }}>
           ← {salon.nom}
         </Link>
 

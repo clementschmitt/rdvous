@@ -262,7 +262,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
             {/* CTA + contact */}
             <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "14px" }}>
               {prestations.length > 0 ? (
-                <Link href={`/s/${salon.id}/reserver`} style={{
+                <Link href={salon.slug ? `/${salon.slug}/reserver` : `/s/${salon.id}/reserver`} style={{
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
                   background: couleur, padding: "15px 20px", textDecoration: "none", textAlign: "center",
                   borderRadius: 9, boxShadow: `0 4px 14px ${couleur}55`,
