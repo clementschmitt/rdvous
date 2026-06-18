@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { createSupabase } from "@/lib/supabase";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
+import SiteHeader from "@/app/components/SiteHeader";
 
 type Salon = { id: string; nom: string; metier: string; ville: string | null; adresse: string | null; description: string | null; slug: string | null };
 
@@ -34,7 +35,6 @@ const WHY = [
 ];
 
 export default function HomePage() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [nom, setNom]           = useState("");
   const [ville, setVille]       = useState("");
   const [resultats, setResultats] = useState<Salon[]>([]);
@@ -83,7 +83,7 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:"#faf8f5", fontFamily:"'Inter',system-ui,sans-serif", color:"#1a1614", overflowX:"clip" }}>
+    <div style={{ minHeight:"100vh", background:"#faf8f5", fontFamily:"'Inter',system-ui,sans-serif", color:"#1a1614", overflowX:"clip", paddingTop:56, boxSizing:"border-box" }}>
       <style>{`
         .rdv-hamburger { display: none; }
         @media (max-width: 640px) {
@@ -109,28 +109,7 @@ export default function HomePage() {
       `}</style>
 
       {/* ── NAV ── */}
-      <div style={{ position:"sticky", top:0, zIndex:200 }}>
-        <nav className="rdv-nav" style={{ background:"rgba(250,248,245,0.92)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
-          <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, letterSpacing:"0.03em", color:"#1a1614" }}>rdvous</span>
-          <div className="rdv-nav-links" style={{ display:"flex", alignItems:"center", gap:20 }}>
-            <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Espace pro</Link>
-            <Link href="/login" style={{ fontSize:13, fontWeight:600, color:"#fff", background:"#1a1614", padding:"9px 20px", borderRadius:10, textDecoration:"none", display:"flex", alignItems:"center", gap:7 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-              Se connecter
-            </Link>
-          </div>
-          <button className="rdv-hamburger" onClick={() => setMenuOpen(o => !o)}
-            style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"#1a1614", padding:"4px 8px", lineHeight:1 }}>
-            {menuOpen ? "✕" : "☰"}
-          </button>
-        </nav>
-        {menuOpen && (
-          <div style={{ background:"rgba(250,248,245,0.98)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(200,180,160,0.25)", padding:"4px 24px 12px", display:"flex", flexDirection:"column" }}>
-            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:"#6a5a4a", textDecoration:"none", borderBottom:"1px solid rgba(200,180,160,0.15)", display:"block" }}>Se connecter</Link>
-            <Link href="/pro" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:"#1a1614", textDecoration:"none", display:"block" }}>Espace pro →</Link>
-          </div>
-        )}
-      </div>
+      <SiteHeader links={[{ label: "Espace pro", href: "/pro" }]} />
 
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"88vh", display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>

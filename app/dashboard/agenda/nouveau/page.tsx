@@ -8,7 +8,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 
 type Client = { id: string; prenom: string; nom: string; cagnotte: number };
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; categorie_id: string | null };
+type Category = { id: string; nom: string; ordre: number };
 
 function NouveauRDVContent() {
   const salon = useSalon();
@@ -17,11 +18,15 @@ function NouveauRDVContent() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [prestations, setPrestations] = useState<Prestation[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [clientId, setClientId] = useState(searchParams.get("client") || "");
   const [date, setDate] = useState(searchParams.get("date") || new Date().toISOString().split("T")[0]);
   const [heure, setHeure] = useState(searchParams.get("heure") || "09:00");
   const [selectedPrests, setSelectedPrests] = useState<string[]>([]);
   const [cagnotteAUtiliser, setCagnotteAUtiliser] = useState(0);
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [overrideActif, setOverrideActif] = useState(false);
+  const [montantOverride, setMontantOverride] = useState<number | "">("");
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,25 +36,28 @@ function NouveauRDVContent() {
   const prestasSelectionnees = prestations.filter(p => selectedPrests.includes(p.id));
   const tarifTotal = prestasSelectionnees.reduce((s, p) => s + p.tarif, 0);
   const dureeTotal = prestasSelectionnees.reduce((s, p) => s + p.duree_minutes, 0);
-  const cagnotteMax = clientSelectionne ? Math.min(clientSelectionne.cagnotte, tarifTotal) : 0;
-  const tarifFinal = Math.max(0, tarifTotal - cagnotteAUtiliser);
+  const tarifBase = overrideActif && montantOverride !== "" ? Number(montantOverride) : tarifTotal;
+  const cagnotteMax = clientSelectionne ? Math.min(clientSelectionne.cagnotte, tarifBase) : 0;
+  const tarifFinal = Math.max(0, tarifBase - cagnotteAUtiliser);
 
   useEffect(() => {
     if (!salon) return;
     (async () => {
       const supabase = createSupabase();
-      const [cRes, pRes] = await Promise.all([
+      const [cRes, pRes, catRes] = await Promise.all([
         supabase.from("clients").select("id, prenom, nom, cagnotte").eq("salon_id", salon!.id).order("nom"),
-        supabase.from("prestations").select("*").eq("salon_id", salon!.id).order("nom"),
+        supabase.from("prestations").select("id, nom, duree_minutes, tarif, categorie_id").eq("salon_id", salon!.id).eq("actif", true).order("nom"),
+        supabase.from("prestation_categories").select("id, nom, ordre").eq("salon_id", salon!.id).order("ordre"),
       ]);
       setClients((cRes.data || []) as Client[]);
       setPrestations((pRes.data || []) as Prestation[]);
+      setCategories((catRes.data || []) as Category[]);
     })();
   }, [salon]);
 
   useEffect(() => {
     setCagnotteAUtiliser(0);
-  }, [clientId]);
+  }, [clientId, overrideActif]);
 
   function togglePresta(id: string) {
     setSelectedPrests(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -80,9 +88,19 @@ function NouveauRDVContent() {
         return;
       }
     }
+
+    const tarifInsert = overrideActif && montantOverride !== "" ? Number(montantOverride) : null;
+
     const { data: rdv, error: rdvErr } = await supabase
       .from("rendez_vous")
-      .insert({ salon_id: salon!.id, client_id: clientId, date_heure: `${date}T${heure}:00`, montant_cagnotte_utilise: cagnotteAUtiliser, notes: notes || null })
+      .insert({
+        salon_id: salon!.id,
+        client_id: clientId,
+        date_heure: `${date}T${heure}:00`,
+        montant_cagnotte_utilise: cagnotteAUtiliser,
+        notes: notes || null,
+        tarif: tarifInsert,
+      })
       .select()
       .single();
 
@@ -114,7 +132,38 @@ function NouveauRDVContent() {
     `${c.prenom} ${c.nom}`.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
-  const CRENEAUX = Array.from({ length: 25 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`).filter(h => h <= "20:00");
+  // 08:00 → 22:30, pas de 30min
+  const CRENEAUX = Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`);
+
+  const activeCat = selectedCat ?? categories[0]?.id ?? null;
+  const uncategorized = prestations.filter(p => !p.categorie_id);
+  const visiblePrestas = activeCat === "__autres"
+    ? uncategorized
+    : activeCat
+      ? prestations.filter(p => p.categorie_id === activeCat)
+      : prestations;
+
+  const renderPrestaList = (items: Prestation[]) => (
+    <div style={{ border: "1px solid #e8e8e8", borderRadius: 8, overflow: "hidden" }}>
+      {items.length === 0
+        ? <div style={{ padding: "14px 16px", fontSize: 13, color: "#bbb" }}>Aucune prestation dans cette catégorie</div>
+        : items.map((p, i) => {
+          const sel = selectedPrests.includes(p.id);
+          return (
+            <div key={p.id} onClick={() => togglePresta(p.id)}
+              style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", cursor: "pointer", background: sel ? `${m.couleur}08` : "#fff", borderBottom: i < items.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+              <div style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, border: `2px solid ${sel ? m.couleur : "#d0d0d0"}`, background: sel ? m.couleur : "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {sel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+              </div>
+              <span style={{ flex: 1, fontSize: 13, color: "#1a1a1a" }}>{p.nom}</span>
+              <span style={{ fontSize: 12, color: "#aaa", flexShrink: 0 }}>{p.duree_minutes}min</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: sel ? m.couleur : "#555", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{p.tarif}€</span>
+            </div>
+          );
+        })
+      }
+    </div>
+  );
 
   return (
     <div style={{ padding: 32, maxWidth: 1200, margin: "0 auto" }}>
@@ -143,18 +192,16 @@ function NouveauRDVContent() {
           <input
             value={clientSearch}
             onChange={e => setClientSearch(e.target.value)}
-            placeholder={`Rechercher...`}
+            placeholder="Rechercher..."
             style={{ ...inputStyle, marginBottom: 8 }}
           />
           <div style={{ maxHeight: 160, overflowY: "auto", border: "1px solid #e0e0e0", borderRadius: 7 }}>
             {clientsFiltres.length === 0 ? (
               <div style={{ padding: 12, fontSize: 13, color: "#bbb" }}>Aucun résultat</div>
             ) : clientsFiltres.map(c => (
-              <div
-                key={c.id}
+              <div key={c.id}
                 onClick={() => { setClientId(c.id); setClientSearch(`${c.prenom} ${c.nom}`); }}
-                style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", background: clientId === c.id ? `${m.couleur}12` : "transparent", color: clientId === c.id ? m.couleur : "#333", fontWeight: clientId === c.id ? 600 : 400 }}
-              >
+                style={{ padding: "8px 12px", fontSize: 13, cursor: "pointer", background: clientId === c.id ? `${m.couleur}12` : "transparent", color: clientId === c.id ? m.couleur : "#333", fontWeight: clientId === c.id ? 600 : 400 }}>
                 {c.prenom} {c.nom}
                 {c.cagnotte > 0 && <span style={{ marginLeft: 8, fontSize: 11, color: m.couleur }}>{c.cagnotte.toFixed(0)} € cagnotte</span>}
               </div>
@@ -166,30 +213,62 @@ function NouveauRDVContent() {
           {prestations.length === 0 ? (
             <div style={{ fontSize: 13, color: "#bbb" }}>Aucune prestation. <Link href="/dashboard/parametres" style={{ color: m.couleur }}>Créez-en d'abord.</Link></div>
           ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {prestations.map(p => {
-                const sel = selectedPrests.includes(p.id);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => togglePresta(p.id)}
-                    style={{ padding: "7px 14px", border: `2px solid ${sel ? m.couleur : "#e0e0e0"}`, borderRadius: 20, background: sel ? `${m.couleur}15` : "#fff", color: sel ? m.couleur : "#555", fontSize: 13, fontWeight: sel ? 600 : 400, cursor: "pointer" }}
-                  >
-                    {p.nom} — {p.duree_minutes}min — {p.tarif}€
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          {selectedPrests.length > 0 && (
-            <div style={{ fontSize: 13, color: "#666", marginTop: 8 }}>
-              Total : <b>{dureeTotal} min</b> — <b>{tarifTotal} €</b>
-            </div>
+            <>
+              {categories.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                  {categories.map(cat => {
+                    const isActive = activeCat === cat.id;
+                    const count = selectedPrests.filter(id => prestations.find(p => p.id === id && p.categorie_id === cat.id)).length;
+                    return (
+                      <button key={cat.id} type="button" onClick={() => setSelectedCat(cat.id)}
+                        style={{ padding: "5px 12px", border: `1.5px solid ${isActive ? m.couleur : "#e0e0e0"}`, borderRadius: 20, background: isActive ? m.couleur : "#fff", color: isActive ? "#fff" : "#555", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                        {cat.nom}
+                        {count > 0 && <span style={{ background: isActive ? "rgba(255,255,255,0.35)" : m.couleur, color: "#fff", borderRadius: 10, padding: "0 6px", fontSize: 11, fontWeight: 700 }}>{count}</span>}
+                      </button>
+                    );
+                  })}
+                  {uncategorized.length > 0 && (
+                    <button type="button" onClick={() => setSelectedCat("__autres")}
+                      style={{ padding: "5px 12px", border: `1.5px solid ${activeCat === "__autres" ? m.couleur : "#e0e0e0"}`, borderRadius: 20, background: activeCat === "__autres" ? m.couleur : "#fff", color: activeCat === "__autres" ? "#fff" : "#555", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      Autres
+                    </button>
+                  )}
+                </div>
+              )}
+              {renderPrestaList(visiblePrestas)}
+              {selectedPrests.length > 0 && (
+                <div style={{ fontSize: 13, color: "#666", marginTop: 10 }}>
+                  Total : <b>{dureeTotal} min</b> — <b>{tarifTotal} €</b>
+                </div>
+              )}
+            </>
           )}
         </Section>
 
-        {clientSelectionne && clientSelectionne.cagnotte > 0 && tarifTotal > 0 && (
+        {selectedPrests.length > 0 && (
+          <Section titre="Montant">
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", userSelect: "none" }}>
+              <input type="checkbox" checked={overrideActif} onChange={e => setOverrideActif(e.target.checked)} style={{ accentColor: m.couleur }} />
+              Modifier le montant (tarif calculé : {tarifTotal} €)
+            </label>
+            {overrideActif && (
+              <div style={{ marginTop: 10 }}>
+                <label style={labelStyle}>Montant personnalisé (€)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={montantOverride}
+                  onChange={e => setMontantOverride(e.target.value === "" ? "" : Number(e.target.value))}
+                  placeholder={String(tarifTotal)}
+                  style={inputStyle}
+                />
+              </div>
+            )}
+          </Section>
+        )}
+
+        {clientSelectionne && clientSelectionne.cagnotte > 0 && tarifBase > 0 && (
           <Section titre="Cagnotte">
             <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>
               Cagnotte disponible : <b style={{ color: m.couleur }}>{clientSelectionne.cagnotte.toFixed(2)} €</b>
@@ -212,7 +291,7 @@ function NouveauRDVContent() {
               </div>
               {cagnotteAUtiliser > 0 && (
                 <div style={{ fontSize: 14, fontWeight: 600, marginTop: 8, color: "#333" }}>
-                  <span style={{ textDecoration: "line-through", color: "#aaa", marginRight: 8 }}>{tarifTotal} €</span>
+                  <span style={{ textDecoration: "line-through", color: "#aaa", marginRight: 8 }}>{tarifBase} €</span>
                   <span>{tarifFinal.toFixed(2)} €</span>
                 </div>
               )}

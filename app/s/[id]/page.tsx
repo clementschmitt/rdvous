@@ -2,10 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import VitrineHeader from "./VitrineHeader";
+import SiteHeader from "@/app/components/SiteHeader";
 import { formatPrix } from "@/lib/prix";
 import PrestationDescription from "./PrestationDescription";
 import SidebarContact from "./SidebarContact";
+import HeroPhotos from "./HeroPhotos";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description?: string | null; reservable?: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
@@ -95,14 +96,13 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const hasHoraires = dispos.length > 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif", overflowX: "clip" }}>
+    <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif", overflowX: "clip", paddingTop: 56, boxSizing: "border-box" }}>
       <style>{`
         @media (max-width: 640px) {
           .vitrine-layout { flex-direction: column !important; align-items: stretch !important; padding-top: 16px !important; }
           .vitrine-sidebar { position: static !important; width: auto !important; order: -1 !important; flex-shrink: 1 !important; }
-          .vitrine-hero { height: 280px !important; }
+          .vitrine-hero { height: 340px !important; }
           .vitrine-hero-text h1 { font-size: 28px !important; }
-          .vitrine-hero-actions { display: none !important; }
           .vitrine-main { padding: 16px !important; }
           .vitrine-contact-bar { display: none !important; }
         }
@@ -110,26 +110,15 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
       `}</style>
 
       {/* Header — transparent over hero, solid white on scroll */}
-      <VitrineHeader />
+      <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} />
 
       {/* Hero */}
       {photos.length > 0 ? (
-        <div className="vitrine-hero" style={{ position: "relative", height: 460, overflow: "hidden" }}>
-          {/* Photos mosaic */}
-          {photos.length === 1 ? (
-            <div style={{ position: "absolute", inset: 0, backgroundImage: `url(${photos[0]})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-          ) : (
-            <div style={{ position: "absolute", inset: 0, display: "flex", gap: 3 }}>
-              <div style={{ flex: 2, backgroundImage: `url(${photos[0]})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 3 }}>
-                {photos.slice(1, 3).map((url, i) => (
-                  <div key={i} style={{ flex: 1, backgroundImage: `url(${url})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-                ))}
-              </div>
-            </div>
-          )}
-          {/* Gradient overlay */}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.75) 100%)" }} />
+        <div className="vitrine-hero" style={{ position: "relative", height: 540, overflow: "hidden" }}>
+          {/* Photos mosaïque + diaporama plein écran */}
+          <HeroPhotos photos={photos} />
+          {/* Gradient overlay (non bloquant pour les clics sur les photos) */}
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(to bottom, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 80%, rgba(0,0,0,0.75) 100%)" }} />
           {/* Salon info overlaid */}
           <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "0 32px 28px" }}>
             <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
@@ -140,18 +129,6 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                   {deplacement === "uniquement" && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(255,255,255,0.2)", color: "#fff", backdropFilter: "blur(4px)" }}>🚗 Domicile uniquement</span>}
                 </div>
                 <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 40, fontWeight: 500, color: "#fff", margin: 0, lineHeight: 1.1, textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>{salon.nom}</h1>
-              </div>
-              <div className="vitrine-hero-actions" style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                {salon.telephone && (
-                  <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 18px", background: "#fff", color: "#1a1a1a", borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-                    📞 {formatTel(salon.telephone)}
-                  </a>
-                )}
-                {mapsUrl && (
-                  <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 14px", background: "rgba(255,255,255,0.18)", backdropFilter: "blur(8px)", color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.3)" }}>
-                    📍 Itinéraire
-                  </a>
-                )}
               </div>
             </div>
           </div>

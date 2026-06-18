@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
+import SiteHeader from "@/app/components/SiteHeader";
 
 /* ── palette ── */
 const C = {
@@ -200,9 +201,8 @@ function FAQItem({ q, r }: { q: string; r: string }) {
 
 /* ── PAGE ── */
 export default function ProPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip" }}>
+    <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip", paddingTop:56, boxSizing:"border-box" }}>
       <style>{`
         .pro-hamburger { display: none; }
         .pro-bounce { animation: proBounce 1.6s ease-in-out infinite; }
@@ -231,29 +231,10 @@ export default function ProPage() {
       `}</style>
 
       {/* ── NAV ── */}
-      <div style={{ position:"sticky", top:0, zIndex:200 }}>
-        <nav className="pro-nav" style={{ background:"rgba(250,248,245,0.93)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"0 40px", display:"flex", alignItems:"center", justifyContent:"space-between", height:64 }}>
-          <Link href="/" style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:26, fontWeight:600, color:C.text, textDecoration:"none", letterSpacing:"0.03em" }}>rdvous</Link>
-          <div className="pro-nav-links" style={{ display:"flex", alignItems:"center", gap:24 }}>
-            <a href="#tarifs" style={{ fontSize:13, color:C.muted, textDecoration:"none" }}>Tarifs</a>
-            <Link href="/login" style={{ fontSize:13, color:C.muted, textDecoration:"none" }}>Connexion</Link>
-            <Link href="/login" style={{ fontSize:13, fontWeight:700, color:"#fff", background:C.dark, padding:"9px 22px", borderRadius:10, textDecoration:"none" }}>
-              Essayer gratuitement
-            </Link>
-          </div>
-          <button className="pro-hamburger" onClick={() => setMenuOpen(o => !o)}
-            style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:C.text, padding:"4px 8px", lineHeight:1 }}>
-            {menuOpen ? "✕" : "☰"}
-          </button>
-        </nav>
-        {menuOpen && (
-          <div style={{ background:"rgba(250,248,245,0.98)", backdropFilter:"blur(16px)", borderBottom:`1px solid ${C.border}`, padding:"4px 24px 12px", display:"flex", flexDirection:"column" }}>
-            <a href="#tarifs" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:C.muted, textDecoration:"none", borderBottom:`1px solid ${C.border}`, display:"block" }}>Tarifs</a>
-            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, color:C.muted, textDecoration:"none", borderBottom:`1px solid ${C.border}`, display:"block" }}>Connexion</Link>
-            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ padding:"14px 0", fontSize:15, fontWeight:700, color:C.text, textDecoration:"none", display:"block" }}>Essayer gratuitement →</Link>
-          </div>
-        )}
-      </div>
+      <SiteHeader
+        links={[{ label: "Accueil", href: "/" }, { label: "Tarifs", href: "/pro#tarifs" }]}
+        cta={{ label: "Essayer gratuitement", href: "/signup" }}
+      />
 
       {/* ── HERO ── */}
       <section className="pro-hero" style={{ padding:"80px 60px 100px", maxWidth:1200, margin:"0 auto", display:"flex", alignItems:"center", gap:60, flexWrap:"wrap" }}>

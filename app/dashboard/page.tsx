@@ -108,7 +108,7 @@ export default function DashboardPage() {
       const aRelancer = clients
         .filter(c => {
           const d = dernierRdv[c.id];
-          if (!(!d || new Date(d) < cutoff)) return false;
+          if (!d || new Date(d) >= cutoff) return false;
           const sentAt = stored[c.id];
           if (sentAt && new Date(sentAt) > relanceCutoff) return false;
           return true;

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type RDV = { id: string; date_heure: string; statut: string; duree_minutes: number; clients: { prenom: string; nom: string } | null; rendez_vous_prestations: { prestations: { nom: string; duree_minutes: number } | null }[] };
+type Evenement = { id: string; titre: string; date_heure: string; duree_minutes: number; recurrence: string | null; recurrence_fin: string | null };
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -46,6 +47,7 @@ export default function AgendaPage() {
   const [semaine, setSemaine] = useState(() => getMonday(new Date()));
   const [moisCourant, setMoisCourant] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [rdvs, setRdvs] = useState<RDV[]>([]);
+  const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [jourDate, setJourDate] = useState(() => new Date());
   const [vueMobile, setVueMobile] = useState<"jour" | "semaine" | "mois">("jour");
 
@@ -53,15 +55,25 @@ export default function AgendaPage() {
     if (!salon) return;
     const supabase = createSupabase();
     const fin = addDays(lundi, 7);
-    const { data } = await supabase
-      .from("rendez_vous")
-      .select("id, date_heure, statut, duree_minutes, clients(prenom, nom), rendez_vous_prestations(prestations(nom, duree_minutes))")
-      .eq("salon_id", salon.id)
-      .gte("date_heure", `${toDateStr(lundi)}T00:00:00`)
-      .lte("date_heure", `${toDateStr(fin)}T23:59:59`)
-      .neq("statut", "annule")
-      .order("date_heure");
+    const startStr = `${toDateStr(lundi)}T00:00:00`;
+    const endStr = `${toDateStr(fin)}T23:59:59`;
+    const [{ data }, { data: evNormal }, { data: evRec }] = await Promise.all([
+      supabase.from("rendez_vous")
+        .select("id, date_heure, statut, duree_minutes, clients(prenom, nom), rendez_vous_prestations(prestations(nom, duree_minutes))")
+        .eq("salon_id", salon.id)
+        .gte("date_heure", startStr).lte("date_heure", endStr)
+        .neq("statut", "annule").order("date_heure"),
+      supabase.from("agenda_evenements")
+        .select("id, titre, date_heure, duree_minutes, recurrence, recurrence_fin")
+        .eq("salon_id", salon.id).is("recurrence", null)
+        .gte("date_heure", startStr).lte("date_heure", endStr),
+      supabase.from("agenda_evenements")
+        .select("id, titre, date_heure, duree_minutes, recurrence, recurrence_fin")
+        .eq("salon_id", salon.id).eq("recurrence", "hebdomadaire")
+        .lte("date_heure", endStr),
+    ]);
     setRdvs((data || []) as unknown as RDV[]);
+    setEvenements([...(evNormal || []), ...(evRec || [])] as Evenement[]);
   }, [salon]);
 
   const loadMois = useCallback(async (debut: Date) => {
@@ -280,6 +292,9 @@ export default function AgendaPage() {
           <Link href="/dashboard/attente" style={{ padding: "8px 14px", background: "transparent", color: m.couleur, border: `1px solid ${m.couleur}55`, borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
             🔔 Liste d'attente
           </Link>
+          <Link href="/dashboard/agenda/bloc/nouveau" style={{ padding: "8px 14px", background: "transparent", color: "#555", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+            + Bloc perso
+          </Link>
           <Link href="/dashboard/agenda/nouveau" style={{ padding: "8px 18px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
             + Nouveau RDV
           </Link>
@@ -295,6 +310,7 @@ export default function AgendaPage() {
           salonId={salon.id}
           weekDays={weekDays}
           rdvs={rdvs}
+          evenements={evenements}
           couleur={m.couleur}
           today={today}
           router={router}
@@ -343,7 +359,7 @@ function MoisGrid({ moisCourant, rdvsForDay, couleur, today, router }: { moisCou
               <div key={rdv.id} onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/${rdv.id}`); }}
                 style={{ background: `${couleur}18`, borderRadius: 3, padding: "2px 6px", marginBottom: 3, cursor: "pointer", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
                 <span style={{ fontSize: 11, color: couleur }}>
-                  {rdv.date_heure.slice(11, 16)} {rdv.clients?.prenom}
+                  {rdv.date_heure.slice(11, 16)} {rdv.clients?.prenom} {rdv.clients?.nom}
                 </span>
               </div>
             ))}
@@ -378,10 +394,11 @@ function soustraireIntervalle(plages: Plage[], a: number, b: number): Plage[] {
   return out.filter(p => timeToMin(p.heure_fin) > timeToMin(p.heure_debut));
 }
 
-function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, onRdvChange }: {
+function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, today, router, onRdvChange }: {
   salonId: string;
   weekDays: Date[];
   rdvs: RDV[];
+  evenements: Evenement[];
   couleur: string;
   today: string;
   router: ReturnType<typeof useRouter>;
@@ -390,6 +407,8 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
   const [dispos, setDispos] = useState<JourDispo[]>([]);
   const [conges, setConges] = useState<Conge[]>([]);
   const [exceptions, setExceptions] = useState<Exception[]>([]);
+  const [agendaDebutMin, setAgendaDebutMin] = useState(8 * 60);
+  const [agendaFinMin, setAgendaFinMin] = useState(20 * 60);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   // Drag vertical (zone dans un jour) et horizontal (en-têtes, multi-jours)
@@ -414,14 +433,19 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
 
   const load = useCallback(async () => {
     const supabase = createSupabase();
-    const [{ data: d }, { data: c }, { data: e }] = await Promise.all([
+    const [{ data: d }, { data: c }, { data: e }, { data: s }] = await Promise.all([
       supabase.from("disponibilites").select("jour_semaine,heure_debut,heure_fin").eq("salon_id", salonId),
       supabase.from("conges").select("*").eq("salon_id", salonId).lte("date_debut", weekEndStr).gte("date_fin", weekStartStr).order("date_debut"),
       supabase.from("disponibilites_exceptions").select("*").eq("salon_id", salonId).gte("date", weekStartStr).lte("date", weekEndStr),
+      supabase.from("app_settings").select("agenda_heure_debut, agenda_heure_fin").eq("salon_id", salonId).single(),
     ]);
     setDispos((d || []) as JourDispo[]);
     setConges((c || []) as Conge[]);
     setExceptions((e || []) as Exception[]);
+    if (s) {
+      setAgendaDebutMin(s.agenda_heure_debut ? timeToMin(s.agenda_heure_debut) : 8 * 60);
+      setAgendaFinMin(s.agenda_heure_fin ? timeToMin(s.agenda_heure_fin) : 20 * 60);
+    }
   }, [salonId, weekStartStr, weekEndStr]);
 
   useEffect(() => { load(); }, [load]);
@@ -432,10 +456,17 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
     dispos.filter(d => d.jour_semaine === i)
       .map(d => ({ heure_debut: d.heure_debut, heure_fin: d.heure_fin }))
       .sort((a, b) => timeToMin(a.heure_debut) - timeToMin(b.heure_debut)));
-  let grilleDebut = 8 * 60, grilleFin = 19 * 60;
-  if (dispos.length > 0) {
-    grilleDebut = Math.floor(Math.min(...dispos.map(d => timeToMin(d.heure_debut))) / 60) * 60;
-    grilleFin = Math.ceil(Math.max(...dispos.map(d => timeToMin(d.heure_fin))) / 60) * 60;
+  // Plage définie par le salon dans les paramètres (indépendante des disponibilités)
+  let grilleDebut = agendaDebutMin;
+  let grilleFin = agendaFinMin;
+  // Étend si des RDVs débordent de la plage configurée
+  if (rdvs.length > 0) {
+    const maxRdvFin = Math.max(...rdvs.map(r => {
+      const start = timeToMin(r.date_heure.slice(11, 16));
+      const duree = r.duree_minutes || r.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0) || 30;
+      return start + duree;
+    }));
+    grilleFin = Math.max(grilleFin, Math.ceil(maxRdvFin / 60) * 60);
   }
   const nbHeures = (grilleFin - grilleDebut) / 60;
   const heuresGrille = Array.from({ length: nbHeures + 1 }, (_, i) => grilleDebut / 60 + i);
@@ -727,6 +758,39 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
                   </div>
                 )}
 
+                {/* Blocs personnels */}
+                {(() => {
+                  const ds = info.dateStr;
+                  const dayEvts: Evenement[] = [];
+                  for (const ev of evenements) {
+                    if (!ev.recurrence) {
+                      if (ev.date_heure.slice(0, 10) === ds) dayEvts.push(ev);
+                    } else if (ev.recurrence === "hebdomadaire") {
+                      const evDay = new Date(ev.date_heure).getDay();
+                      if (info.day.getDay() === evDay) {
+                        if (ds < ev.date_heure.slice(0, 10)) continue;
+                        if (ev.recurrence_fin && ds > ev.recurrence_fin) continue;
+                        dayEvts.push({ ...ev, date_heure: `${ds}T${ev.date_heure.slice(11, 16)}:00` });
+                      }
+                    }
+                  }
+                  return dayEvts.map(ev => {
+                    const evMin = timeToMin(ev.date_heure.slice(11, 16));
+                    const top = (evMin - grilleDebut) / 60 * PX_PAR_HEURE;
+                    const height = Math.max(22, ev.duree_minutes / 60 * PX_PAR_HEURE - 3);
+                    return (
+                      <div key={`ev-${ev.id}-${ds}`}
+                        onPointerDown={e => e.stopPropagation()}
+                        onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/bloc/${ev.id}`); }}
+                        style={{ position: "absolute", top, left: 3, right: 3, height, background: "#f5f5f5", borderLeft: "3px solid #aaa", borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", zIndex: 6, opacity: 0.9 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#888", lineHeight: 1.3 }}>{formatHeure(ev.date_heure)}</div>
+                        {height > 26 && <div style={{ fontSize: 11, fontWeight: 600, color: "#555", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titre}</div>}
+                        {height > 44 && ev.recurrence && <div style={{ fontSize: 9, color: "#aaa" }}>↻ hebdo</div>}
+                      </div>
+                    );
+                  });
+                })()}
+
                 {/* RDVs */}
                 {dayRdvs.map(rdv => {
                   const rdvMin = timeToMin(rdv.date_heure.slice(11, 16));
@@ -742,7 +806,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, couleur, today, router, o
                       <div style={{ fontSize: 10, fontWeight: 700, color: couleur, lineHeight: 1.3 }}>{formatHeure(rdv.date_heure)}</div>
                       {height > 26 && (
                         <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {rdv.clients ? rdv.clients.prenom : "—"}
+                          {rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}
                         </div>
                       )}
                       {height > 44 && (

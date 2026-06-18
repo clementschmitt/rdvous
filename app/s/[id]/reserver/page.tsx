@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getSalon } from "../page";
-import VitrineHeader from "../VitrineHeader";
+import SiteHeader from "@/app/components/SiteHeader";
 import BookingWidget from "../BookingWidget";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
@@ -25,7 +25,7 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
         }
       `}</style>
 
-      <VitrineHeader />
+      <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} />
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "76px 16px 48px" }}>
         <Link href={salon.slug ? `/${salon.slug}` : `/s/${salon.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#999", textDecoration: "none", marginBottom: 20, fontWeight: 500 }}>

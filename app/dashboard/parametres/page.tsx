@@ -15,7 +15,7 @@ import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier"
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide" };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -33,7 +33,7 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu" });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00" });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
@@ -623,6 +623,23 @@ export default function ParametresPage() {
           </div>
         </Section>
 
+        <Section titre="Plage horaire de l'agenda">
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>Définit les heures affichées sur la grille de l'agenda. Indépendant de vos disponibilités de réservation — utile pour noter des activités personnelles en dehors des heures de salon.</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Début de journée</label>
+                <input type="time" value={settings.agenda_heure_debut} onChange={e => setSettings(s => ({ ...s, agenda_heure_debut: e.target.value }))} style={{ ...miniInput, width: "100%", boxSizing: "border-box" }} />
+              </div>
+              <div>
+                <label style={labelStyle}>Fin de journée</label>
+                <input type="time" value={settings.agenda_heure_fin} onChange={e => setSettings(s => ({ ...s, agenda_heure_fin: e.target.value }))} style={{ ...miniInput, width: "100%", boxSizing: "border-box" }} />
+              </div>
+            </div>
+            <SaveButton sectionKey="agenda_heures" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
+          </div>
+        </Section>
+
         {/* Google Business */}
         <Section titre="Google Business" style={{ marginTop: 16 }}>
           <div style={{ fontSize: 12, color: "#888" }}>
@@ -1061,14 +1078,14 @@ export default function ParametresPage() {
                     </button>
                   </div>
                 ))}
-                {photos.length < 3 && <label style={{ width: 100, height: 100, border: "2px dashed #ddd", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: photoUploading ? "not-allowed" : "pointer", gap: 4 }}>
+                {photos.length < 8 && <label style={{ width: 100, height: 100, border: "2px dashed #ddd", borderRadius: 8, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: photoUploading ? "not-allowed" : "pointer", gap: 4 }}>
                   <span style={{ fontSize: 22, color: "#ccc" }}>{photoUploading ? "…" : "+"}</span>
                   <span style={{ fontSize: 11, color: "#bbb" }}>Ajouter</span>
                   <input type="file" accept="image/*" style={{ display: "none" }} disabled={photoUploading}
                     onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); e.target.value = ""; }} />
                 </label>}
               </div>
-              <div style={{ fontSize: 12, color: "#bbb" }}>Format JPG, PNG · Max 5 MB · Affichées sur votre vitrine</div>
+              <div style={{ fontSize: 12, color: "#bbb" }}>Format JPG, PNG · Max 5 MB · Jusqu'à 8 photos · Les 3 premières en aperçu sur la vitrine, toutes visibles dans le diaporama</div>
             </div>
           </Section>
 
