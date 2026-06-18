@@ -5,8 +5,9 @@ import { notFound } from "next/navigation";
 import VitrineHeader from "./VitrineHeader";
 import { formatPrix } from "@/lib/prix";
 import PrestationDescription from "./PrestationDescription";
+import SidebarContact from "./SidebarContact";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description?: string | null };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description?: string | null; reservable?: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | "libre" };
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
@@ -20,7 +21,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     .single();
   if (!salon || salon.visible_recherche === false) return null;
   const [{ data: prestations }, { data: appSettings }, { data: categories }, { data: dispos }] = await Promise.all([
-    admin.from("prestations").select("id, nom, duree_minutes, tarif, sur_devis, categorie_id, description").eq("salon_id", salon.id).eq("actif", true).order("nom"),
+    admin.from("prestations").select("id, nom, duree_minutes, tarif, sur_devis, categorie_id, description, reservable").eq("salon_id", salon.id).eq("actif", true).order("nom"),
     admin.from("app_settings").select("*").eq("salon_id", salon.id).single(),
     admin.from("prestation_categories").select("id, nom, ordre, selection_type").eq("salon_id", salon.id).order("ordre"),
     admin.from("disponibilites").select("jour_semaine, heure_debut, heure_fin").eq("salon_id", salon.id).order("jour_semaine"),
@@ -94,15 +95,16 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const hasHoraires = dispos.length > 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif", overflowX: "clip" }}>
       <style>{`
         @media (max-width: 640px) {
-          .vitrine-layout { flex-direction: column !important; padding-top: 16px !important; }
-          .vitrine-sidebar { position: static !important; width: auto !important; order: -1 !important; }
+          .vitrine-layout { flex-direction: column !important; align-items: stretch !important; padding-top: 16px !important; }
+          .vitrine-sidebar { position: static !important; width: auto !important; order: -1 !important; flex-shrink: 1 !important; }
           .vitrine-hero { height: 280px !important; }
           .vitrine-hero-text h1 { font-size: 28px !important; }
           .vitrine-hero-actions { display: none !important; }
           .vitrine-main { padding: 16px !important; }
+          .vitrine-contact-bar { display: none !important; }
         }
         .slot-btn:hover { opacity: 0.85; }
       `}</style>
@@ -177,9 +179,9 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
           {/* Colonne gauche */}
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Infos contact si pas de photos (mobile aussi) */}
+            {/* Infos contact — masquées sur mobile (la barre latérale remontée affiche déjà le contact) */}
             {(salon.adresse || salon.ville || salon.telephone) && (
-              <div style={{ background: "#fff", borderRadius: 12, padding: "14px 18px", border: "1px solid #ebebeb", display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+              <div id="vitrine-contact-top" className="vitrine-contact-bar" style={{ background: "#fff", borderRadius: 12, padding: "14px 18px", border: "1px solid #ebebeb", display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
                 {(salon.adresse || salon.ville) && mapsUrl && (
                   <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#555", textDecoration: "none" }}>
                     📍 {[salon.adresse, salon.ville].filter(Boolean).join(", ")}
@@ -216,6 +218,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                         <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "13px 22px", borderBottom: i < items.length - 1 ? "1px solid #f9f9f9" : "none" }}>
                           <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                             <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                            {p.reservable === false && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: couleur, background: couleur + "15", padding: "1px 7px", borderRadius: 10, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>Sur demande</span>}
                             {p.description && <PrestationDescription text={p.description} couleur={couleur} />}
                           </div>
                           <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
@@ -231,6 +234,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                     <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "13px 22px", borderBottom: i < prestations.length - 1 ? "1px solid #f9f9f9" : "none" }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                             <span style={{ fontSize: 14, color: "#1a1a1a" }}>{p.nom}</span>
+                            {p.reservable === false && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, color: couleur, background: couleur + "15", padding: "1px 7px", borderRadius: 10, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>Sur demande</span>}
                             {p.description && <PrestationDescription text={p.description} couleur={couleur} />}
                           </div>
                       <div style={{ display: "flex", gap: 16, alignItems: "center", flexShrink: 0 }}>
@@ -271,20 +275,12 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
                   <span style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Nous contacter</span>
                 </div>
               )}
-              {(salon.telephone || mapsUrl) && (
-                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f5f5f5", display: "flex", flexDirection: "column", gap: 7 }}>
-                  {salon.telephone && (
-                    <a href={`tel:${salon.telephone}`} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555", textDecoration: "none" }}>
-                      📞 {formatTel(salon.telephone)}
-                    </a>
-                  )}
-                  {mapsUrl && (
-                    <a href={mapsUrl} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555", textDecoration: "none" }}>
-                      📍 {[salon.adresse, salon.ville].filter(Boolean).join(", ")}
-                    </a>
-                  )}
-                </div>
-              )}
+              <SidebarContact
+                telephone={salon.telephone || null}
+                telFormate={salon.telephone ? formatTel(salon.telephone) : null}
+                mapsUrl={mapsUrl || null}
+                adresseLabel={[salon.adresse, salon.ville].filter(Boolean).join(", ")}
+              />
             </div>
 
             {/* Avis Google */}

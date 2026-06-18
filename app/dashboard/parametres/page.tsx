@@ -13,7 +13,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } 
 import { CSS } from "@dnd-kit/utilities";
 import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
 type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide" };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
@@ -38,7 +38,7 @@ export default function ParametresPage() {
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
   const [editCategorieNom, setEditCategorieNom] = useState("");
-  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "", description: "" });
+  const [newPresta, setNewPresta] = useState({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "", description: "", reservable: true });
   const [editPrestaId, setEditPrestaId] = useState<string | null>(null);
   const [editPresta, setEditPresta] = useState<Prestation | null>(null);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -174,8 +174,8 @@ export default function ParametresPage() {
   async function addPresta() {
     if (!newPresta.nom.trim()) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis, categorie_id: newPresta.categorie_id || null, description: newPresta.description.trim() || null });
-    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "", description: "" });
+    await supabase.from("prestations").insert({ salon_id: salon!.id, nom: newPresta.nom, duree_minutes: Number(newPresta.duree_minutes), tarif: Number(newPresta.tarif), sur_devis: newPresta.sur_devis, categorie_id: newPresta.categorie_id || null, description: newPresta.description.trim() || null, reservable: newPresta.reservable });
+    setNewPresta({ nom: "", duree_minutes: "60", tarif: "0", sur_devis: false, categorie_id: "", description: "", reservable: true });
     load();
   }
 
@@ -189,7 +189,7 @@ export default function ParametresPage() {
   async function saveEditPresta() {
     if (!editPresta) return;
     const supabase = createSupabase();
-    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis, categorie_id: editPresta.categorie_id || null, description: editPresta.description?.trim() || null }).eq("id", editPresta.id);
+    await supabase.from("prestations").update({ nom: editPresta.nom, duree_minutes: editPresta.duree_minutes, tarif: editPresta.tarif, sur_devis: editPresta.sur_devis, categorie_id: editPresta.categorie_id || null, description: editPresta.description?.trim() || null, reservable: editPresta.reservable ?? true }).eq("id", editPresta.id);
     setEditPrestaId(null);
     load();
   }
@@ -777,6 +777,10 @@ export default function ParametresPage() {
                 <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked }))} style={{ accentColor: m.couleur }} />
                 Prix variable — laisse un tarif pour afficher « à partir de X € », ou 0 pour « sur devis »
               </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
+                <input type="checkbox" checked={newPresta.reservable} onChange={e => setNewPresta(p => ({ ...p, reservable: e.target.checked }))} style={{ accentColor: m.couleur }} />
+                Réservable en ligne — décoche pour l'afficher sur la vitrine sans permettre la réservation (sur demande)
+              </label>
             </div>
           </div>
         </Section>
@@ -1220,6 +1224,10 @@ function SortablePrestaRow({ p, editPrestaId, editPresta, setEditPresta, saveEdi
               <input type="checkbox" checked={editPresta.sur_devis ?? false} onChange={e => setEditPresta({ ...editPresta, sur_devis: e.target.checked })} style={{ accentColor: couleur }} />
               Sur devis
             </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
+              <input type="checkbox" checked={editPresta.reservable ?? true} onChange={e => setEditPresta({ ...editPresta, reservable: e.target.checked })} style={{ accentColor: couleur }} />
+              Réservable en ligne
+            </label>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 12, color: "#555" }}>Catégorie :</span>
               <select value={editPresta.categorie_id || ""} onChange={e => setEditPresta({ ...editPresta, categorie_id: e.target.value || null })} style={{ ...miniInput, fontSize: 12 }}>
@@ -1234,7 +1242,10 @@ function SortablePrestaRow({ p, editPrestaId, editPresta, setEditPresta, saveEdi
         <>
           <span {...listeners} {...attributes} style={{ cursor: "grab", color: "#ccc", fontSize: 14, userSelect: "none", flexShrink: 0, touchAction: "none" }}>⠿</span>
           <div onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 2, minWidth: 0, cursor: "pointer" }}>
-            <div style={{ fontSize: 13, fontWeight: 500, textDecoration: "underline", textDecorationStyle: "dotted", textDecorationColor: "#bbb" }}>{p.nom}</div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>
+              <span style={{ textDecoration: "underline", textDecorationStyle: "dotted", textDecorationColor: "#bbb" }}>{p.nom}</span>
+              {p.reservable === false && <span style={{ marginLeft: 8, fontSize: 9, fontWeight: 700, color: "#b8860b", background: "#fbf2dc", padding: "1px 6px", borderRadius: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>Sur demande</span>}
+            </div>
             {p.description && <div style={{ fontSize: 11, color: "#aaa", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.description}</div>}
           </div>
           <span onClick={() => { setEditPrestaId(p.id); setEditPresta({ ...p, sur_devis: p.sur_devis ?? false }); }} style={{ flex: 1, fontSize: 12, color: "#888", cursor: "pointer" }}>{p.duree_minutes} min</span>
