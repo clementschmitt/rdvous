@@ -22,18 +22,28 @@ function getMondayOfWeek(offset: number) {
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function BookingWidget({
-  salonId, prestations, categories = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, salonTel, modeReservation = "menu",
+  salonId, prestations, categories = [], dispos = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, planningOuvertureMode = "horizon", planningOuvertureJour = 23, salonTel, modeReservation = "menu",
 }: {
   salonId: string;
   prestations: Prestation[];
   categories?: Category[];
+  dispos?: { jour_semaine: number; heure_debut: string; heure_fin: string }[];
   couleur: string;
   deplacement?: string;
   delaiMinHeures?: number;
   planningHorizonJours?: number;
+  planningOuvertureMode?: string;
+  planningOuvertureJour?: number;
   salonTel?: string;
   modeReservation?: "menu" | "guide";
 }) {
+  const heureOuvMin = dispos.length > 0 ? dispos.reduce((min, d) => d.heure_debut < min ? d.heure_debut : min, dispos[0].heure_debut) : "08:00";
+  const heureOuvMax = dispos.length > 0 ? dispos.reduce((max, d) => d.heure_fin > max ? d.heure_fin : max, dispos[0].heure_fin) : "20:00";
+  const [startH, startM] = heureOuvMin.split(":").map(Number);
+  const [endH, endM] = heureOuvMax.split(":").map(Number);
+  const startSlot = startH * 2 + (startM >= 30 ? 1 : 0);
+  const endSlot = endH * 2 + (endM >= 30 ? 1 : 0);
+  const CRENEAUX = Array.from({ length: endSlot - startSlot + 1 }, (_, i) => { const total = startSlot + i; return `${String(Math.floor(total / 2)).padStart(2, "0")}:${total % 2 === 0 ? "00" : "30"}`; });
   const [step, setStep] = useState<"select" | "contact" | "done" | "waitlist" | "waitlist_done">("select");
   const [selected, setSelected] = useState<Prestation[]>([]);
   const [openStepId, setOpenStepId] = useState<string | null>(null);
@@ -54,6 +64,8 @@ export default function BookingWidget({
   const [error, setError] = useState("");
   const [website, setWebsite] = useState("");
   const [waitlistDate, setWaitlistDate] = useState("");
+  const [wlHeureDebut, setWlHeureDebut] = useState("");
+  const [wlHeureFin, setWlHeureFin] = useState("");
   const [wlSubmitting, setWlSubmitting] = useState(false);
   const [wlError, setWlError] = useState("");
   const [openDesc, setOpenDesc] = useState<Set<string>>(new Set());
@@ -83,9 +95,28 @@ export default function BookingWidget({
   const monday = getMondayOfWeek(weekOffset);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
   const today = toISO(new Date());
-  const maxDate = planningHorizonJours > 0 ? toISO(addDays(new Date(), planningHorizonJours)) : null;
-  const maxWeekOffset = maxDate ? Math.floor((new Date(maxDate).getTime() - new Date().getTime()) / (7 * 86400000)) : Infinity;
-  const atMaxWeek = weekOffset >= maxWeekOffset;
+  let maxDate: string | null = null;
+  if (planningOuvertureMode === "date_fixe") {
+    const today = new Date();
+    const currentDay = today.getDate();
+    let targetYear = today.getFullYear();
+    let targetMonth = today.getMonth();
+    if (currentDay >= planningOuvertureJour) {
+      targetMonth += 1;
+      if (targetMonth > 11) { targetMonth = 0; targetYear++; }
+    }
+    maxDate = toISO(new Date(targetYear, targetMonth + 1, 0));
+  } else if (planningHorizonJours > 0) {
+    maxDate = toISO(addDays(new Date(), planningHorizonJours));
+  }
+  let ouvertureInfo: string | null = null;
+  if (planningOuvertureMode === "date_fixe" && maxDate) {
+    const maxDateObj = new Date(maxDate + "T12:00:00");
+    const nextMonthName = new Date(maxDateObj.getFullYear(), maxDateObj.getMonth() + 1, 1).toLocaleDateString("fr-FR", { month: "long" });
+    const openingDate = new Date(maxDateObj.getFullYear(), maxDateObj.getMonth(), planningOuvertureJour).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+    ouvertureInfo = `Les réservations pour ${nextMonthName} s'ouvrent le ${openingDate}.`;
+  }
+  const atMaxWeek = maxDate ? toISO(addDays(monday, 7)) > maxDate : false;
 
   useEffect(() => {
     if (stepCategories.length > 0 && !openStepId) setOpenStepId(stepCategories[0].id);
@@ -178,12 +209,36 @@ export default function BookingWidget({
     if (!prenom.trim() || !nom.trim()) { setWlError("Prénom et nom requis."); return; }
     if (!email.trim()) { setWlError("Email requis."); return; }
     if (!/^[a-zA-Z0-9_%+\-]([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-])?@[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$/.test(email) || email.includes("..")) { setWlError("Adresse email invalide."); return; }
-    if (!telephone.trim()) { setWlError("Téléphone requis."); return; }
+    const telClean = telephone.replace(/[\s.\-]/g, "");
+    if (!telClean || !/^(\+33|0033)[1-9]\d{8}$|^0[1-9]\d{8}$/.test(telClean)) { setWlError("Numéro de téléphone invalide (ex : 06 12 34 56 78)."); return; }
     if (!waitlistDate) { setWlError("Choisissez une date souhaitée."); return; }
     setWlError(""); setWlSubmitting(true);
+
+    // Vérifier si des créneaux sont déjà disponibles à la date et plage souhaitées
+    try {
+      const duree = dureeTotal > 0 ? dureeTotal : 30;
+      const slotsRes = await fetch(`/api/booking/slots?salon_id=${salonId}&date=${waitlistDate}&duree=${duree}`);
+      const { slots } = await slotsRes.json();
+      if (Array.isArray(slots) && slots.length > 0) {
+        const matching = slots.filter((s: string) => {
+          if (wlHeureDebut && s < wlHeureDebut) return false;
+          if (wlHeureFin && s > wlHeureFin) return false;
+          return true;
+        });
+        if (matching.length > 0) {
+          const plage = wlHeureDebut || wlHeureFin
+            ? ` entre ${wlHeureDebut || "l'ouverture"} et ${wlHeureFin || "la fermeture"}`
+            : "";
+          setWlError(`Des créneaux sont disponibles le ${new Date(waitlistDate + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}${plage}. Vous pouvez réserver directement !`);
+          setWlSubmitting(false);
+          return;
+        }
+      }
+    } catch { /* si l'API échoue, on laisse passer */ }
+
     const res = await fetch("/api/waitlist/join", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ salon_id: salonId, prenom, nom, email, telephone, prestation_ids: selected.map(p => p.id), date: waitlistDate, website }),
+      body: JSON.stringify({ salon_id: salonId, prenom, nom, email, telephone, prestation_ids: selected.map(p => p.id), date: waitlistDate, heure_debut: wlHeureDebut || null, heure_fin: wlHeureFin || null, website }),
     });
     const json = await res.json();
     setWlSubmitting(false);
@@ -225,7 +280,7 @@ export default function BookingWidget({
       <div style={{ fontSize: 40, marginBottom: 12 }}>🔔</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: "#1a1a1a", marginBottom: 8 }}>Vous êtes sur la liste d'attente !</div>
       <div style={{ fontSize: 14, color: "#666", lineHeight: 1.6, maxWidth: 340, margin: "0 auto" }}>
-        Si une place se libère le {waitlistDate.split("-").reverse().join("/")}, vous recevrez un message pour réserver en priorité.
+        Si une place se libère le {waitlistDate.split("-").reverse().join("/")}, le salon vous contactera directement.
       </div>
       {email && <div style={{ fontSize: 13, color: "#999", marginTop: 12 }}>Un email de confirmation vous a été envoyé.</div>}
     </div>
@@ -239,7 +294,7 @@ export default function BookingWidget({
         <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a" }}>Être prévenu·e d'une place</div>
       </div>
       <div style={{ fontSize: 13, color: "#888", marginBottom: 18, lineHeight: 1.5 }}>
-        Laissez vos coordonnées. Si un créneau se libère le jour souhaité, vous recevrez un message pour réserver en priorité.
+        Laissez vos coordonnées. Si un créneau se libère le jour souhaité, le salon vous contactera directement.
       </div>
       <div style={{ background: "#f5f5f5", borderRadius: 8, padding: "10px 14px", marginBottom: 18, fontSize: 13, color: "#555" }}>
         <strong style={{ color: couleur }}>{selected.map(p => p.nom).join(" + ")}</strong> · {formatDuree(dureeTotal)}
@@ -250,6 +305,37 @@ export default function BookingWidget({
         </div>
         <div><label style={labelStyle}>Jour souhaité *</label>
           <input type="date" value={waitlistDate} min={today} max={maxDate || undefined} onChange={e => setWaitlistDate(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Plage horaire souhaitée <span style={{ fontWeight: 400, color: "#bbb" }}>(optionnel)</span></label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {(() => {
+              const toMin = (h: string) => { const [hh, mm] = h.split(":").map(Number); return hh * 60 + mm; };
+              const endMin = endH * 60 + endM;
+              const maxStart = dureeTotal > 0 ? endMin - dureeTotal : endMin;
+              return (<>
+                <select value={wlHeureDebut} onChange={e => { setWlHeureDebut(e.target.value); if (wlHeureFin && e.target.value && toMin(e.target.value) + dureeTotal > toMin(wlHeureFin)) setWlHeureFin(""); }}
+                  style={{ ...inputStyle, color: wlHeureDebut ? "#1a1a1a" : "#aaa" }}>
+                  <option value="">Dès que possible</option>
+                  {CRENEAUX.filter(h => {
+                    const m = toMin(h);
+                    if (m > maxStart) return false;
+                    if (wlHeureFin && dureeTotal > 0 && m + dureeTotal > toMin(wlHeureFin)) return false;
+                    return true;
+                  }).map(h => <option key={h} value={h}>À partir de {h}</option>)}
+                </select>
+                <select value={wlHeureFin} onChange={e => { setWlHeureFin(e.target.value); if (wlHeureDebut && e.target.value && toMin(wlHeureDebut) + dureeTotal > toMin(e.target.value)) setWlHeureDebut(""); }}
+                  style={{ ...inputStyle, color: wlHeureFin ? "#1a1a1a" : "#aaa" }}>
+                  <option value="">Sans limite</option>
+                  {CRENEAUX.filter(h => {
+                    if (wlHeureDebut && dureeTotal > 0 && toMin(h) < toMin(wlHeureDebut) + dureeTotal) return false;
+                    return true;
+                  }).map(h => <option key={h} value={h}>Jusqu'à {h}</option>)}
+                </select>
+              </>);
+            })()}
+          </div>
+          <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>Si vous remplissez ce champ, vous serez prévenu·e seulement si un créneau s'ouvre dans cette plage.</div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><label style={labelStyle}>Prénom *</label><input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={inputStyle} /></div>
@@ -361,7 +447,7 @@ export default function BookingWidget({
       </div>
       {atMaxWeek && (
         <div style={{ textAlign: "center", fontSize: 12, color: "#92400e", marginBottom: 8, padding: "8px 12px", background: "#fef3c7", borderRadius: 8, fontWeight: 500 }}>
-          Les réservations ne sont pas encore ouvertes au-delà de cette période.
+          {ouvertureInfo ?? "Les réservations ne sont pas encore ouvertes au-delà de cette période."}
         </div>
       )}
       {loadingSlots ? (
@@ -370,8 +456,8 @@ export default function BookingWidget({
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 16 }}>
             {weekDays.map((day, i) => {
-              const iso = toISO(day); const isPast = iso < today;
-              const slots = slotsMap[iso] || []; const hasSlots = !isPast && slots.length > 0;
+              const iso = toISO(day); const isPast = iso < today; const isBeyondMax = maxDate ? iso > maxDate : false;
+              const slots = slotsMap[iso] || []; const hasSlots = !isPast && !isBeyondMax && slots.length > 0;
               const isActive = selectedDay === iso;
               return (
                 <button key={iso} onClick={() => hasSlots && setSelectedDay(iso)} disabled={!hasSlots}
@@ -425,7 +511,7 @@ export default function BookingWidget({
       )}
       <button onClick={openWaitlist}
         style={{ marginTop: 12, width: "100%", padding: "10px", background: "none", border: `1px dashed ${couleur}66`, borderRadius: 10, fontSize: 13, fontWeight: 600, color: couleur, cursor: "pointer" }}>
-        🔔 Aucun créneau qui vous convient ? Être prévenu·e
+        Aucun créneau ne vous convient ? Inscrivez-vous à la liste d'attente
       </button>
     </div>
   );

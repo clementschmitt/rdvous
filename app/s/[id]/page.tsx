@@ -34,6 +34,8 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const googleNbAvis = (s?.google_nb_avis as number | undefined) || null;
   const delaiMinReservationHeures = (s?.delai_min_reservation_heures as number | undefined) || 0;
   const planningHorizonJours = (s?.planning_horizon_jours as number | undefined) || 0;
+  const planningOuvertureMode = (s?.planning_ouverture_mode as string | undefined) || "horizon";
+  const planningOuvertureJour = (s?.planning_ouverture_jour as number | undefined) || 23;
   const messagePrestations = (s?.message_prestations as string | undefined) || "";
   const modeReservation = ((s?.mode_reservation as string | undefined) === "guide" ? "guide" : "menu") as "menu" | "guide";
   return {
@@ -48,6 +50,8 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     googleNbAvis,
     delaiMinReservationHeures,
     planningHorizonJours,
+    planningOuvertureMode,
+    planningOuvertureJour,
     modeReservation,
   };
 }

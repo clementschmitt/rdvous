@@ -31,6 +31,9 @@ function NouveauRDVContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [clientSearch, setClientSearch] = useState("");
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({ prenom: "", nom: "", telephone: "", email: "" });
+  const [savingNewClient, setSavingNewClient] = useState(false);
 
   const clientSelectionne = clients.find(c => c.id === clientId);
   const prestasSelectionnees = prestations.filter(p => selectedPrests.includes(p.id));
@@ -58,6 +61,29 @@ function NouveauRDVContent() {
   useEffect(() => {
     setCagnotteAUtiliser(0);
   }, [clientId, overrideActif]);
+
+  async function createClient(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newClientForm.prenom.trim() || !newClientForm.nom.trim()) return;
+    setSavingNewClient(true);
+    const supabase = createSupabase();
+    const { data } = await supabase.from("clients").insert({
+      salon_id: salon!.id,
+      prenom: newClientForm.prenom.trim(),
+      nom: newClientForm.nom.trim(),
+      telephone: newClientForm.telephone.trim() || null,
+      email: newClientForm.email.trim() || null,
+    }).select("id, prenom, nom, cagnotte").single();
+    if (data) {
+      const newC = data as Client;
+      setClients(prev => [...prev, newC].sort((a, b) => a.nom.localeCompare(b.nom)));
+      setClientId(newC.id);
+      setClientSearch(`${newC.prenom} ${newC.nom}`);
+    }
+    setShowNewClient(false);
+    setNewClientForm({ prenom: "", nom: "", telephone: "", email: "" });
+    setSavingNewClient(false);
+  }
 
   function togglePresta(id: string) {
     setSelectedPrests(prev => prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]);
@@ -207,6 +233,9 @@ function NouveauRDVContent() {
               </div>
             ))}
           </div>
+          <button type="button" onClick={() => setShowNewClient(true)} style={{ marginTop: 8, background: "none", border: `1px dashed ${m.couleur}`, borderRadius: 7, padding: "7px 12px", fontSize: 12, color: m.couleur, cursor: "pointer", width: "100%", fontWeight: 600 }}>
+            + Nouveau client
+          </button>
         </Section>
 
         <Section titre="Prestations *">
@@ -314,6 +343,28 @@ function NouveauRDVContent() {
           </button>
         </div>
       </form>
+
+      {showNewClient && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={() => setShowNewClient(false)}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 360, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Nouveau client</div>
+            <form onSubmit={createClient} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input autoFocus type="text" placeholder="Prénom *" required value={newClientForm.prenom} onChange={e => setNewClientForm(p => ({ ...p, prenom: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+                <input type="text" placeholder="Nom *" required value={newClientForm.nom} onChange={e => setNewClientForm(p => ({ ...p, nom: e.target.value }))} style={{ ...inputStyle, flex: 1 }} />
+              </div>
+              <input type="tel" placeholder="Téléphone" value={newClientForm.telephone} onChange={e => setNewClientForm(p => ({ ...p, telephone: e.target.value }))} style={inputStyle} />
+              <input type="email" placeholder="Email" value={newClientForm.email} onChange={e => setNewClientForm(p => ({ ...p, email: e.target.value }))} style={inputStyle} />
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button type="button" onClick={() => setShowNewClient(false)} style={{ flex: 1, padding: "9px", background: "#f0f0f0", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
+                <button type="submit" disabled={savingNewClient} style={{ flex: 2, padding: "9px", background: m.couleur, color: "#fff", border: "none", borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: savingNewClient ? 0.6 : 1 }}>
+                  {savingNewClient ? "Création..." : "Créer et sélectionner"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

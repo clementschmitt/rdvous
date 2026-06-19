@@ -47,6 +47,10 @@ export default function RDVDetailPage() {
   const [montantInput, setMontantInput] = useState(0);
   const [editingMontant, setEditingMontant] = useState(false);
 
+  const [editingDateHeure, setEditingDateHeure] = useState(false);
+  const [newDate, setNewDate] = useState("");
+  const [newHeure, setNewHeure] = useState("");
+
   useEffect(() => {
     if (!salon) return;
     load();
@@ -63,6 +67,8 @@ export default function RDVDetailPage() {
     const parsed = data as unknown as RDV;
     setRdv(parsed);
     setNotes(data.notes || "");
+    setNewDate(data.date_heure.slice(0, 10));
+    setNewHeure(data.date_heure.slice(11, 16));
     setCagnotteInput(parsed.montant_cagnotte_utilise || 0);
     const client = parsed.clients;
     if (client) setCapsules(parseCapsules(client.champs_metier?.mesures_capsules));
@@ -183,6 +189,15 @@ export default function RDVDetailPage() {
     setSaving(false);
   }
 
+  async function saveDateHeure() {
+    setSaving(true);
+    const supabase = createSupabase();
+    await supabase.from("rendez_vous").update({ date_heure: `${newDate}T${newHeure}:00` }).eq("id", id);
+    setEditingDateHeure(false);
+    load();
+    setSaving(false);
+  }
+
   async function saveNotes() {
     setSaving(true);
     const supabase = createSupabase();
@@ -236,13 +251,33 @@ export default function RDVDetailPage() {
 
       <div style={{ background: "#fff", borderRadius: 12, padding: 24, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
-          <div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>
-              {new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
-            </div>
-            <div style={{ fontSize: 16, color: "#666", marginTop: 4 }}>{rdv.date_heure.slice(11, 16)}</div>
+          <div style={{ flex: 1 }}>
+            {editingDateHeure ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 14 }} />
+                  <select value={newHeure} onChange={e => setNewHeure(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 14 }}>
+                    {Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`).map(h => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={saveDateHeure} disabled={saving} style={{ ...btnGhost, borderColor: m.couleur, color: m.couleur }}>{saving ? "..." : "Enregistrer"}</button>
+                  <button onClick={() => setEditingDateHeure(false)} style={btnGhost}>Annuler</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 700 }}>
+                  {new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
+                  <span style={{ fontSize: 16, color: "#666" }}>{rdv.date_heure.slice(11, 16)}</span>
+                  <button onClick={() => setEditingDateHeure(true)} style={btnGhost}>Déplacer</button>
+                </div>
+              </div>
+            )}
           </div>
-          <span style={{ fontSize: 12, fontWeight: 700, color: statutInfo?.color, background: `${statutInfo?.color}18`, padding: "4px 12px", borderRadius: 20 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: statutInfo?.color, background: `${statutInfo?.color}18`, padding: "4px 12px", borderRadius: 20, flexShrink: 0, marginLeft: 12 }}>
             {statutInfo?.label}
           </span>
         </div>

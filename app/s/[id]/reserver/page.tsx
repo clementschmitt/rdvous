@@ -10,7 +10,7 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
   const result = await getSalon(id, false);
   if (!result) notFound();
 
-  const { salon, prestations, categories, delaiMinReservationHeures, planningHorizonJours, modeReservation } = result;
+  const { salon, prestations, categories, dispos, delaiMinReservationHeures, planningHorizonJours, planningOuvertureMode, planningOuvertureJour, modeReservation } = result;
   // Seules les prestations réservables en ligne sont proposées dans le tunnel.
   const reservables = prestations.filter(p => p.reservable !== false);
   const m = METIERS[salon.metier as keyof typeof METIERS];
@@ -42,7 +42,7 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
 
           <div style={{ padding: "28px" }}>
             {reservables.length > 0 ? (
-              <BookingWidget salonId={salon.id} prestations={reservables} categories={categories} couleur={couleur} deplacement={deplacement} delaiMinHeures={delaiMinReservationHeures} planningHorizonJours={planningHorizonJours} salonTel={salon.telephone || undefined} modeReservation={modeReservation} />
+              <BookingWidget salonId={salon.id} prestations={reservables} categories={categories} dispos={dispos} couleur={couleur} deplacement={deplacement} delaiMinHeures={delaiMinReservationHeures} planningHorizonJours={planningHorizonJours} planningOuvertureMode={planningOuvertureMode} planningOuvertureJour={planningOuvertureJour} salonTel={salon.telephone || undefined} modeReservation={modeReservation} />
             ) : (
               <div style={{ textAlign: "center", padding: "32px 0", color: "#888", fontSize: 14 }}>
                 Aucune prestation disponible en ligne pour le moment.

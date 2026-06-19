@@ -17,11 +17,13 @@ type Entry = {
   statut: string;
   notifie_le: string | null;
   created_at: string;
+  heure_debut: string | null;
+  heure_fin: string | null;
 };
 
 const STATUT_LABEL: Record<string, { label: string; bg: string; color: string }> = {
   en_attente: { label: "En attente", bg: "#fef3c7", color: "#92400e" },
-  notifie: { label: "Notifié·e", bg: "#dbeafe", color: "#1e40af" },
+  notifie: { label: "À contacter", bg: "#dbeafe", color: "#1e40af" },
   converti: { label: "A réservé", bg: "#dcfce7", color: "#166534" },
   expire: { label: "Expiré", bg: "#f3f4f6", color: "#6b7280" },
   annule: { label: "Annulé", bg: "#fee2e2", color: "#991b1b" },
@@ -31,24 +33,72 @@ export default function ListeAttentePage() {
   const salon = useSalon();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [prestNames, setPrestNames] = useState<Record<string, string>>({});
+  const [prestTarifs, setPrestTarifs] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [filtreActif, setFiltreActif] = useState(true);
+  const [planningEntry, setPlanningEntry] = useState<Entry | null>(null);
+  const [planDate, setPlanDate] = useState("");
+  const [planHeure, setPlanHeure] = useState("");
+  const [planError, setPlanError] = useState("");
+  const [savingPlan, setSavingPlan] = useState(false);
+  const CRENEAUX = Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`);
 
   async function load() {
     if (!salon) return;
     const supabase = createSupabase();
     const [{ data: la }, { data: prest }] = await Promise.all([
-      supabase.from("liste_attente").select("*").eq("salon_id", salon.id).order("date_souhaitee", { ascending: true }),
-      supabase.from("prestations").select("id, nom").eq("salon_id", salon.id),
+      supabase.from("liste_attente").select("*").eq("salon_id", salon.id).order("date_souhaitee", { ascending: true }).order("created_at", { ascending: true }),
+      supabase.from("prestations").select("id, nom, tarif").eq("salon_id", salon.id),
     ]);
     const names: Record<string, string> = {};
-    (prest || []).forEach((p: { id: string; nom: string }) => { names[p.id] = p.nom; });
+    const tarifs: Record<string, number> = {};
+    (prest || []).forEach((p: { id: string; nom: string; tarif: number }) => { names[p.id] = p.nom; tarifs[p.id] = p.tarif; });
     setPrestNames(names);
+    setPrestTarifs(tarifs);
     setEntries((la || []) as Entry[]);
     setLoading(false);
   }
 
   useEffect(() => { load(); }, [salon]);
+
+  function ouvrirPlanification(e: Entry) {
+    setPlanningEntry(e);
+    setPlanDate(e.date_souhaitee);
+    setPlanHeure(e.heure_debut || "");
+    setPlanError("");
+  }
+
+  async function planifierRdv() {
+    if (!planningEntry || !planDate || !planHeure || !salon) return;
+    setSavingPlan(true); setPlanError("");
+    const supabase = createSupabase();
+
+    // Trouver ou créer le client
+    let clientId: string;
+    const { data: existing } = await supabase.from("clients").select("id").eq("salon_id", salon.id).eq("email", planningEntry.email).maybeSingle();
+    if (existing) {
+      clientId = existing.id;
+    } else {
+      const { data: newClient, error: clientErr } = await supabase.from("clients").insert({ salon_id: salon.id, prenom: planningEntry.prenom, nom: planningEntry.nom, email: planningEntry.email, telephone: planningEntry.telephone }).select("id").single();
+      if (clientErr || !newClient) { setPlanError("Erreur lors de la création du client."); setSavingPlan(false); return; }
+      clientId = newClient.id;
+    }
+
+    // Créer le RDV
+    const { data: rdv, error: rdvErr } = await supabase.from("rendez_vous").insert({ salon_id: salon.id, client_id: clientId, date_heure: `${planDate}T${planHeure}:00`, statut: "planifie" }).select("id").single();
+    if (rdvErr || !rdv) { setPlanError("Erreur lors de la création du rendez-vous."); setSavingPlan(false); return; }
+
+    // Lier les prestations
+    if (planningEntry.prestation_ids.length > 0) {
+      await supabase.from("rendez_vous_prestations").insert(planningEntry.prestation_ids.map(pid => ({ rendez_vous_id: rdv.id, prestation_id: pid })));
+    }
+
+    // Marquer comme converti
+    await supabase.from("liste_attente").update({ statut: "converti" }).eq("id", planningEntry.id);
+    setEntries(prev => prev.map(e => e.id === planningEntry!.id ? { ...e, statut: "converti" } : e));
+    setPlanningEntry(null);
+    setSavingPlan(false);
+  }
 
   async function setStatut(id: string, statut: string) {
     const supabase = createSupabase();
@@ -82,7 +132,7 @@ export default function ListeAttentePage() {
       </div>
       <h1 style={{ margin: "0 0 6px", fontFamily: T.heading, fontSize: 30, fontWeight: 600, color: T.text, letterSpacing: "-0.3px" }}>Liste d'attente</h1>
       <p style={{ margin: "0 0 24px", fontSize: 14, color: T.muted, lineHeight: 1.5, maxWidth: 600 }}>
-        Les clientes inscrites ici sont prévenues automatiquement par email et SMS dès qu'un rendez-vous s'annule le jour qu'elles souhaitent.
+        Quand un rendez-vous s'annule, vous recevez un email avec la liste des clientes en attente ce jour-là. À vous de les contacter directement.
       </p>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
@@ -102,42 +152,120 @@ export default function ListeAttentePage() {
         <div style={{ color: T.faint, fontSize: 14, padding: "40px 0", textAlign: "center" }}>
           {filtreActif ? "Personne en attente pour le moment." : "Aucune inscription à ce jour."}
         </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {visibles.map(e => {
-            const st = STATUT_LABEL[e.statut] || STATUT_LABEL.en_attente;
-            const prestations = (e.prestation_ids || []).map(id => prestNames[id]).filter(Boolean).join(" + ");
-            return (
-              <div key={e.id} className="att-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "16px 18px", background: T.white, border: `1px solid ${T.border}`, borderRadius: T.radius }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: T.text }}>{e.prenom} {e.nom}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: st.bg, color: st.color }}>{st.label}</span>
+      ) : (() => {
+        // Grouper par jour, dans chaque groupe les entrées sont déjà triées par created_at ASC (premier arrivé en tête)
+        const groups: Record<string, Entry[]> = {};
+        for (const e of visibles) {
+          if (!groups[e.date_souhaitee]) groups[e.date_souhaitee] = [];
+          groups[e.date_souhaitee].push(e);
+        }
+        const sortedDates = Object.keys(groups).sort();
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {sortedDates.map(date => {
+              const group = groups[date];
+              const isToday = date === today;
+              return (
+                <div key={date}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: m.couleur, textTransform: "capitalize" }}>{formatDate(date)}</div>
+                    {isToday && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "#fef3c7", color: "#92400e" }}>Aujourd'hui</span>}
+                    <div style={{ fontSize: 12, color: T.faint }}>{group.filter(e => e.statut === "en_attente").length} en attente</div>
                   </div>
-                  <div style={{ fontSize: 13, color: m.couleur, fontWeight: 600, marginBottom: 4, textTransform: "capitalize" }}>{formatDate(e.date_souhaitee)}</div>
-                  {prestations && <div style={{ fontSize: 13, color: T.muted, marginBottom: 4 }}>{prestations}</div>}
-                  <div style={{ display: "flex", gap: 14, fontSize: 12, color: T.muted }}>
-                    <a href={`tel:${e.telephone}`} style={{ color: T.muted, textDecoration: "none" }}>📞 {e.telephone}</a>
-                    <a href={`mailto:${e.email}`} style={{ color: T.muted, textDecoration: "none" }}>✉️ {e.email}</a>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {group.map((e, idx) => {
+                      const st = STATUT_LABEL[e.statut] || STATUT_LABEL.en_attente;
+                      const prestations = (e.prestation_ids || []).map(id => prestNames[id]).filter(Boolean).join(" + ");
+                      const tarifTotal = (e.prestation_ids || []).reduce((s, id) => s + (prestTarifs[id] || 0), 0);
+                      const position = idx + 1;
+                      const ordinal = position === 1 ? "1er" : `${position}e`;
+                      return (
+                        <div key={e.id} className="att-card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "14px 16px", background: T.white, border: `1px solid ${T.border}`, borderRadius: T.radius }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: "50%", background: e.statut === "en_attente" ? m.couleurClaire : "#f3f4f6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: e.statut === "en_attente" ? m.couleur : T.muted }}>
+                              {ordinal}
+                            </div>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{e.prenom} {e.nom}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: st.bg, color: st.color }}>{st.label}</span>
+                              {(e.heure_debut || e.heure_fin) && (
+                                <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: "#f0f9ff", color: "#0369a1", fontWeight: 600 }}>
+                                  {e.heure_debut && e.heure_fin ? `${e.heure_debut} – ${e.heure_fin}` : e.heure_debut ? `Dès ${e.heure_debut}` : `Avant ${e.heure_fin}`}
+                                </span>
+                              )}
+                            </div>
+                            {prestations && (
+                              <div style={{ fontSize: 12, color: T.muted, marginBottom: 4 }}>
+                                {prestations}
+                                {tarifTotal > 0 && <span style={{ marginLeft: 8, fontWeight: 600, color: T.text }}>{tarifTotal} €</span>}
+                              </div>
+                            )}
+                            <div style={{ display: "flex", gap: 14, fontSize: 12, color: T.muted }}>
+                              <a href={`tel:${e.telephone}`} style={{ color: T.muted, textDecoration: "none" }}>📞 {e.telephone}</a>
+                              <a href={`mailto:${e.email}`} style={{ color: T.muted, textDecoration: "none" }}>✉️ {e.email}</a>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                            {e.statut !== "converti" && (
+                              <button onClick={() => ouvrirPlanification(e)}
+                                style={{ padding: "6px 12px", borderRadius: T.radiusSm, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1px solid ${m.couleur}40`, background: `${m.couleur}10`, color: m.couleur }}>
+                                Planifier
+                              </button>
+                            )}
+                            {e.statut !== "annule" && (
+                              <button onClick={() => setStatut(e.id, "annule")} title="Retirer de la liste"
+                                style={{ padding: "6px 12px", borderRadius: T.radiusSm, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1px solid ${T.border}`, background: T.white, color: T.muted }}>
+                                Retirer
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  {e.statut !== "converti" && (
-                    <button onClick={() => setStatut(e.id, "converti")} title="Marquer comme ayant réservé"
-                      style={{ padding: "6px 12px", borderRadius: T.radiusSm, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "1px solid #16a34a40", background: "#16a34a10", color: "#166534" }}>
-                      A réservé
-                    </button>
-                  )}
-                  {e.statut !== "annule" && (
-                    <button onClick={() => setStatut(e.id, "annule")} title="Retirer de la liste"
-                      style={{ padding: "6px 12px", borderRadius: T.radiusSm, fontSize: 12, fontWeight: 600, cursor: "pointer", border: `1px solid ${T.border}`, background: T.white, color: T.muted }}>
-                      Retirer
-                    </button>
-                  )}
-                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {planningEntry && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }} onClick={() => setPlanningEntry(null)}>
+          <div style={{ background: T.white, borderRadius: 14, padding: 28, width: "100%", maxWidth: 400, boxShadow: "0 8px 32px rgba(0,0,0,0.15)" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 4 }}>Planifier le rendez-vous</div>
+            <div style={{ fontSize: 13, color: T.muted, marginBottom: 20 }}>
+              {planningEntry.prenom} {planningEntry.nom}
+              {planningEntry.prestation_ids.length > 0 && (
+                <span style={{ marginLeft: 8, color: m.couleur, fontWeight: 600 }}>
+                  · {planningEntry.prestation_ids.map(id => prestNames[id]).filter(Boolean).join(" + ")}
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5 }}>Date *</label>
+                <input type="date" value={planDate} onChange={e => setPlanDate(e.target.value)} style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
               </div>
-            );
-          })}
+              <div>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5 }}>Heure *</label>
+                <select value={planHeure} onChange={e => setPlanHeure(e.target.value)} style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, background: "#fff" }}>
+                  <option value="">Choisir un créneau</option>
+                  {CRENEAUX.map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
+            </div>
+            {planError && <div style={{ marginTop: 12, fontSize: 13, color: "#dc2626" }}>{planError}</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button onClick={() => setPlanningEntry(null)} style={{ flex: 1, padding: "10px", background: "#f0f0f0", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
+              <button onClick={planifierRdv} disabled={savingPlan || !planDate || !planHeure}
+                style={{ flex: 2, padding: "10px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (!planDate || !planHeure || savingPlan) ? 0.5 : 1 }}>
+                {savingPlan ? "Création..." : "Créer le rendez-vous"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

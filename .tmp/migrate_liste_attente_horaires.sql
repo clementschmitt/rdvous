@@ -1,0 +1,3 @@
+ALTER TABLE liste_attente
+  ADD COLUMN IF NOT EXISTS heure_debut TEXT,
+  ADD COLUMN IF NOT EXISTS heure_fin TEXT;

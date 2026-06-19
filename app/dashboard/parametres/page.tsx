@@ -15,7 +15,7 @@ import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier"
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -33,7 +33,7 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00" });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23 });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
@@ -884,24 +884,51 @@ export default function ParametresPage() {
               Ex : 24 = vos clientes ne peuvent pas réserver moins de 24h à l'avance. 0 = pas de délai.
             </div>
             <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 6 }}>Horizon de planification</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <select
-                  value={settings.planning_horizon_jours}
-                  onChange={e => setSettings(s => ({ ...s, planning_horizon_jours: parseInt(e.target.value) }))}
-                  style={{ padding: "8px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, color: "#1a1a1a", background: "#fff", cursor: "pointer" }}
-                >
-                  <option value={0}>Illimité</option>
-                  <option value={14}>2 semaines</option>
-                  <option value={30}>1 mois</option>
-                  <option value={60}>2 mois</option>
-                  <option value={90}>3 mois</option>
-                  <option value={180}>6 mois</option>
-                  <option value={365}>1 an</option>
-                </select>
-              </div>
-              <div style={{ fontSize: 12, color: "#aaa", marginTop: 6 }}>
-                Les clientes ne pourront pas réserver au-delà de cette période. Illimité = pas de restriction.
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 10 }}>Ouverture des réservations</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                  <input type="radio" name="ouverture_mode" value="horizon" checked={settings.planning_ouverture_mode === "horizon"} onChange={() => setSettings(s => ({ ...s, planning_ouverture_mode: "horizon" }))} style={{ marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>Horizon glissant</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                      <select
+                        value={settings.planning_horizon_jours}
+                        onChange={e => setSettings(s => ({ ...s, planning_horizon_jours: parseInt(e.target.value) }))}
+                        disabled={settings.planning_ouverture_mode !== "horizon"}
+                        style={{ padding: "6px 10px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, background: "#fff", cursor: "pointer", opacity: settings.planning_ouverture_mode !== "horizon" ? 0.4 : 1 }}
+                      >
+                        <option value={0}>Illimité</option>
+                        <option value={14}>2 semaines</option>
+                        <option value={30}>1 mois</option>
+                        <option value={60}>2 mois</option>
+                        <option value={90}>3 mois</option>
+                        <option value={180}>6 mois</option>
+                        <option value={365}>1 an</option>
+                      </select>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>Les clientes voient toujours X jours à l'avance depuis aujourd'hui.</div>
+                  </div>
+                </label>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                  <input type="radio" name="ouverture_mode" value="date_fixe" checked={settings.planning_ouverture_mode === "date_fixe"} onChange={() => setSettings(s => ({ ...s, planning_ouverture_mode: "date_fixe" }))} style={{ marginTop: 2 }} />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>Ouverture à date fixe</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                      <span style={{ fontSize: 13, color: "#555" }}>Le</span>
+                      <input
+                        type="number"
+                        min={1}
+                        max={28}
+                        value={settings.planning_ouverture_jour}
+                        onChange={e => setSettings(s => ({ ...s, planning_ouverture_jour: Math.max(1, Math.min(28, parseInt(e.target.value) || 1)) }))}
+                        disabled={settings.planning_ouverture_mode !== "date_fixe"}
+                        style={{ width: 56, padding: "6px 10px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, opacity: settings.planning_ouverture_mode !== "date_fixe" ? 0.4 : 1 }}
+                      />
+                      <span style={{ fontSize: 13, color: "#555" }}>du mois pour ouvrir le mois suivant</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>Ex : le 23 juin → le planning de juillet s'ouvre. Avant le 23, seul juin est visible.</div>
+                  </div>
+                </label>
               </div>
             </div>
             <SaveButton sectionKey="reservation" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />

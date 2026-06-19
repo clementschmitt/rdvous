@@ -65,56 +65,53 @@ export async function POST(req: NextRequest) {
   // Une place vient de se libérer ce jour-là : on prévient les personnes en attente.
   try {
     const dateRdv = rdv.date_heure.slice(0, 10);
-    const { data: waiting } = await admin
+    const { data: waitingAll } = await admin
       .from("liste_attente")
-      .select("id, prenom, email, telephone")
+      .select("id, prenom, email, telephone, heure_debut, heure_fin")
       .eq("salon_id", rdv.salon_id)
       .eq("date_souhaitee", dateRdv)
       .eq("statut", "en_attente");
 
+    // Ne prévenir que les personnes dont la plage horaire correspond (ou sans préférence)
+    const waiting = (waitingAll || []).filter(w => {
+      if (!w.heure_debut && !w.heure_fin) return true;
+      if (w.heure_debut && heureStr < w.heure_debut) return false;
+      if (w.heure_fin && heureStr > w.heure_fin) return false;
+      return true;
+    });
+
     if (waiting && waiting.length > 0) {
-      const { data: salonInfo } = await admin.from("salons").select("slug").eq("id", rdv.salon_id).single();
-      const origin = new URL(req.url).origin;
-      const bookingUrl = salonInfo?.slug ? `${origin}/${salonInfo.slug}` : `${origin}/s/${rdv.salon_id}`;
       const salonNom = salon?.nom || "votre salon";
 
-      for (const w of waiting) {
-        // Email
-        if (w.email) {
-          try {
-            await sendEmail({
-              to: w.email,
-              toName: w.prenom,
-              subject: `Une place s'est libérée — ${salonNom} le ${dateStr}`,
-              html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
-                <div style="background:#ecfdf5;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #10b981">
-                  <div style="font-size:16px;font-weight:700;color:#059669">Une place s'est libérée !</div>
-                  <div style="font-size:22px;font-weight:700;margin-top:8px">${dateStr}</div>
-                </div>
-                <p style="font-size:14px;line-height:1.6">Bonjour ${w.prenom}, une place vient de se libérer chez <strong>${salonNom}</strong> le ${dateStr}. Réservez vite, le premier qui réserve obtient le créneau.</p>
-                <p style="text-align:center;margin:28px 0"><a href="${bookingUrl}" style="display:inline-block;background:#059669;color:#fff;text-decoration:none;padding:13px 28px;border-radius:10px;font-size:15px;font-weight:700">Réserver maintenant</a></p>
-              </div>`,
-              fromName: settings?.email_expediteur_nom || salonNom,
-              replyTo: settings?.email_expediteur || undefined,
-            });
-          } catch (e) { console.error("Waitlist email failed:", e); }
-        }
-        // SMS (si activé et crédits disponibles)
-        if (settings?.sms_active && w.telephone) {
-          try {
-            const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id });
-            if (canSend) {
-              await sendSMS({
-                to: w.telephone,
-                content: `Bonjour ${w.prenom}, une place s'est liberee chez ${salonNom} le ${dateStr}. Reservez vite : ${bookingUrl}`,
-                sender: settings?.sms_expediteur || salonNom,
-              });
-            }
-          } catch (e) { console.error("Waitlist SMS failed:", e); }
-        }
+      // Notifier uniquement la professionnelle — elle gère sa liste d'attente manuellement
+      if (artisanEmail) {
+        const lignes = waiting.map((w, i) => {
+          const plage = w.heure_debut || w.heure_fin
+            ? ` (${w.heure_debut && w.heure_fin ? `${w.heure_debut}–${w.heure_fin}` : w.heure_debut ? `dès ${w.heure_debut}` : `avant ${w.heure_fin}`})`
+            : "";
+          return `<li style="margin-bottom:6px">#${i + 1} — <strong>${w.prenom}</strong> · <a href="tel:${w.telephone}">${w.telephone}</a>${plage}</li>`;
+        }).join("");
+
+        try {
+          await sendEmail({
+            to: artisanEmail,
+            toName: settings?.email_expediteur_nom || salonNom,
+            subject: `Liste d'attente — ${waiting.length} personne${waiting.length > 1 ? "s" : ""} à rappeler pour le ${dateStr}`,
+            html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+              <div style="background:#ecfdf5;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #10b981">
+                <div style="font-size:16px;font-weight:700;color:#059669">Un créneau s'est libéré</div>
+                <div style="font-size:18px;font-weight:700;margin-top:6px">${dateStr} à ${heureStr}</div>
+              </div>
+              <p style="font-size:14px;line-height:1.6">${waiting.length} personne${waiting.length > 1 ? "s sont" : " est"} en liste d'attente pour ce jour :</p>
+              <ul style="font-size:14px;line-height:1.8;padding-left:18px">${lignes}</ul>
+              <p style="font-size:13px;color:#888;margin-top:20px">Retrouvez la liste complète dans votre tableau de bord.</p>
+            </div>`,
+            fromName: "rdvous",
+          });
+        } catch (e) { console.error("Waitlist artisan email failed:", e); }
       }
 
-      // Marquer ces personnes comme notifiées
+      // Marquer comme "notifié" — la pro a été prévenue, à elle de contacter les clientes
       await admin
         .from("liste_attente")
         .update({ statut: "notifie", notifie_le: new Date().toISOString() })

@@ -24,6 +24,7 @@ export default function DashboardPage() {
   const [anniversaires, setAnniversaires] = useState<Anniversaire[]>([]);
   const [relances, setRelances] = useState<Relance[]>([]);
   const [relanceConfirm, setRelanceConfirm] = useState<string | null>(null);
+  const [attenteAlerte, setAttenteAlerte] = useState<{ count: number; date: string } | null>(null);
 
   useEffect(() => {
     if (!salon) return;
@@ -55,7 +56,7 @@ export default function DashboardPage() {
       const monthPrevStartStr = `${monthPrevStart.getFullYear()}-${String(monthPrevStart.getMonth()+1).padStart(2,'0')}-01`;
       const monthPrevEndStr = `${monthPrevEnd.getFullYear()}-${String(monthPrevEnd.getMonth()+1).padStart(2,'0')}-01`;
 
-      const [rdvTodayRes, rdvWeekRes, rdvWeekPrevRes, rdvMonthRes, rdvMonthPrevRes, clientsRes, settingsRes, allRdvsRes, rdvWeekConfirmedRes] = await Promise.all([
+      const [rdvTodayRes, rdvWeekRes, rdvWeekPrevRes, rdvMonthRes, rdvMonthPrevRes, clientsRes, settingsRes, allRdvsRes, rdvWeekConfirmedRes, attenteAlerteRes] = await Promise.all([
         supabase.from("rendez_vous").select("id, date_heure, statut, clients(prenom, nom), rendez_vous_prestations(prestations(duree_minutes, tarif))").eq("salon_id", salon!.id).gte("date_heure", `${todayStr}T00:00:00`).lte("date_heure", `${todayStr}T23:59:59`).neq("statut", "annule").order("date_heure"),
         supabase.from("rendez_vous").select("tarif, rendez_vous_prestations(prestations(tarif, sur_devis))").eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "effectue"),
         supabase.from("rendez_vous").select("tarif, rendez_vous_prestations(prestations(tarif, sur_devis))").eq("salon_id", salon!.id).gte("date_heure", `${weekPrevStartStr}T00:00:00`).lt("date_heure", `${weekPrevEndStr}T00:00:00`).eq("statut", "effectue"),
@@ -65,6 +66,7 @@ export default function DashboardPage() {
         supabase.from("app_settings").select("delai_relance_mois").eq("salon_id", salon!.id).single(),
         supabase.from("rendez_vous").select("client_id, date_heure").eq("salon_id", salon!.id).neq("statut", "annule").order("date_heure", { ascending: false }),
         supabase.from("rendez_vous").select("id", { count: "exact", head: true }).eq("salon_id", salon!.id).gte("date_heure", `${weekStartStr}T00:00:00`).lt("date_heure", `${weekEndStr}T00:00:00`).eq("statut", "planifie"),
+        supabase.from("liste_attente").select("id", { count: "exact", head: true }).eq("salon_id", salon!.id).eq("date_souhaitee", todayStr).eq("statut", "notifie").gte("notifie_le", `${todayStr}T00:00:00`),
       ]);
 
       const calcCA = (rows: { tarif?: number | null; rendez_vous_prestations: { prestations: { tarif: number; sur_devis?: boolean } | null }[] }[]) =>
@@ -79,6 +81,8 @@ export default function DashboardPage() {
       setRdvsToday((rdvTodayRes.data || []) as unknown as RdvToday[]);
       setRdvsWeekConfirmed(rdvWeekConfirmedRes.count || 0);
       setRdvsWeekEffectue((rdvWeekRes.data || []).length);
+      const alerteCount = attenteAlerteRes.count || 0;
+      if (alerteCount > 0) setAttenteAlerte({ count: alerteCount, date: todayStr });
 
       const clients = clientsRes.data || [];
       const now = new Date();
@@ -169,6 +173,18 @@ export default function DashboardPage() {
           </h2>
         </div>
       </div>
+
+      {attenteAlerte && (
+        <Link href="/dashboard/attente" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "#ecfdf5", border: "1px solid #6ee7b7", borderRadius: T.radius, marginBottom: 16, textDecoration: "none" }}>
+          <span style={{ fontSize: 20 }}>🔔</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#065f46" }}>
+              Un créneau s'est libéré aujourd'hui — {attenteAlerte.count} personne{attenteAlerte.count > 1 ? "s" : ""} en liste d'attente {attenteAlerte.count > 1 ? "ont été prévenues" : "a été prévenue"}.
+            </div>
+            <div style={{ fontSize: 12, color: "#059669", marginTop: 2 }}>Voir la liste d'attente →</div>
+          </div>
+        </Link>
+      )}
 
       {/* Grille unifiée 3 colonnes — tuiles row1, planning+sidebar row2 */}
       <div className="dash-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 320px", gap: "16px" }}>

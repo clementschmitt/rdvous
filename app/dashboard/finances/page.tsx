@@ -6,6 +6,7 @@ import { createSupabase } from "@/lib/supabase";
 import { T } from "@/lib/theme";
 
 type Depense = { id: string; categorie: string; montant: number; date: string; note: string };
+type DepenseFixe = { id: string; nom: string; montant: number; actif: boolean };
 type RecettePresta = { nom: string; nb: number; ca: number };
 
 const CATEGORIES = ["Loyer", "Logiciels", "Assurance", "Achat produits", "Prévoyance", "Charges sociales", "Autres"];
@@ -43,6 +44,9 @@ export default function FinancesPage() {
   const [savingObjectif, setSavingObjectif] = useState(false);
   const [savedObjectif, setSavedObjectif] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [depensesFixes, setDepensesFixes] = useState<DepenseFixe[]>([]);
+  const [newFixe, setNewFixe] = useState({ nom: "", montant: "" });
+  const [addingFixe, setAddingFixe] = useState(false);
 
   const isFree = salon?.plan !== "business" && salon?.plan !== "team";
 
@@ -58,7 +62,7 @@ export default function FinancesPage() {
     const supabase = createSupabase();
     const { debut, fin } = getMois(moisOffset);
 
-    const [rdvRes, depRes, settingsRes] = await Promise.all([
+    const [rdvRes, depRes, settingsRes, fixesRes] = await Promise.all([
       supabase
         .from("rendez_vous")
         .select("statut, tarif, rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
@@ -78,6 +82,7 @@ export default function FinancesPage() {
         .select("objectif_ca_mensuel, taux_urssaf")
         .eq("salon_id", salon.id)
         .single(),
+      supabase.from("depenses_fixes").select("*").eq("salon_id", salon.id).order("nom"),
     ]);
 
     const map: Record<string, { nb: number; ca: number }> = {};
@@ -109,6 +114,7 @@ export default function FinancesPage() {
     setCaTotal(totalRealise);
     setCaAVenir(totalAVenir);
     setDepenses((depRes.data || []) as Depense[]);
+    setDepensesFixes((fixesRes.data || []) as DepenseFixe[]);
 
     const obj = settingsRes.data?.objectif_ca_mensuel ?? 0;
     setObjectif(obj);
@@ -117,6 +123,28 @@ export default function FinancesPage() {
     setTauxUrssaf(taux);
     setTauxEdit(String(taux));
     setLoading(false);
+  }
+
+  async function addDepenseFixe() {
+    if (!salon || !newFixe.nom.trim() || !newFixe.montant || addingFixe) return;
+    setAddingFixe(true);
+    const supabase = createSupabase();
+    const { data } = await supabase.from("depenses_fixes").insert({ salon_id: salon.id, nom: newFixe.nom.trim(), montant: parseFloat(newFixe.montant), actif: true }).select().single();
+    if (data) setDepensesFixes(prev => [...prev, data as DepenseFixe].sort((a, b) => a.nom.localeCompare(b.nom)));
+    setNewFixe({ nom: "", montant: "" });
+    setAddingFixe(false);
+  }
+
+  async function toggleDepenseFixe(id: string, actif: boolean) {
+    const supabase = createSupabase();
+    await supabase.from("depenses_fixes").update({ actif }).eq("id", id);
+    setDepensesFixes(prev => prev.map(d => d.id === id ? { ...d, actif } : d));
+  }
+
+  async function deleteDepenseFixe(id: string) {
+    const supabase = createSupabase();
+    await supabase.from("depenses_fixes").delete().eq("id", id);
+    setDepensesFixes(prev => prev.filter(d => d.id !== id));
   }
 
   async function addDepense() {
@@ -340,7 +368,8 @@ export default function FinancesPage() {
     );
   }
 
-  const totalDepenses = depenses.reduce((s, d) => s + d.montant, 0);
+  const totalDepensesFixes = depensesFixes.filter(d => d.actif).reduce((s, d) => s + d.montant, 0);
+  const totalDepenses = depenses.reduce((s, d) => s + d.montant, 0) + totalDepensesFixes;
   const urssaf = Math.round(caTotal * (tauxUrssaf / 100) * 100) / 100;
   const bilanNet = caTotal - totalDepenses - urssaf;
   const progression = objectif > 0 ? Math.min((caTotal / objectif) * 100, 100) : 0;
@@ -514,9 +543,57 @@ export default function FinancesPage() {
         )}
       </div>
 
+      {/* Charges fixes */}
+      <div className="fin-section">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ fontFamily: T.heading, fontSize: 20, margin: 0 }}>Charges fixes</h2>
+          <span style={{ fontSize: 12, color: T.muted }}>Récurrentes chaque mois — {euro(totalDepensesFixes)} actives</span>
+        </div>
+        <div className="fin-add" style={{ marginBottom: 16 }}>
+          <input type="text" placeholder="Nom (ex : Loyer, Logiciel…)" value={newFixe.nom} onChange={e => setNewFixe(p => ({ ...p, nom: e.target.value }))} style={{ flex: 1, minWidth: 160 }} />
+          <input type="number" placeholder="Montant (€)" value={newFixe.montant} onChange={e => setNewFixe(p => ({ ...p, montant: e.target.value }))} style={{ width: 130 }} />
+          <button onClick={addDepenseFixe} disabled={addingFixe || !newFixe.nom.trim() || !newFixe.montant} style={{ background: m.couleur, color: T.white, border: "none", borderRadius: T.radiusSm, padding: "8px 20px", cursor: "pointer", fontSize: 12, whiteSpace: "nowrap", opacity: (!newFixe.nom.trim() || !newFixe.montant) ? 0.5 : 1 }}>
+            + Ajouter
+          </button>
+        </div>
+        {depensesFixes.length === 0 ? (
+          <div style={{ color: T.muted, fontSize: 13 }}>Aucune charge fixe. Ajoutez vos charges récurrentes — elles s'appliquent automatiquement chaque mois.</div>
+        ) : (
+          <table className="fin-table">
+            <thead>
+              <tr>
+                <th>Charge</th>
+                <th style={{ textAlign: "right" }}>Montant</th>
+                <th style={{ textAlign: "center" }}>Active</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {depensesFixes.map(d => (
+                <tr key={d.id} style={{ opacity: d.actif ? 1 : 0.45 }}>
+                  <td style={{ fontWeight: d.actif ? 500 : 400 }}>{d.nom}</td>
+                  <td style={{ textAlign: "right" }}>{euro(d.montant)}</td>
+                  <td style={{ textAlign: "center" }}>
+                    <input type="checkbox" checked={d.actif} onChange={e => toggleDepenseFixe(d.id, e.target.checked)} style={{ accentColor: m.couleur, cursor: "pointer" }} />
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    <button onClick={() => deleteDepenseFixe(d.id)} style={{ background: "none", border: "none", cursor: "pointer", color: T.faint, fontSize: 15, padding: "0 4px", lineHeight: 1 }}>✕</button>
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td style={{ fontWeight: 600 }}>Total actives</td>
+                <td style={{ textAlign: "right", fontWeight: 600, color: "#dc2626" }}>{euro(totalDepensesFixes)}</td>
+                <td /><td />
+              </tr>
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Dépenses */}
       <div className="fin-section">
-        <h2 style={{ fontFamily: T.heading, fontSize: 20, margin: "0 0 20px" }}>Dépenses</h2>
+        <h2 style={{ fontFamily: T.heading, fontSize: 20, margin: "0 0 20px" }}>Dépenses ponctuelles</h2>
 
         <div className="fin-add">
           <select
