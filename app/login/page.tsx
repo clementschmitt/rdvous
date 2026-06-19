@@ -24,8 +24,9 @@ function LoginContent() {
       setLoading(false);
       return;
     }
+    const next = searchParams.get("next");
     const userType = data.user?.user_metadata?.user_type;
-    router.push(userType === "client" ? "/mon-compte" : "/dashboard");
+    router.push(next || (userType === "client" ? "/mon-compte" : "/dashboard"));
   }
 
   return (

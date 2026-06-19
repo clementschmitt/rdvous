@@ -5,14 +5,25 @@ import { createSupabase } from "@/lib/supabase";
 
 type NavItem = { label: string; href: string };
 
-// Barre publique unifiée : logo à gauche, liens + CTA + compte à droite.
-// Toujours visible, fond blanc. Largeur de contenu calée sur le 1200px du site.
-export default function SiteHeader({ links = [], cta, account = true }: { links?: NavItem[]; cta?: NavItem; account?: boolean }) {
+export default function SiteHeader({ links = [], cta, account = true, context = "public" }: { links?: NavItem[]; cta?: NavItem; account?: boolean; context?: "public" | "pro" }) {
   const [loggedIn, setLoggedIn] = useState(false);
+  const [isPro, setIsPro] = useState(false);
 
   useEffect(() => {
-    createSupabase().auth.getSession().then(({ data }) => setLoggedIn(!!data.session));
+    createSupabase().auth.getSession().then(({ data }) => {
+      const user = data.session?.user;
+      setLoggedIn(!!user);
+      setIsPro(!!user && user.user_metadata?.user_type !== "client");
+    });
   }, []);
+
+  const accountHref = context === "pro"
+    ? (loggedIn ? (isPro ? "/dashboard" : "/onboarding") : "/login?next=/dashboard")
+    : (loggedIn ? "/mon-compte" : "/login?next=/mon-compte");
+
+  const accountLabel = context === "pro"
+    ? (loggedIn ? (isPro ? "Mon espace pro" : "Créer mon espace pro") : "Connexion")
+    : (loggedIn ? "Mon compte" : "Connexion");
 
   return (
     <div style={{ height: 56, position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "#fff", boxShadow: "0 1px 0 #ebebeb" }}>
@@ -28,8 +39,8 @@ export default function SiteHeader({ links = [], cta, account = true }: { links?
             <Link href={cta.href} style={{ fontSize: 13, fontWeight: 600, color: "#fff", background: "#1a1614", padding: "8px 16px", borderRadius: 9, textDecoration: "none" }}>{cta.label}</Link>
           )}
           {account && (
-            <Link href={loggedIn ? "/mon-compte" : "/login"} style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", padding: "6px 15px", borderRadius: 8, border: "1px solid #e2e2e2", textDecoration: "none", background: "#fff" }}>
-              {loggedIn ? "Mon compte" : "Connexion"}
+            <Link href={accountHref} style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a", padding: "6px 15px", borderRadius: 8, border: "1px solid #e2e2e2", textDecoration: "none", background: "#fff" }}>
+              {accountLabel}
             </Link>
           )}
         </div>

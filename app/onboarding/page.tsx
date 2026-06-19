@@ -107,6 +107,11 @@ export default function OnboardingPage() {
             </form>
           )}
         </div>
+
+        <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: T.muted }}>
+          Vous cherchez à réserver un rendez-vous ?{" "}
+          <a href="/mon-compte" style={{ color: T.text, fontWeight: 600, textDecoration: "none" }}>Accéder à mon espace</a>
+        </p>
       </div>
     </div>
   );

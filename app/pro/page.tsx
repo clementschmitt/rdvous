@@ -234,6 +234,7 @@ export default function ProPage() {
       <SiteHeader
         links={[{ label: "Accueil", href: "/" }, { label: "Tarifs", href: "/pro#tarifs" }]}
         cta={{ label: "Essayer gratuitement", href: "/signup" }}
+        context="pro"
       />
 
       {/* ── HERO ── */}
@@ -252,7 +253,7 @@ export default function ProPage() {
             RDVOUS aide les professionnels indépendants à gérer leurs rendez-vous, fidéliser leurs clients et gagner en visibilité locale — sans commissions abusives ni frais cachés.
           </p>
           <div className="pro-hero-actions" style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-            <Link href="/login" style={{ padding:"14px 32px", background:C.dark, color:"#fff", borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>
+            <Link href="/signup" style={{ padding:"14px 32px", background:C.dark, color:"#fff", borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>
               Essayer gratuitement
             </Link>
             <a href="#tarifs" style={{ padding:"14px 32px", background:"transparent", color:C.text, border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontWeight:600, textDecoration:"none" }}>
@@ -524,7 +525,7 @@ export default function ProPage() {
             <p style={{ fontSize:15, color:"rgba(255,255,255,0.5)", margin:"0 0 36px" }}>
               Démarrez gratuitement. Passez en illimité à 29€/mois — prix de lancement.
             </p>
-            <Link href="/login" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
+            <Link href="/signup" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
               Commencer gratuitement
             </Link>
           </div>
@@ -536,7 +537,7 @@ export default function ProPage() {
         <Link href="/" style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:22, fontWeight:600, color:C.text, textDecoration:"none" }}>rdvous</Link>
         <div style={{ display:"flex", gap:24 }}>
           <Link href="/"      style={{ fontSize:13, color:C.light, textDecoration:"none" }}>Trouver un salon</Link>
-          <Link href="/login" style={{ fontSize:13, color:C.light, textDecoration:"none" }}>Connexion</Link>
+          <Link href="/login?next=/dashboard" style={{ fontSize:13, color:C.light, textDecoration:"none" }}>Connexion</Link>
         </div>
         <span style={{ fontSize:12, color:C.light }}>© 2025 rdvous</span>
       </footer>
