@@ -414,6 +414,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
   // Drag vertical (zone dans un jour) et horizontal (en-têtes, multi-jours)
   const [vDrag, setVDrag] = useState<{ col: number; startMin: number; curMin: number } | null>(null);
   const [hDrag, setHDrag] = useState<{ start: number; end: number } | null>(null);
+  const [rdvDrag, setRdvDrag] = useState<{ rdv: RDV; origColIdx: number; origMin: number; offsetMin: number; currentMin: number; currentColIdx: number; duree: number } | null>(null);
   const didDrag = useRef(false);
 
   // Popup
@@ -496,6 +497,27 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
     return Math.max(grilleDebut, Math.min(grilleFin, snapped));
   }
 
+  // ── Conversion X → index de colonne (0-6) ──
+  function xToCol(clientX: number) {
+    if (!bodyRef.current) return 0;
+    const rect = bodyRef.current.getBoundingClientRect();
+    const gridX = clientX - rect.left - 52;
+    const colWidth = (rect.width - 52) / 7;
+    return Math.max(0, Math.min(6, Math.floor(gridX / colWidth)));
+  }
+
+  // ── Drag RDV ──
+  function onRdvPointerDown(e: React.PointerEvent, rdv: RDV, colIdx: number, duree: number) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    didDrag.current = false;
+    const origMin = timeToMin(rdv.date_heure.slice(11, 16));
+    const cursorMin = yToMin(e.clientY);
+    const offsetMin = Math.max(0, Math.min(duree - 15, cursorMin - origMin));
+    setRdvDrag({ rdv, origColIdx: colIdx, origMin, offsetMin, currentMin: origMin, currentColIdx: colIdx, duree });
+  }
+
   // ── Drag vertical (colonne jour) ──
   function onColPointerDown(e: React.PointerEvent, i: number) {
     if (e.button !== 0) return;
@@ -506,7 +528,15 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
   }
 
   function onContainerPointerMove(e: React.PointerEvent) {
-    if (vDrag) {
+    if (rdvDrag) {
+      const cursorMin = yToMin(e.clientY);
+      const newMin = Math.max(grilleDebut, Math.min(grilleFin - rdvDrag.duree, Math.round((cursorMin - rdvDrag.offsetMin) / 15) * 15));
+      const newCol = xToCol(e.clientX);
+      if (newMin !== rdvDrag.currentMin || newCol !== rdvDrag.currentColIdx) {
+        didDrag.current = true;
+        setRdvDrag({ ...rdvDrag, currentMin: newMin, currentColIdx: newCol });
+      }
+    } else if (vDrag) {
       const m = yToMin(e.clientY);
       if (Math.abs(m - vDrag.startMin) >= 15) didDrag.current = true;
       setVDrag({ ...vDrag, curMin: m });
@@ -517,7 +547,26 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
     }
   }
 
-  function finishDrag() {
+  async function finishDrag() {
+    if (rdvDrag) {
+      if (didDrag.current) {
+        const newDay = weekDays[rdvDrag.currentColIdx];
+        const newDateStr = toDateStr(newDay);
+        const newTimeStr = minToTime(rdvDrag.currentMin);
+        const newDateHeure = `${newDateStr}T${newTimeStr}:00`;
+        const origDateHeure = `${rdvDrag.rdv.date_heure.slice(0, 10)}T${rdvDrag.rdv.date_heure.slice(11, 16)}:00`;
+        if (newDateHeure !== origDateHeure) {
+          const supabase = createSupabase();
+          await supabase.from("rendez_vous").update({ date_heure: newDateHeure }).eq("id", rdvDrag.rdv.id);
+          onRdvChange();
+        }
+      } else {
+        router.push(`/dashboard/agenda/${rdvDrag.rdv.id}`);
+      }
+      setRdvDrag(null);
+      didDrag.current = false;
+      return;
+    }
     if (vDrag) {
       const col = vDrag.col;
       if (didDrag.current) {
@@ -798,11 +847,11 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                   const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
                   const top = (rdvMin - grilleDebut) / 60 * PX_PAR_HEURE;
                   const height = Math.max(22, duree / 60 * PX_PAR_HEURE - 3);
+                  const isBeingDragged = rdvDrag?.rdv.id === rdv.id;
                   return (
                     <div key={rdv.id}
-                      onPointerDown={e => e.stopPropagation()}
-                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/${rdv.id}`); }}
-                      style={{ position: "absolute", top, left: 3, right: 3, height, background: `${couleur}18`, borderLeft: `3px solid ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", zIndex: 6 }}>
+                      onPointerDown={e => onRdvPointerDown(e, rdv, i, duree)}
+                      style={{ position: "absolute", top, left: 3, right: 3, height, background: `${couleur}18`, borderLeft: `3px solid ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "grab", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", zIndex: 6, opacity: isBeingDragged ? 0.3 : 1, transition: isBeingDragged ? "none" : "opacity 0.15s" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: couleur, lineHeight: 1.3 }}>{formatHeure(rdv.date_heure)}</div>
                       {height > 26 && (
                         <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -817,6 +866,16 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                     </div>
                   );
                 })}
+
+                {/* Ghost RDV en cours de drag */}
+                {rdvDrag && rdvDrag.currentColIdx === i && (
+                  <div style={{ position: "absolute", top: (rdvDrag.currentMin - grilleDebut) / 60 * PX_PAR_HEURE, left: 3, right: 3, height: Math.max(22, rdvDrag.duree / 60 * PX_PAR_HEURE - 3), background: `${couleur}30`, border: `2px dashed ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", zIndex: 9, pointerEvents: "none" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: couleur }}>{minToTime(rdvDrag.currentMin)}</div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {rdvDrag.rdv.clients ? `${rdvDrag.rdv.clients.prenom} ${rdvDrag.rdv.clients.nom}` : "—"}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -825,7 +884,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
 
       {/* Indice d'usage */}
       <p style={{ fontSize: 11, color: "#aaa", marginTop: 10, textAlign: "center" }}>
-        Glissez verticalement dans un jour pour une pause ou une fermeture · Glissez sur les en-têtes pour fermer plusieurs jours
+        Glissez un RDV pour le déplacer · Glissez dans une zone vide pour une pause · Glissez sur les en-têtes pour fermer plusieurs jours
       </p>
 
       {/* POPUP zone / multi-jours */}
