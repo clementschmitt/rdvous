@@ -11,22 +11,35 @@ function ConfirmContent() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
   useEffect(() => {
-    (async () => {
-      const token_hash = searchParams.get("token_hash");
-      const type = searchParams.get("type") as "email" | "signup" | null;
-      const next = searchParams.get("next") || "/onboarding";
+    const next = searchParams.get("next") || "/onboarding";
+    const supabase = createSupabase();
 
-      if (!token_hash || !type) { setStatus("error"); return; }
+    // Le client Supabase traite automatiquement le #access_token du fragment
+    // On écoute le changement de session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
+        const isClient = session.user?.user_metadata?.user_type === "client";
+        setStatus("success");
+        setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
+      }
+    });
 
-      const supabase = createSupabase();
-      const { error } = await supabase.auth.verifyOtp({ token_hash, type: type === "signup" ? "signup" : "email" });
-      if (error) { setStatus("error"); return; }
+    // Cas où la session est déjà établie avant l'écoute
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const isClient = session.user?.user_metadata?.user_type === "client";
+        setStatus("success");
+        setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
+      }
+    });
 
-      const { data: { user } } = await supabase.auth.getUser();
-      const isClient = user?.user_metadata?.user_type === "client";
-      setStatus("success");
-      setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
-    })();
+    // Timeout si rien ne se passe après 8s
+    const timeout = setTimeout(() => setStatus("error"), 8000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   if (status === "success") return (
@@ -44,7 +57,7 @@ function ConfirmContent() {
       <div style={{ textAlign: "center", maxWidth: 360, padding: 24 }}>
         <div style={{ fontSize: 36, marginBottom: 16 }}>❌</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: T.text, marginBottom: 8 }}>Lien invalide ou expiré</div>
-        <div style={{ fontSize: 13, color: T.muted, marginBottom: 24 }}>Ce lien de confirmation ne fonctionne plus. Créez un nouveau compte ou reconnectez-vous.</div>
+        <div style={{ fontSize: 13, color: T.muted, marginBottom: 24 }}>Ce lien ne fonctionne plus. Créez un nouveau compte ou reconnectez-vous.</div>
         <a href="/login" style={{ fontSize: 13, color: T.text, fontWeight: 600 }}>Retour à la connexion</a>
       </div>
     </div>
