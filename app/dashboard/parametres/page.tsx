@@ -15,7 +15,7 @@ import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier"
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_confirmation_active: boolean; sms_rappel_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -33,7 +33,7 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23 });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_confirmation_active: true, sms_rappel_active: true, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23 });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
@@ -946,22 +946,24 @@ export default function ParametresPage() {
             </div>
             <Champ label="Email de réception des nouvelles réservations" value={settings.email_reception} onChange={v => setSettings(s => ({ ...s, email_reception: v }))} type="email" />
             <div style={{ fontSize: 12, color: "#aaa", marginTop: -6 }}>Si vide, les notifications sont envoyées à votre email expéditeur ou email de compte.</div>
-            <div style={{ height: 1, background: "#f0f0f0" }} />
-            <Toggle label="Confirmation de rendez-vous" description="Envoie un email au client dès qu'un RDV est créé" value={settings.email_confirmation_active} onChange={v => setSettings(s => ({ ...s, email_confirmation_active: v }))} couleur={m.couleur} />
-            {settings.email_confirmation_active && (
-              <>
-                <Champ label="Objet" value={settings.email_confirmation_objet} onChange={v => setSettings(s => ({ ...s, email_confirmation_objet: v }))} />
-                <ChampTextarea label="Contenu" value={settings.message_confirmation} onChange={v => setSettings(s => ({ ...s, message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {tarif}, {salon}" />
-              </>
-            )}
-            <div style={{ height: 1, background: "#f0f0f0" }} />
-            <Toggle label="Rappel 24h avant" description="Envoie un rappel la veille à 9h UTC pour les RDVs confirmés" value={settings.email_rappel_active} onChange={v => setSettings(s => ({ ...s, email_rappel_active: v }))} couleur={m.couleur} />
-            {settings.email_rappel_active && (
-              <>
-                <Champ label="Objet" value={settings.email_rappel_objet} onChange={v => setSettings(s => ({ ...s, email_rappel_objet: v }))} />
-                <ChampTextarea label="Contenu" value={settings.message_rappel_rdv} onChange={v => setSettings(s => ({ ...s, message_rappel_rdv: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {tarif}, {salon}" />
-              </>
-            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f0" }}>
+              <Toggle label="Confirmation de rendez-vous" description="Envoie un email au client dès qu'un RDV est créé" value={settings.email_confirmation_active} onChange={v => setSettings(s => ({ ...s, email_confirmation_active: v }))} couleur={m.couleur} />
+              {settings.email_confirmation_active && (
+                <>
+                  <Champ label="Objet" value={settings.email_confirmation_objet} onChange={v => setSettings(s => ({ ...s, email_confirmation_objet: v }))} />
+                  <ChampTextarea label="Contenu" value={settings.message_confirmation} onChange={v => setSettings(s => ({ ...s, message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {tarif}, {salon}" />
+                </>
+              )}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f0" }}>
+              <Toggle label="Rappel 24h avant" description="Envoie un rappel la veille à 9h UTC pour les RDVs confirmés" value={settings.email_rappel_active} onChange={v => setSettings(s => ({ ...s, email_rappel_active: v }))} couleur={m.couleur} />
+              {settings.email_rappel_active && (
+                <>
+                  <Champ label="Objet" value={settings.email_rappel_objet} onChange={v => setSettings(s => ({ ...s, email_rappel_objet: v }))} />
+                  <ChampTextarea label="Contenu" value={settings.message_rappel_rdv} onChange={v => setSettings(s => ({ ...s, message_rappel_rdv: v }))} hint="{prenom}, {date}, {heure}, {prestations}, {tarif}, {salon}" />
+                </>
+              )}
+            </div>
             <SaveButton sectionKey="emails" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
           </Section>
 
@@ -977,13 +979,23 @@ export default function ParametresPage() {
                 </button>
               </div>
             ) : (
-              <Toggle label="SMS activés" description="Envoie un SMS de confirmation et de rappel aux clients" value={settings.sms_active} onChange={v => setSettings(s => ({ ...s, sms_active: v }))} couleur={m.couleur} />
+              <Toggle label="SMS activés" description="Active l'envoi de SMS pour ce salon" value={settings.sms_active} onChange={v => setSettings(s => ({ ...s, sms_active: v }))} couleur={m.couleur} />
             )}
             {settings.sms_active && (
               <>
                 <Champ label="Nom de l'expéditeur SMS (max 11 caractères, sans espaces)" value={settings.sms_expediteur} onChange={v => setSettings(s => ({ ...s, sms_expediteur: v.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) }))} />
-                <ChampTextarea label="SMS de confirmation" value={settings.sms_message_confirmation} onChange={v => setSettings(s => ({ ...s, sms_message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
-                <ChampTextarea label="SMS de rappel" value={settings.sms_message_rappel} onChange={v => setSettings(s => ({ ...s, sms_message_rappel: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f0" }}>
+                  <Toggle label="SMS de confirmation" description="Envoyé au client dès qu'un RDV est créé" value={settings.sms_confirmation_active} onChange={v => setSettings(s => ({ ...s, sms_confirmation_active: v }))} couleur={m.couleur} />
+                  {settings.sms_confirmation_active && (
+                    <ChampTextarea label="Contenu" value={settings.sms_message_confirmation} onChange={v => setSettings(s => ({ ...s, sms_message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                  )}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f0" }}>
+                  <Toggle label="SMS de rappel" description="Envoyé la veille du RDV" value={settings.sms_rappel_active} onChange={v => setSettings(s => ({ ...s, sms_rappel_active: v }))} couleur={m.couleur} />
+                  {settings.sms_rappel_active && (
+                    <ChampTextarea label="Contenu" value={settings.sms_message_rappel} onChange={v => setSettings(s => ({ ...s, sms_message_rappel: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                  )}
+                </div>
                 <div style={{ background: "#f9f9f9", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>

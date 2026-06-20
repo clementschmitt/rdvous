@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       .select("date_heure, clients(prenom, email), rendez_vous_prestations(prestations(nom, duree_minutes, tarif, sur_devis)), salons(nom)")
       .eq("id", rdv.id)
       .single();
-    const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom, email_reception, sms_active, sms_expediteur, sms_message_confirmation").eq("salon_id", salon_id).single();
+    const { data: settings } = await admin.from("app_settings").select("email_confirmation_active, email_confirmation_objet, message_confirmation, email_expediteur, email_expediteur_nom, email_reception, sms_active, sms_confirmation_active, sms_expediteur, sms_message_confirmation").eq("salon_id", salon_id).single();
 
     const clientData = fullRdv?.clients as unknown as { prenom: string; email: string | null } | null;
     const salonData = fullRdv?.salons as unknown as { nom: string } | null;
@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     }
 
     // SMS de confirmation au client
-    if (settings?.sms_active && telephone) {
+    if (settings?.sms_active && settings?.sms_confirmation_active !== false && telephone) {
       try {
         const { data: canSend, error: rpcError } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id });
         if (rpcError) { console.error("SMS: decrement_sms_credits error:", rpcError); }

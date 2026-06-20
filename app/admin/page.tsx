@@ -143,7 +143,16 @@ export default function AdminPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, padding: 40 }}>
-      <div style={{ maxWidth: 800, margin: "0 auto" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .admin-wrap { padding: 16px !important; }
+          .admin-inner { padding: 16px !important; }
+          .admin-row { flex-wrap: wrap !important; gap: 10px !important; }
+          .admin-row-info { width: 100% !important; }
+          .admin-row-actions { display: flex; gap: 8px; margin-left: 20px; }
+        }
+      `}</style>
+      <div className="admin-wrap" style={{ maxWidth: 800, margin: "0 auto" }}>
         <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 300, color: T.text, margin: "0 0 6px" }}>Administration</h1>
           <p style={{ ...T.ls, fontSize: "10px", color: T.muted }}>Accès réservé — {ADMIN_EMAIL}</p>
@@ -274,27 +283,29 @@ export default function AdminPage() {
             const m = METIERS[s.metier];
             const isActive = s.id === currentOverride;
             return (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 24px", borderBottom: i < salons.length - 1 ? `1px solid ${T.border}` : "none", background: isActive ? `${m.couleur}08` : "transparent" }}>
+              <div key={s.id} className="admin-row" style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 24px", borderBottom: i < salons.length - 1 ? `1px solid ${T.border}` : "none", background: isActive ? `${m.couleur}08` : "transparent" }}>
                 <div style={{ width: 8, height: 8, borderRadius: "50%", background: m.couleur, flexShrink: 0 }} />
-                <div style={{ flex: 1 }}>
+                <div className="admin-row-info" style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{s.nom}</div>
                   <div style={{ ...T.ls, fontSize: "9px", color: T.muted, marginTop: 2 }}>
                     {m.label} · {s.email || "—"} · {new Date(s.created_at).toLocaleDateString("fr-FR")}
                   </div>
                 </div>
-                <button
-                  onClick={() => toggleVisibilite(s)}
-                  title={s.visible_recherche ? "Visible dans la recherche — cliquer pour masquer" : "Masqué de la recherche — cliquer pour rendre visible"}
-                  style={{ ...T.ls, fontSize: "9px", border: `1px solid ${s.visible_recherche ? "#16a34a" : T.border}`, background: s.visible_recherche ? "#f0fdf4" : T.bg, color: s.visible_recherche ? "#16a34a" : T.muted, borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}>
-                  {s.visible_recherche ? "● Visible" : "○ Masqué"}
-                </button>
-                {isActive ? (
-                  <span style={{ ...T.ls, fontSize: "9px", color: m.couleur, background: `${m.couleur}15`, padding: "4px 10px", borderRadius: T.radiusSm }}>Actif</span>
-                ) : (
-                  <button onClick={() => entrer(s.id)} style={{ ...T.ls, fontSize: "9px", background: m.couleur, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer" }}>
-                    Entrer
+                <div className="admin-row-actions">
+                  <button
+                    onClick={() => toggleVisibilite(s)}
+                    title={s.visible_recherche ? "Visible dans la recherche — cliquer pour masquer" : "Masqué de la recherche — cliquer pour rendre visible"}
+                    style={{ ...T.ls, fontSize: "9px", border: `1px solid ${s.visible_recherche ? "#16a34a" : T.border}`, background: s.visible_recherche ? "#f0fdf4" : T.bg, color: s.visible_recherche ? "#16a34a" : T.muted, borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}>
+                    {s.visible_recherche ? "● Visible" : "○ Masqué"}
                   </button>
-                )}
+                  {isActive ? (
+                    <span style={{ ...T.ls, fontSize: "9px", color: m.couleur, background: `${m.couleur}15`, padding: "4px 10px", borderRadius: T.radiusSm }}>Actif</span>
+                  ) : (
+                    <button onClick={() => entrer(s.id)} style={{ ...T.ls, fontSize: "9px", background: m.couleur, color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer" }}>
+                      Entrer
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const demainStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const aujourdhuiStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, message_rappel_rdv, email_expediteur, email_expediteur_nom, sms_active, sms_expediteur, sms_message_rappel");
+  const { data: salonSettings } = await admin.from("app_settings").select("salon_id, email_rappel_active, email_rappel_objet, message_rappel_rdv, email_expediteur, email_expediteur_nom, sms_active, sms_rappel_active, sms_expediteur, sms_message_rappel");
   const { data: rdvs } = await admin
     .from("rendez_vous")
     .select("id, date_heure, salon_id, created_at, salons(nom), clients(prenom, email, telephone), rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const client = rdv.clients as unknown as { prenom: string; email: string | null; telephone: string | null } | null;
     if (!client?.email && !client?.telephone) continue;
     const emailEnabled = salonCfg?.email_rappel_active !== false;
-    const smsEnabled = salonCfg?.sms_active === true;
+    const smsEnabled = salonCfg?.sms_active === true && salonCfg?.sms_rappel_active !== false;
     if (!emailEnabled && !smsEnabled) continue;
 
     const salon = rdv.salons as unknown as { nom: string } | null;

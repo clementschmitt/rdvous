@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
       .select("id, prenom, email, telephone, heure_debut, heure_fin")
       .eq("salon_id", rdv.salon_id)
       .eq("date_souhaitee", dateRdv)
-      .eq("statut", "en_attente");
+      .eq("statut", "en_attente")
+      .order("created_at", { ascending: true });
 
     // Ne prévenir que les personnes dont la plage horaire correspond (ou sans préférence)
     const waiting = (waitingAll || []).filter(w => {
