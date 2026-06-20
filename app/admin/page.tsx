@@ -188,7 +188,7 @@ export default function AdminPage() {
                 </div>
               </div>
               {/* Graphe 14 jours */}
-              <div style={{ fontSize: 10, color: T.faint, marginBottom: 8, ...T.ls }}>Inscriptions — 14 derniers jours</div>
+              <div style={{ ...T.ls, fontSize: 10, color: T.faint, marginBottom: 8 }}>Inscriptions — 14 derniers jours</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 60 }}>
                 {days.map(([day, v]) => {
                   const total = v.pro + v.client;
