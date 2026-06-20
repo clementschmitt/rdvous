@@ -10,12 +10,14 @@ const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL!;
 
 type Salon = { id: string; nom: string; metier: Metier; email: string | null; created_at: string; visible_recherche: boolean | null };
 type InviteForm = { email: string; password: string; salon_id: string };
+type UsersStats = { nbPro: number; nbClient: number; nbTotal: number; days: Record<string, { pro: number; client: number }> };
 type PrestaImport = { nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; description?: string };
 type CatImport = { nom: string; prestations: PrestaImport[] };
 
 export default function AdminPage() {
   const router = useRouter();
   const [salons, setSalons] = useState<Salon[]>([]);
+  const [usersStats, setUsersStats] = useState<UsersStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentOverride, setCurrentOverride] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -37,6 +39,12 @@ export default function AdminPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user || user.email !== ADMIN_EMAIL) { router.push("/dashboard"); return; }
       await loadSalons();
+      // Stats utilisateurs
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const res = await fetch("/api/admin/users-stats", { headers: { authorization: `Bearer ${session.access_token}` } });
+        if (res.ok) setUsersStats(await res.json());
+      }
       setCurrentOverride(localStorage.getItem("admin_salon_override"));
       setLoading(false);
     })();
@@ -157,6 +165,56 @@ export default function AdminPage() {
           <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 300, color: T.text, margin: "0 0 6px" }}>Administration</h1>
           <p style={{ ...T.ls, fontSize: "10px", color: T.muted }}>Accès réservé — {ADMIN_EMAIL}</p>
         </div>
+
+        {/* Stats comptes */}
+        {usersStats && (() => {
+          const days = Object.entries(usersStats.days);
+          const maxVal = Math.max(...days.map(([, v]) => v.pro + v.client), 1);
+          return (
+            <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: T.radius, padding: 24, marginBottom: 24 }}>
+              <p style={{ ...T.ls, fontSize: "10px", color: T.muted, margin: "0 0 16px" }}>Comptes utilisateurs</p>
+              <div style={{ display: "flex", gap: 16, marginBottom: 20 }}>
+                <div style={{ flex: 1, background: T.bg, borderRadius: T.radiusSm, padding: "14px 18px" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: T.text }}>{usersStats.nbTotal}</div>
+                  <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Total</div>
+                </div>
+                <div style={{ flex: 1, background: T.bg, borderRadius: T.radiusSm, padding: "14px 18px" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: "#7C3D8F" }}>{usersStats.nbPro}</div>
+                  <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Professionnels</div>
+                </div>
+                <div style={{ flex: 1, background: T.bg, borderRadius: T.radiusSm, padding: "14px 18px" }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: "#2563eb" }}>{usersStats.nbClient}</div>
+                  <div style={{ fontSize: 11, color: T.muted, marginTop: 2 }}>Clients</div>
+                </div>
+              </div>
+              {/* Graphe 14 jours */}
+              <div style={{ fontSize: 10, color: T.faint, marginBottom: 8, ...T.ls }}>Inscriptions — 14 derniers jours</div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 60 }}>
+                {days.map(([day, v]) => {
+                  const total = v.pro + v.client;
+                  const h = Math.round((total / maxVal) * 60);
+                  const hPro = total > 0 ? Math.round((v.pro / total) * h) : 0;
+                  const hClient = h - hPro;
+                  const label = new Date(day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+                  return (
+                    <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }} title={`${label} — ${v.pro} pro, ${v.client} client`}>
+                      <div style={{ width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: 52 }}>
+                        {hPro > 0 && <div style={{ width: "100%", height: hPro, background: "#7C3D8F", borderRadius: hClient === 0 ? "3px 3px 0 0" : "0" }} />}
+                        {hClient > 0 && <div style={{ width: "100%", height: hClient, background: "#2563eb", borderRadius: hPro === 0 ? "3px 3px 0 0" : "0" }} />}
+                        {total === 0 && <div style={{ width: "100%", height: 3, background: T.border, borderRadius: 3 }} />}
+                      </div>
+                      <div style={{ fontSize: 8, color: T.faint, marginTop: 3, whiteSpace: "nowrap" }}>{label.split(" ")[0]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#7C3D8F" }} /><span style={{ fontSize: 10, color: T.muted }}>Pro</span></div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: 2, background: "#2563eb" }} /><span style={{ fontSize: 10, color: T.muted }}>Client</span></div>
+              </div>
+            </div>
+          );
+        })()}
 
         {currentOverride && (
           <div style={{ background: "#fff8e6", border: "1px solid #f0d080", borderRadius: T.radius, padding: "12px 20px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
