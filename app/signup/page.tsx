@@ -9,6 +9,8 @@ import { Suspense } from "react";
 function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const next = searchParams.get("next") || "";
+  const isClient = next.startsWith("/mon-compte");
   const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -23,10 +25,10 @@ function SignupContent() {
     if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     const supabase = createSupabase();
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: "artisan" } } });
+    const { error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: isClient ? "client" : "artisan" } } });
     if (error) { setError(error.message); setLoading(false); return; }
-    if (searchParams.get("plan") === "solo") sessionStorage.setItem("upgrade_intent", "solo");
-    router.push("/onboarding");
+    if (!isClient && searchParams.get("plan") === "solo") sessionStorage.setItem("upgrade_intent", "solo");
+    router.push(isClient ? (next || "/mon-compte") : "/onboarding");
   }
 
   return (
@@ -34,7 +36,7 @@ function SignupContent() {
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <h1 style={{ fontFamily: T.heading, fontSize: 38, fontWeight: 600, color: T.text, marginBottom: 8, letterSpacing: "-0.5px" }}>rdvous</h1>
-          <p style={{ fontSize: 14, color: T.muted }}>Créez votre espace professionnel</p>
+          <p style={{ fontSize: 14, color: T.muted }}>{isClient ? "Créez votre compte client" : "Créez votre espace professionnel"}</p>
         </div>
 
         <div style={{ background: T.white, borderRadius: T.radius, padding: 36, boxShadow: T.shadowMd, border: `1px solid ${T.border}` }}>

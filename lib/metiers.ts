@@ -28,6 +28,14 @@ export const METIERS = {
       { key: "couleur_actuelle", label: "Couleur actuelle", type: "text" },
     ],
   },
+  beaute: {
+    label: "Salon de beauté",
+    labelClients: "Clients",
+    couleur: "#7C3D8F",
+    couleurClaire: "#c9a8d8",
+    couleurMuted: "#a06bb0",
+    champsClient: [],
+  },
 } as const;
 
 export type Metier = keyof typeof METIERS;

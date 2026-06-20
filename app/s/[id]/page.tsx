@@ -6,6 +6,7 @@ import SiteHeader from "@/app/components/SiteHeader";
 import { formatPrix } from "@/lib/prix";
 import PrestationDescription from "./PrestationDescription";
 import SidebarContact from "./SidebarContact";
+import AvisWidget from "./AvisWidget";
 import HeroPhotos from "./HeroPhotos";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description?: string | null; reservable?: boolean };
@@ -21,11 +22,12 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     .eq(bySlug ? "slug" : "id", idOrSlug)
     .single();
   if (!salon || salon.visible_recherche === false) return null;
-  const [{ data: prestations }, { data: appSettings }, { data: categories }, { data: dispos }] = await Promise.all([
+  const [{ data: prestations }, { data: appSettings }, { data: categories }, { data: dispos }, { data: avisData }] = await Promise.all([
     admin.from("prestations").select("id, nom, duree_minutes, tarif, sur_devis, categorie_id, description, reservable").eq("salon_id", salon.id).eq("actif", true).order("nom"),
     admin.from("app_settings").select("*").eq("salon_id", salon.id).single(),
     admin.from("prestation_categories").select("id, nom, ordre, selection_type").eq("salon_id", salon.id).order("ordre"),
     admin.from("disponibilites").select("jour_semaine, heure_debut, heure_fin").eq("salon_id", salon.id).order("jour_semaine"),
+    admin.from("avis").select("note, commentaire, created_at").eq("salon_id", salon.id).eq("statut", "visible").not("note", "is", null).order("created_at", { ascending: false }).limit(20),
   ]);
   const s = appSettings as Record<string, unknown> | null;
   const prestationsLabel = (s?.prestations_label as string) || "Prestations";
@@ -38,6 +40,9 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const planningOuvertureJour = (s?.planning_ouverture_jour as number | undefined) || 23;
   const messagePrestations = (s?.message_prestations as string | undefined) || "";
   const modeReservation = ((s?.mode_reservation as string | undefined) === "guide" ? "guide" : "menu") as "menu" | "guide";
+const avis = (avisData || []) as { note: number; commentaire: string | null; created_at: string }[];
+  const avisMoyenne = avis.length > 0 ? avis.reduce((s, a) => s + a.note, 0) / avis.length : null;
+
   return {
     salon,
     prestations: (prestations || []) as Prestation[],
@@ -48,6 +53,8 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
     googleAvisUrl,
     googleNote,
     googleNbAvis,
+    avis,
+    avisMoyenne,
     delaiMinReservationHeures,
     planningHorizonJours,
     planningOuvertureMode,
@@ -80,7 +87,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const result = await getSalon(id, false);
   if (!result) notFound();
 
-  const { salon, prestations, prestationsLabel, messagePrestations, categories, dispos, googleAvisUrl, googleNote, googleNbAvis } = result;
+  const { salon, prestations, prestationsLabel, messagePrestations, categories, dispos, googleAvisUrl, googleNote, googleNbAvis, avis, avisMoyenne } = result;
   const m = METIERS[salon.metier as keyof typeof METIERS];
   const couleur = m?.couleur || "#333";
   const couleurClaire = m?.couleurClaire || couleur + "22";
@@ -239,6 +246,11 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
 
           {/* Sidebar */}
           <div className="vitrine-sidebar" style={{ width: 300, flexShrink: 0, position: "sticky", top: 68, display: "flex", flexDirection: "column", gap: 10 }}>
+
+            {/* Avis rdvous — widget interactif */}
+            {avis.length > 0 && avisMoyenne && (
+              <AvisWidget avis={avis} avisMoyenne={avisMoyenne} />
+            )}
 
             {/* CTA + contact */}
             <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "14px" }}>

@@ -59,7 +59,7 @@ function LoginContent() {
 
         <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: T.muted }}>
           Pas encore de compte ?{" "}
-          <Link href="/signup" style={{ color: T.text, fontWeight: 600 }}>Créer un compte</Link>
+          <Link href={`/signup${searchParams.get("next") ? `?next=${encodeURIComponent(searchParams.get("next")!)}` : ""}`} style={{ color: T.text, fontWeight: 600 }}>Créer un compte</Link>
         </p>
       </div>
     </div>

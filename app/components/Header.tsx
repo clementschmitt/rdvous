@@ -12,6 +12,7 @@ const NAV_ICONS: Record<string, string> = {
   "/dashboard/clients": "👥",
   "/dashboard/stats": "📊",
   "/dashboard/finances": "💰",
+  "/dashboard/avis": "⭐",
   "/dashboard/parametres": "⚙️",
 };
 
@@ -36,6 +37,7 @@ export default function Header() {
     { href: "/dashboard/clients", label: m.labelClients, short: m.labelClients },
     { href: "/dashboard/stats", label: "Statistiques", short: "Stats" },
     { href: "/dashboard/finances", label: "Finances", short: "Finances" },
+    { href: "/dashboard/avis", label: "Avis", short: "Avis" },
     { href: "/dashboard/parametres", label: "Paramètres", short: "Params" },
   ];
 
