@@ -12,6 +12,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +49,10 @@ function LoginContent() {
                 <label style={labelStyle}>Mot de passe</label>
                 <Link href="/reset-password" style={{ fontSize: 11, color: T.muted, textDecoration: "none" }}>Mot de passe oublié ?</Link>
               </div>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required style={inputStyle} />
+              <div style={{ position: "relative" }}>
+                <input type={showPwd ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required style={{ ...inputStyle, paddingRight: 40 }} />
+                <button type="button" onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: T.muted, fontSize: 16, padding: 0 }}>{showPwd ? "🙈" : "👁️"}</button>
+              </div>
             </div>
             {error && <p style={{ color: "#B91C1C", fontSize: 13, margin: 0 }}>{error}</p>}
             <button type="submit" disabled={loading} style={{ padding: "11px", background: T.text, color: T.white, border: "none", borderRadius: T.radiusSm, fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1, marginTop: 4 }}>

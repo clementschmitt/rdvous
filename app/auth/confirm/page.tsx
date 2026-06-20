@@ -8,7 +8,7 @@ import { Suspense } from "react";
 function ConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState<"loading" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
 
   useEffect(() => {
     (async () => {
@@ -22,12 +22,22 @@ function ConfirmContent() {
       const { error } = await supabase.auth.verifyOtp({ token_hash, type: type === "signup" ? "signup" : "email" });
       if (error) { setStatus("error"); return; }
 
-      // Détermine la redirection selon le type de compte
       const { data: { user } } = await supabase.auth.getUser();
       const isClient = user?.user_metadata?.user_type === "client";
-      router.replace(isClient ? "/mon-compte" : next);
+      setStatus("success");
+      setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
     })();
   }, []);
+
+  if (status === "success") return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+      <div style={{ textAlign: "center", maxWidth: 380, padding: 24 }}>
+        <div style={{ fontSize: 48, marginBottom: 20 }}>✅</div>
+        <div style={{ fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 10 }}>Email confirmé !</div>
+        <div style={{ fontSize: 14, color: T.muted }}>Votre compte est activé. Redirection en cours…</div>
+      </div>
+    </div>
+  );
 
   if (status === "error") return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
