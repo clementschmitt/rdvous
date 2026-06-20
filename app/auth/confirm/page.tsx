@@ -13,33 +13,42 @@ function ConfirmContent() {
   useEffect(() => {
     const next = searchParams.get("next") || "/onboarding";
     const supabase = createSupabase();
+    let done = false;
 
-    // Le client Supabase traite automatiquement le #access_token du fragment
-    // On écoute le changement de session
+    function redirect(session: { user?: { user_metadata?: { user_type?: string } } } | null) {
+      if (done) return;
+      done = true;
+      const isClient = session?.user?.user_metadata?.user_type === "client";
+      setStatus("success");
+      setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
+    }
+
+    // Cas 1 : token_hash dans l'URL (template Supabase avec {{ .TokenHash }})
+    const token_hash = searchParams.get("token_hash");
+    const type = searchParams.get("type");
+    if (token_hash && type) {
+      supabase.auth.verifyOtp({ token_hash, type: type as "signup" | "email" })
+        .then(({ data, error }) => {
+          if (error) { if (!done) { done = true; setStatus("error"); } return; }
+          redirect(data.user ? { user: data.user } : null);
+        });
+      return;
+    }
+
+    // Cas 2 : access_token dans le fragment (template {{ .ConfirmationURL }})
+    // Le client Supabase traite automatiquement le fragment — on écoute l'event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        const isClient = session.user?.user_metadata?.user_type === "client";
-        setStatus("success");
-        setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
-      }
+      if (event === "SIGNED_IN" && session) redirect(session);
     });
 
-    // Cas où la session est déjà établie avant l'écoute
+    // Session déjà établie avant l'écoute (race condition)
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        const isClient = session.user?.user_metadata?.user_type === "client";
-        setStatus("success");
-        setTimeout(() => router.replace(isClient ? "/mon-compte" : next), 1500);
-      }
+      if (session) redirect(session);
     });
 
-    // Timeout si rien ne se passe après 8s
-    const timeout = setTimeout(() => setStatus("error"), 8000);
+    const timeout = setTimeout(() => { if (!done) { done = true; setStatus("error"); } }, 8000);
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   if (status === "success") return (

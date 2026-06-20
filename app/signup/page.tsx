@@ -27,7 +27,8 @@ function SignupContent() {
     if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     const supabase = createSupabase();
-    const redirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent(isClient ? (next || "/mon-compte") : "/onboarding")}`;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+    const redirectTo = `${siteUrl}/auth/confirm?next=${encodeURIComponent(isClient ? (next || "/mon-compte") : "/onboarding")}`;
     const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: isClient ? "client" : "artisan" }, emailRedirectTo: redirectTo } });
     if (error) { setError(error.message); setLoading(false); return; }
     if (!isClient && searchParams.get("plan") === "solo") sessionStorage.setItem("upgrade_intent", "solo");
