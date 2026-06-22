@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       .gte("date_heure", `${date}T00:00:00`)
       .lte("date_heure", `${date}T23:59:59`),
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
-    admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour").eq("salon_id", salon_id).single(),
+    admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour, planning_ouverture_heure").eq("salon_id", salon_id).single(),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
   ]);
 
@@ -31,12 +31,16 @@ export async function GET(req: NextRequest) {
   const horizonJours = settings?.planning_horizon_jours ?? 0;
   const ouvertureMode = settings?.planning_ouverture_mode ?? "horizon";
   const ouvertureJour = settings?.planning_ouverture_jour ?? 23;
+  const ouvertureHeure = settings?.planning_ouverture_heure ?? 0;
   if (ouvertureMode === "date_fixe") {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const currentDay = today.getDate();
-    let maxYear = today.getFullYear();
-    let maxMonth = today.getMonth();
-    if (currentDay >= ouvertureJour) { maxMonth += 1; if (maxMonth > 11) { maxMonth = 0; maxYear++; } }
+    // Heure courante en heure française (gère automatiquement l'heure d'été/hiver)
+    const nowFrance = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+    const currentDay = nowFrance.getDate();
+    const currentHour = nowFrance.getHours();
+    const isAfterOpeningTime = currentDay > ouvertureJour || (currentDay === ouvertureJour && currentHour >= ouvertureHeure);
+    let maxYear = nowFrance.getFullYear();
+    let maxMonth = nowFrance.getMonth();
+    if (isAfterOpeningTime) { maxMonth += 1; if (maxMonth > 11) { maxMonth = 0; maxYear++; } }
     const maxDate = new Date(maxYear, maxMonth + 1, 0);
     if (new Date(date + "T12:00:00") > maxDate) return NextResponse.json({ slots: [] });
   } else if (horizonJours > 0) {

@@ -133,7 +133,7 @@ export default function StatsPage() {
             <div style={{ fontSize: 12, color: "#999" }}>Taux d'annulation · Top clientes · Graphiques évolution & répartition</div>
           </div>
           <a href="/dashboard/parametres" style={{ marginLeft: "auto", padding: "7px 16px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
-            Passer à Business — 49€/mois
+            Passer à Business : 49€/mois
           </a>
         </div>
         {/* Contenu flouté */}
@@ -229,7 +229,7 @@ export default function StatsPage() {
           .stats-locked-header a { width: 100% !important; text-align: center !important; }
         }
       `}</style>
-      <div className="stats-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+      {isBusiness && <div className="stats-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Statistiques</h1>
         {/* Boutons — desktop */}
         <div className="stats-periodes" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -245,15 +245,17 @@ export default function StatsPage() {
           style={{ display: "none", width: "100%", padding: "10px 14px", border: `1px solid #e0e0e0`, borderRadius: 8, fontSize: 14, fontWeight: 600, background: "#fff", color: "#1a1a1a", cursor: "pointer" }}>
           {PERIODES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
         </select>
-      </div>
+      </div>}
 
-      {isFree ? (
-        <div style={{ ...cardStyle, textAlign: "center", padding: "48px 32px" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Stats disponibles en plan Pro</div>
-          <div style={{ fontSize: 13, color: "#999", marginBottom: 24 }}>Suivez votre CA, vos heures de travail et vos prestations les plus rentables.</div>
-          <a href="/dashboard/parametres" style={{ padding: "10px 24px", background: m.couleur, color: "#fff", borderRadius: 10, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-            Passer à 29€/mois
+      {!isBusiness ? (
+        <div style={{ padding: "60px 32px", maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 20 }}>📊</div>
+          <h2 style={{ fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: 32, marginBottom: 12, fontWeight: 700 }}>Statistiques avancées</h2>
+          <p style={{ color: "#9b8a85", lineHeight: 1.7, marginBottom: 28 }}>
+            Suivez votre CA, vos heures de travail et vos prestations les plus rentables.
+          </p>
+          <a href="/dashboard/parametres" style={{ background: m.couleur, color: "#fff", padding: "12px 28px", borderRadius: 4, display: "inline-block", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+            Passer à Business : 49€/mois
           </a>
         </div>
       ) : loading ? (
@@ -348,7 +350,7 @@ export default function StatsPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "#555", textAlign: "center" }}>Graphique de répartition des RDV</div>
                       <div style={{ fontSize: 11, color: "#aaa", textAlign: "center" }}>Disponible en plan Business</div>
                       <a href="/dashboard/parametres" style={{ marginTop: 4, padding: "8px 16px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none", textAlign: "center" }}>
-                        Passer à Business — 49€/mois
+                        Passer à Business : 49€/mois
                       </a>
                     </div>
                   )

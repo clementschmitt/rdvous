@@ -15,7 +15,7 @@ import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier"
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_confirmation_active: boolean; sms_rappel_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_confirmation_active: boolean; sms_rappel_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number; planning_ouverture_heure: number };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -33,7 +33,7 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_confirmation_active: true, sms_rappel_active: true, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23 });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_confirmation_active: true, sms_rappel_active: true, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23, planning_ouverture_heure: 0 });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
@@ -925,9 +925,20 @@ export default function ParametresPage() {
                         disabled={settings.planning_ouverture_mode !== "date_fixe"}
                         style={{ width: 56, padding: "6px 10px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, opacity: settings.planning_ouverture_mode !== "date_fixe" ? 0.4 : 1 }}
                       />
-                      <span style={{ fontSize: 13, color: "#555" }}>du mois pour ouvrir le mois suivant</span>
+                      <span style={{ fontSize: 13, color: "#555" }}>du mois à</span>
+                      <select
+                        value={settings.planning_ouverture_heure}
+                        onChange={e => setSettings(s => ({ ...s, planning_ouverture_heure: parseInt(e.target.value) }))}
+                        disabled={settings.planning_ouverture_mode !== "date_fixe"}
+                        style={{ padding: "6px 10px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, opacity: settings.planning_ouverture_mode !== "date_fixe" ? 0.4 : 1 }}
+                      >
+                        {Array.from({ length: 24 }, (_, i) => (
+                          <option key={i} value={i}>{String(i).padStart(2, "0")}h00</option>
+                        ))}
+                      </select>
+                      <span style={{ fontSize: 13, color: "#555" }}>pour ouvrir le mois suivant</span>
                     </div>
-                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>Ex : le 23 juin → le planning de juillet s'ouvre. Avant le 23, seul juin est visible.</div>
+                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>Ex : le 23 à 19h00 → le planning de juillet s'ouvre le 23 juin à 19h (heure française).</div>
                   </div>
                 </label>
               </div>
@@ -1039,6 +1050,20 @@ export default function ParametresPage() {
 
       {/* ── Fidélité ── */}
       {tab === "fidelite" && (
+        salon.plan === "free" ? (
+          <Section titre="Fidélité & parrainage">
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "24px 0", textAlign: "center" }}>
+              <div style={{ fontSize: 36 }}>🔒</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a" }}>Fonctionnalité réservée aux abonnés Pro et Business</div>
+              <div style={{ fontSize: 13, color: "#777", maxWidth: 380 }}>Activez la fidélité et le parrainage pour fidéliser vos clients et développer votre activité.</div>
+              <button
+                onClick={() => { setTab("compte"); setTimeout(() => document.getElementById("section-abonnement")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50); }}
+                style={{ padding: "10px 24px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                Voir les abonnements
+              </button>
+            </div>
+          </Section>
+        ) : (
         <Section titre="Fidélité & parrainage">
           <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Champ label="Visites pour récompense" value={String(settings.nb_visites_fidelite)} onChange={v => setSettings(s => ({ ...s, nb_visites_fidelite: Number(v) }))} type="number" />
@@ -1050,6 +1075,7 @@ export default function ParametresPage() {
           </div>
           <SaveButton sectionKey="fidelite" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
         </Section>
+        )
       )}
 
       {/* ── Compte ── */}
@@ -1129,7 +1155,7 @@ export default function ParametresPage() {
             </div>
           </Section>
 
-          <Section titre="Abonnement" style={{ marginTop: 16 }}>
+          <div id="section-abonnement"><Section titre="Abonnement" style={{ marginTop: 16 }}>
             {/* Toggle mensuel / annuel */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
               <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3 }}>
@@ -1144,8 +1170,8 @@ export default function ParametresPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {([
                 { key: "free", label: "Gratuit", monthly: "0€", yearly: "0€", features: ["30 RDV/mois", "Page vitrine", "Rappels email"], locked: ["Fidélité & cagnotte", "Export clients", "SMS"] },
-                { key: "pro", label: "Pro", monthly: "29€/mois", yearly: "290€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "50 SMS/mois inclus"], locked: [] },
-                { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "150 SMS/mois inclus", "Stats avancées", "Support prioritaire"], locked: [] },
+                { key: "pro", label: "Pro", monthly: "29€/mois", yearly: "290€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "50 SMS/mois inclus"], locked: [] },
+                { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "150 SMS/mois inclus", "Stats avancées", "Gestion des finances", "Support prioritaire"], locked: [] },
               ] as const).map(p => {
                 const isCurrent = plan === p.key;
                 const isUpgradable = (p.key === "pro" && plan === "free") || (p.key === "business" && (plan === "free" || plan === "pro"));
@@ -1173,7 +1199,7 @@ export default function ParametresPage() {
                 );
               })}
             </div>
-          </Section>
+          </Section></div>
 
           <Section titre="Sécurité" style={{ marginTop: 16 }}>
             <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>

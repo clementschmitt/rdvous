@@ -362,7 +362,7 @@ export default function FinancesPage() {
           Suivez vos recettes et dépenses chaque mois, estimez votre URSSAF et pilotez votre bilan net — sans tableur.
         </p>
         <a href="/api/stripe/checkout?plan=business" style={{ background: m.couleur, color: T.white, padding: "12px 28px", borderRadius: T.radius, display: "inline-block", fontSize: 13, textDecoration: "none" }}>
-          Passer à Business — 49€/mois
+          Passer à Business : 49€/mois
         </a>
       </div>
     );
