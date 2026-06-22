@@ -92,10 +92,8 @@ export default function ParametresPage() {
   const [deplacementSaving, setDeplacementSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [pwdLoading, setPwdLoading] = useState(false);
-  const [pwdMessage, setPwdMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pwdSent, setPwdSent] = useState(false);
   const [googleSyncing, setGoogleSyncing] = useState(false);
   const [googleSyncMsg, setGoogleSyncMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -490,20 +488,16 @@ export default function ParametresPage() {
     setBillingLoading(false);
   }
 
-  async function changePassword() {
-    if (newPassword.length < 6) { setPwdMessage({ ok: false, text: "6 caractères minimum." }); return; }
-    if (newPassword !== confirmPassword) { setPwdMessage({ ok: false, text: "Les mots de passe ne correspondent pas." }); return; }
+  async function handleResetPassword() {
     setPwdLoading(true);
-    setPwdMessage(null);
     const supabase = createSupabase();
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) {
-      setPwdMessage({ ok: false, text: error.message });
-    } else {
-      setPwdMessage({ ok: true, text: "Mot de passe mis à jour." });
-      setNewPassword("");
-      setConfirmPassword("");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/mon-compte/reset-password`,
+      });
     }
+    setPwdSent(true);
     setPwdLoading(false);
   }
 
@@ -1202,23 +1196,17 @@ export default function ParametresPage() {
           </Section></div>
 
           <Section titre="Sécurité" style={{ marginTop: 16 }}>
-            <div className="params-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <div>
-                <label style={labelStyle}>Nouveau mot de passe</label>
-                <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="6 caractères minimum" style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
-              </div>
-              <div>
-                <label style={labelStyle}>Confirmer le mot de passe</label>
-                <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Répétez le mot de passe" style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" }} />
-              </div>
-            </div>
-            {pwdMessage && <div style={{ fontSize: 13, color: pwdMessage.ok ? "#27ae60" : "#e74c3c", fontWeight: 500 }}>{pwdMessage.text}</div>}
-            <div>
-              <button onClick={changePassword} disabled={pwdLoading || !newPassword}
-                style={{ padding: "9px 20px", background: newPassword ? m.couleur : "#e0e0e0", color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: newPassword ? "pointer" : "not-allowed" }}>
-                {pwdLoading ? "Mise à jour…" : "Changer le mot de passe"}
-              </button>
-            </div>
+            {pwdSent ? (
+              <div style={{ fontSize: 13, color: "#27ae60", fontWeight: 500 }}>📬 Email envoyé — vérifiez votre boite mail et cliquez sur le lien.</div>
+            ) : (
+              <>
+                <div style={{ fontSize: 13, color: "#666", marginBottom: 12 }}>Vous recevrez un lien par email pour définir un nouveau mot de passe.</div>
+                <button onClick={handleResetPassword} disabled={pwdLoading}
+                  style={{ padding: "9px 20px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: pwdLoading ? "not-allowed" : "pointer", opacity: pwdLoading ? 0.6 : 1 }}>
+                  {pwdLoading ? "Envoi..." : "Modifier mon mot de passe"}
+                </button>
+              </>
+            )}
           </Section>
         </>
       )}

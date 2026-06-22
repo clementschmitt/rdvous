@@ -13,6 +13,7 @@ function RejoindreContent() {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,10 +23,28 @@ function RejoindreContent() {
     if (password.length < 8) { setError("Le mot de passe doit contenir au moins 8 caractères."); return; }
     setLoading(true);
     const supabase = createSupabase();
-    const { error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: "client" } } });
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: "client" } } });
     if (error) { setError(error.message); setLoading(false); return; }
-    router.push("/mon-compte");
+    if (data.session) {
+      router.push("/mon-compte");
+    } else {
+      setEmailSent(true);
+      setLoading(false);
+    }
   }
+
+  if (emailSent) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+      <div style={{ width: "100%", maxWidth: 400, padding: "0 24px", textAlign: "center" }}>
+        <div style={{ fontSize: 48, marginBottom: 20 }}>📬</div>
+        <h2 style={{ fontFamily: T.heading, fontSize: 24, fontWeight: 600, color: T.text, marginBottom: 12 }}>Vérifiez votre boite mail</h2>
+        <p style={{ fontSize: 14, color: T.muted, lineHeight: 1.6 }}>
+          Un lien de confirmation a été envoyé à <strong>{email}</strong>.<br/>
+          Cliquez dessus pour activer votre compte.
+        </p>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>

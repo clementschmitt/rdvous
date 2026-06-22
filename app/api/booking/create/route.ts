@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
 
     // Alerte interne
     sendEmail({
-      to: "support@rdvous.fr",
+      to: "clement.flance@gmail.com",
       toName: "rdvous",
       subject: `🔔 Nouveau RDV — ${salonData?.nom || salon_id} · ${prenom} ${nom}`,
       html: `<div style="font-family:sans-serif;padding:24px;color:#222">
