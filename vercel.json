@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/avis",
-      "schedule": "0 * * * *"
+      "schedule": "0 13 * * *"
     }
   ]
 }
