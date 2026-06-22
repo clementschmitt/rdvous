@@ -31,7 +31,8 @@ function SignupContent() {
     const redirectTo = `${siteUrl}/auth/confirm?next=${encodeURIComponent(isClient ? (next || "/mon-compte") : "/onboarding")}`;
     const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { user_type: isClient ? "client" : "artisan" }, emailRedirectTo: redirectTo } });
     if (error) { setError(error.message); setLoading(false); return; }
-    if (!isClient && searchParams.get("plan") === "solo") sessionStorage.setItem("upgrade_intent", "solo");
+    const planIntent = searchParams.get("plan");
+    if (!isClient && (planIntent === "pro" || planIntent === "business")) sessionStorage.setItem("upgrade_intent", planIntent);
     // Toujours afficher la page "vérifiez votre email" — si confirmation désactivée, l'utilisateur sera déjà connecté et verra juste ce message brièvement
     setEmailSent(true);
     setLoading(false);

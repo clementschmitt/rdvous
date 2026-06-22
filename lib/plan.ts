@@ -1,4 +1,4 @@
-export type Plan = "free" | "solo" | "team";
+export type Plan = "free" | "pro" | "business";
 
 export const PLAN_LIMITS = {
   free: {
@@ -10,18 +10,18 @@ export const PLAN_LIMITS = {
     cagnotte: false,
     export_clients: false,
   },
-  solo: {
+  pro: {
     rdv_par_mois: Infinity,
-    rappels_sms: false,
+    rappels_sms: true,
     rappels_email: true,
     page_publique: true,
     fidelite: true,
     cagnotte: true,
     export_clients: true,
   },
-  team: {
+  business: {
     rdv_par_mois: Infinity,
-    rappels_sms: false,
+    rappels_sms: true,
     rappels_email: true,
     page_publique: true,
     fidelite: true,
@@ -36,12 +36,12 @@ export function getPlanLimits(plan: Plan) {
 
 export const PLAN_LABELS: Record<Plan, string> = {
   free: "Gratuit",
-  solo: "Indépendant",
-  team: "Équipe",
+  pro: "Pro",
+  business: "Business",
 };
 
 export const PLAN_PRICES: Record<Plan, string> = {
   free: "0€",
-  solo: "19€/mois",
-  team: "39€/mois",
+  pro: "29€/mois",
+  business: "49€/mois",
 };

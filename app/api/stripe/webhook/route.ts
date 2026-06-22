@@ -24,10 +24,11 @@ export async function POST(req: NextRequest) {
         const smsAmount = parseInt(session.metadata?.sms_amount || "0");
         if (smsAmount > 0) await admin.rpc("add_sms_credits", { p_salon_id: salonId, p_amount: smsAmount });
       } else {
-        await admin.from("salons").update({
-          plan: "solo",
-          stripe_subscription_id: session.subscription as string,
-        }).eq("id", salonId);
+        const subId = session.subscription as string;
+        const sub = await stripe.subscriptions.retrieve(subId);
+        const priceId = sub.items.data[0]?.price.id;
+        const plan = [process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY, process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY].includes(priceId) ? "business" : "pro";
+        await admin.from("salons").update({ plan, stripe_subscription_id: subId }).eq("id", salonId);
       }
     }
   }
@@ -36,8 +37,13 @@ export async function POST(req: NextRequest) {
     const sub = event.data.object as Stripe.Subscription;
     const salonId = sub.metadata?.salon_id;
     if (salonId) {
-      const plan = sub.status === "active" ? "solo" : "free";
-      await admin.from("salons").update({ plan }).eq("id", salonId);
+      if (sub.status === "active") {
+        const priceId = sub.items.data[0]?.price.id;
+        const plan = [process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY, process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY].includes(priceId) ? "business" : "pro";
+        await admin.from("salons").update({ plan }).eq("id", salonId);
+      } else {
+        await admin.from("salons").update({ plan: "free" }).eq("id", salonId);
+      }
     }
   }
 

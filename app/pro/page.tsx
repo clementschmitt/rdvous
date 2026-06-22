@@ -389,7 +389,7 @@ export default function ProPage() {
                 </div>
                 {p.nom === "Équipe"
                   ? <a href="mailto:support@rdvous.fr" style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</a>
-                  : <Link href={p.nom === "Pro" ? "/signup?plan=solo" : p.nom === "Business" ? "/signup?plan=business" : "/signup"} style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</Link>
+                  : <Link href={p.nom === "Pro" ? "/signup?plan=pro" : p.nom === "Business" ? "/signup?plan=business" : "/signup"} style={{ display:"block", textAlign:"center", padding:"13px", background:p.ctaBg, color:p.ctaColor, border:`1px solid ${p.ctaBorder}`, borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>{p.cta}</Link>
                 }
               </div>
             ))}

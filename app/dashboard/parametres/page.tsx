@@ -462,14 +462,14 @@ export default function ParametresPage() {
     });
   }
 
-  async function startCheckout() {
+  async function startCheckout(targetPlan: "pro" | "business" = "pro") {
     setBillingLoading(true);
     const supabase = createSupabase();
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ interval: billingInterval, salon_id: salon!.id }),
+      body: JSON.stringify({ interval: billingInterval, plan: targetPlan, salon_id: salon!.id }),
     });
     const { url } = await res.json();
     if (url) window.location.href = url;
@@ -1129,32 +1129,48 @@ export default function ParametresPage() {
           </Section>
 
           <Section titre="Abonnement" style={{ marginTop: 16 }}>
-            <div className="params-abo" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a" }}>Plan {PLAN_LABELS[plan]}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 20, background: isFree ? "#f0f0f0" : m.couleur + "22", color: isFree ? "#999" : m.couleur }}>
-                    {PLAN_PRICES[plan]}
-                  </span>
-                </div>
-                {isFree && <div style={{ fontSize: 12, color: "#999" }}>Limité à 30 rendez-vous/mois · Fidélité et cagnotte non disponibles</div>}
-                {!isFree && <div style={{ fontSize: 12, color: "#999" }}>Accès complet · Rappels email · Fidélité & cagnotte inclus</div>}
-              </div>
-              {isFree ? (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }}>
-                  <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3 }}>
-                    <button onClick={() => setBillingInterval("monthly")} style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "monthly" ? "#fff" : "transparent", color: billingInterval === "monthly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "monthly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Mensuel — 29€</button>
-                    <button onClick={() => setBillingInterval("yearly")} style={{ padding: "6px 14px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "yearly" ? "#fff" : "transparent", color: billingInterval === "yearly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "yearly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Annuel — 290€ <span style={{ color: m.couleur }}>-2 mois offerts</span></button>
-                  </div>
-                  <button onClick={startCheckout} disabled={billingLoading} style={{ padding: "10px 22px", background: m.couleur, color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    {billingLoading ? "Chargement…" : "Passer à l'offre Pro"}
-                  </button>
-                </div>
-              ) : (
-                <button onClick={openPortal} disabled={billingLoading} style={{ padding: "10px 22px", background: "#fff", color: "#555", border: "1px solid #ddd", borderRadius: 10, fontSize: 13, cursor: "pointer" }}>
-                  {billingLoading ? "Chargement…" : "Gérer mon abonnement"}
+            {/* Toggle mensuel / annuel */}
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3 }}>
+                <button onClick={() => setBillingInterval("monthly")} style={{ padding: "6px 16px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "monthly" ? "#fff" : "transparent", color: billingInterval === "monthly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "monthly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>Mensuel</button>
+                <button onClick={() => setBillingInterval("yearly")} style={{ padding: "6px 16px", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", background: billingInterval === "yearly" ? "#fff" : "transparent", color: billingInterval === "yearly" ? "#1a1a1a" : "#999", boxShadow: billingInterval === "yearly" ? "0 1px 4px rgba(0,0,0,0.1)" : "none" }}>
+                  Annuel <span style={{ color: m.couleur, fontWeight: 700 }}>-2 mois offerts</span>
                 </button>
-              )}
+              </div>
+            </div>
+
+            {/* Cartes plans */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {([
+                { key: "free", label: "Gratuit", monthly: "0€", yearly: "0€", features: ["30 RDV/mois", "Page vitrine", "Rappels email"], locked: ["Fidélité & cagnotte", "Export clients", "SMS"] },
+                { key: "pro", label: "Pro", monthly: "29€/mois", yearly: "290€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "50 SMS/mois inclus"], locked: [] },
+                { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "50 SMS/mois inclus", "Stats avancées", "Support prioritaire"], locked: [] },
+              ] as const).map(p => {
+                const isCurrent = plan === p.key;
+                const isUpgradable = (p.key === "pro" && plan === "free") || (p.key === "business" && (plan === "free" || plan === "pro"));
+                const price = billingInterval === "yearly" ? p.yearly : p.monthly;
+                return (
+                  <div key={p.key} style={{ border: isCurrent ? `2px solid ${m.couleur}` : "1px solid #e0e0e0", borderRadius: 12, padding: 16, background: isCurrent ? m.couleur + "08" : "#fff", position: "relative" }}>
+                    {isCurrent && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: m.couleur, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>Plan actuel</div>}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{p.label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: isCurrent ? m.couleur : "#1a1a1a", marginBottom: 12 }}>{price}</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
+                      {p.features.map(f => <div key={f} style={{ fontSize: 12, color: "#555", display: "flex", gap: 6 }}><span style={{ color: "#22c55e" }}>✓</span>{f}</div>)}
+                      {p.locked.map(f => <div key={f} style={{ fontSize: 12, color: "#bbb", display: "flex", gap: 6 }}><span>✕</span>{f}</div>)}
+                    </div>
+                    {isCurrent && plan !== "free" && (
+                      <button onClick={openPortal} disabled={billingLoading} style={{ width: "100%", padding: "8px", background: "#f5f5f5", color: "#555", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
+                        {billingLoading ? "…" : "Gérer"}
+                      </button>
+                    )}
+                    {isUpgradable && (
+                      <button onClick={() => startCheckout(p.key as "pro" | "business")} disabled={billingLoading} style={{ width: "100%", padding: "8px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
+                        {billingLoading ? "…" : `Passer en ${p.label}`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Section>
 

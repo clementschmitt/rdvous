@@ -32,7 +32,8 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!salon) return NextResponse.json({ error: "Salon introuvable" }, { status: 404 });
-  if (salon.plan === "solo") return NextResponse.json({ error: "Déjà abonné" }, { status: 400 });
+  const targetPlan = body.plan || "pro"; // "pro" ou "business"
+  if (salon.plan === targetPlan) return NextResponse.json({ error: "Déjà sur ce plan" }, { status: 400 });
 
   let customerId = salon.stripe_customer_id;
   if (!customerId) {
@@ -45,9 +46,9 @@ export async function POST(req: NextRequest) {
     await admin.from("salons").update({ stripe_customer_id: customerId }).eq("id", salon.id);
   }
 
-  const priceId = interval === "yearly"
-    ? process.env.STRIPE_PRICE_ID_SOLO_YEARLY!
-    : process.env.STRIPE_PRICE_ID_SOLO_MONTHLY!;
+  const priceId = targetPlan === "business"
+    ? (interval === "yearly" ? process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY! : process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY!)
+    : (interval === "yearly" ? process.env.STRIPE_PRICE_ID_PRO_YEARLY! : process.env.STRIPE_PRICE_ID_PRO_MONTHLY!);
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,

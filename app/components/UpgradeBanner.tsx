@@ -10,24 +10,24 @@ export default function UpgradeBanner() {
   const [loading, setLoading] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  // Auto-checkout si l'utilisateur vient de la landing avec ?plan=solo
+  // Auto-checkout si l'utilisateur vient de la landing avec ?plan=pro ou ?plan=business
   useEffect(() => {
     if (!salon) return;
     const intent = sessionStorage.getItem("upgrade_intent");
-    if (intent === "solo" && salon.plan === "free") {
+    if ((intent === "pro" || intent === "business") && salon.plan === "free") {
       sessionStorage.removeItem("upgrade_intent");
-      triggerCheckout();
+      triggerCheckout(intent);
     }
   }, [salon]);
 
-  async function triggerCheckout() {
+  async function triggerCheckout(plan = "pro") {
     setLoading(true);
     const supabase = createSupabase();
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch("/api/stripe/checkout", {
       method: "POST",
       headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ interval: "monthly", salon_id: salon!.id }),
+      body: JSON.stringify({ interval: "monthly", plan, salon_id: salon!.id }),
     });
     const { url } = await res.json();
     if (url) window.location.href = url;
@@ -55,9 +55,10 @@ export default function UpgradeBanner() {
           <span className="upgrade-desc-short">✨ Plan Gratuit — 30 RDV/mois</span>
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-          <button onClick={triggerCheckout} disabled={loading} className="upgrade-btn"
+          <button disabled={loading} className="upgrade-btn"
+            onClick={() => triggerCheckout("pro")}
             style={{ flex: 1, padding: "6px 16px", background: "#c9a060", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-            {loading ? "Chargement…" : "Passer à l'offre Pro — 29€/mois →"}
+            {loading ? "Chargement…" : "Passer à l'offre Pro — 29€/mois"}
           </button>
           <button onClick={() => setDismissed(true)}
             style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 16, padding: 0, lineHeight: 1, flexShrink: 0 }}>
