@@ -161,9 +161,15 @@ export default function AdminPage() {
         }
       `}</style>
       <div className="admin-wrap" style={{ maxWidth: 800, margin: "0 auto" }}>
-        <div style={{ marginBottom: 32 }}>
-          <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 300, color: T.text, margin: "0 0 6px" }}>Administration</h1>
-          <p style={{ ...T.ls, fontSize: "10px", color: T.muted }}>Accès réservé — {ADMIN_EMAIL}</p>
+        <div style={{ marginBottom: 32, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 300, color: T.text, margin: "0 0 6px" }}>Administration</h1>
+            <p style={{ ...T.ls, fontSize: "10px", color: T.muted }}>Accès réservé — {ADMIN_EMAIL}</p>
+          </div>
+          <a href="/admin/live" style={{ display: "flex", alignItems: "center", gap: 7, background: "#22c55e", color: "#fff", borderRadius: 20, padding: "8px 18px", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
+            <span style={{ fontSize: 9, width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block", boxShadow: "0 0 0 3px rgba(255,255,255,0.4)", animation: "pulse 1.5s infinite" }} />
+            Live
+          </a>
         </div>
 
         {/* Stats comptes */}

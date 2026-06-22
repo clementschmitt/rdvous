@@ -115,6 +115,24 @@ export async function POST(req: NextRequest) {
         fromName: "rdvous",
       });
     }
+
+    // Alerte interne
+    sendEmail({
+      to: "support@rdvous.fr",
+      toName: "rdvous",
+      subject: `🔔 Nouveau RDV — ${salonData?.nom || salon_id} · ${prenom} ${nom}`,
+      html: `<div style="font-family:sans-serif;padding:24px;color:#222">
+        <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin-bottom:16px;border-left:4px solid #22c55e">
+          <strong>${dateStr} à ${heureStr}</strong><br/>
+          <span style="color:#666">${salonData?.nom || salon_id}</span>
+        </div>
+        <p><strong>Client :</strong> ${prenom} ${nom}</p>
+        <p><strong>Email :</strong> ${email || "—"}</p>
+        <p><strong>Tél :</strong> ${telephone || "—"}</p>
+        <p><strong>Prestations :</strong> ${prestationsData.map(p => p.nom).join(", ") || "—"}</p>
+      </div>`,
+      fromName: "rdvous monitoring",
+    }).catch(e => console.error("Alerte interne failed:", e));
   } catch (e) {
     console.error("Confirmation email failed:", e);
   }

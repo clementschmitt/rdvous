@@ -11,16 +11,16 @@ export async function GET(req: NextRequest) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const now = new Date();
-  const il_y_a_20h = new Date(now.getTime() - 20 * 3600 * 1000).toISOString();
-  const il_y_a_48h = new Date(now.getTime() - 48 * 3600 * 1000).toISOString();
+  const il_y_a_1h = new Date(now.getTime() - 1 * 3600 * 1000).toISOString();
+  const il_y_a_2h = new Date(now.getTime() - 2 * 3600 * 1000).toISOString();
 
-  // RDVs passés entre 20h et 48h, non annulés, sans demande d'avis envoyée
+  // RDVs passés entre 1h et 2h, non annulés, sans demande d'avis envoyée
   const { data: rdvs } = await admin
     .from("rendez_vous")
     .select("id, salon_id, date_heure, clients(prenom, email), salons(nom), avis_demande_le")
-    .lt("date_heure", il_y_a_20h)
-    .gt("date_heure", il_y_a_48h)
-    .neq("statut", "annule")
+    .lt("date_heure", il_y_a_1h)
+    .gt("date_heure", il_y_a_2h)
+    .eq("statut", "effectue")
     .is("avis_demande_le", null);
 
   if (!rdvs || rdvs.length === 0) return NextResponse.json({ ok: true, sent: 0 });
