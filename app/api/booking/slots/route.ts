@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     let maxYear = nowFrance.getFullYear();
     let maxMonth = nowFrance.getMonth();
     if (isAfterOpeningTime) { maxMonth += 1; if (maxMonth > 11) { maxMonth = 0; maxYear++; } }
-    const maxDate = new Date(maxYear, maxMonth + 1, 0);
+    const maxDate = new Date(maxYear, maxMonth + 1, 0, 23, 59, 59);
     if (new Date(date + "T12:00:00") > maxDate) return NextResponse.json({ slots: [] });
   } else if (horizonJours > 0) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
