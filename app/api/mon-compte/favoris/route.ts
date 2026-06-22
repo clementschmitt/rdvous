@@ -14,9 +14,14 @@ export async function POST(req: NextRequest) {
   if (!salon_id) return NextResponse.json({ error: "salon_id manquant" }, { status: 400 });
 
   if (action === "remove") {
-    await admin.from("client_favoris").delete().eq("user_id", user.id).eq("salon_id", salon_id);
+    const { error } = await admin.from("client_favoris").delete().eq("user_id", user.id).eq("salon_id", salon_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
-    await admin.from("client_favoris").upsert({ user_id: user.id, salon_id }, { onConflict: "user_id,salon_id" });
+    const { error } = await admin.from("client_favoris").insert({ user_id: user.id, salon_id });
+    // ignorer l'erreur de doublon (déjà favori)
+    if (error && !error.message.toLowerCase().includes("duplicate") && !error.code?.includes("23505")) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

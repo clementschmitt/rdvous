@@ -13,16 +13,45 @@ export async function GET(req: NextRequest) {
 
   const { data: clientRows } = await admin
     .from("clients")
-    .select("id, cagnotte, salon_id, salons(nom, metier)")
+    .select("id, cagnotte, nb_visites, salon_id, salons(nom, metier, plan)")
     .eq("email", user.email);
 
   if (!clientRows || clientRows.length === 0)
     return NextResponse.json({ rdvs: [], cagnottes: [], favoris: [], salonsRevus: [] });
 
   const clientIds = clientRows.map((c: { id: string }) => c.id);
-  const cagnottes = (clientRows as unknown as { cagnotte?: number; salon_id: string; salons: { nom: string; metier: string } | null }[])
-    .filter(c => (c.cagnotte || 0) > 0)
-    .map(c => ({ salon_id: c.salon_id, salon_nom: c.salons?.nom || "Salon", metier: c.salons?.metier || "", montant: c.cagnotte || 0 }))
+
+  type ClientRow = { id: string; cagnotte: number; nb_visites: number; salon_id: string; salons: { nom: string; metier: string; plan: string } | null };
+  const rows = clientRows as unknown as ClientRow[];
+
+  // Fetch app_settings for each salon (fidelite params)
+  const salonIds = rows.map(c => c.salon_id);
+  const { data: settingsRows } = await admin
+    .from("app_settings")
+    .select("salon_id, nb_visites_fidelite, montant_recompense")
+    .in("salon_id", salonIds);
+
+  const settingsMap: Record<string, { nb_visites_fidelite: number; montant_recompense: number }> = {};
+  for (const s of settingsRows || []) settingsMap[s.salon_id] = s;
+
+  const cagnottes = rows
+    .filter(c => {
+      const plan = c.salons?.plan || "free";
+      const settings = settingsMap[c.salon_id];
+      return plan !== "free" && settings && settings.nb_visites_fidelite > 0 && (c.nb_visites || 0) > 0;
+    })
+    .map(c => {
+      const settings = settingsMap[c.salon_id] || { nb_visites_fidelite: 10, montant_recompense: 10 };
+      return {
+        salon_id: c.salon_id,
+        salon_nom: c.salons?.nom || "Salon",
+        metier: c.salons?.metier || "",
+        montant: c.cagnotte || 0,
+        nb_visites: c.nb_visites || 0,
+        nb_visites_fidelite: settings.nb_visites_fidelite,
+        montant_recompense: settings.montant_recompense,
+      };
+    })
     .sort((a, b) => b.montant - a.montant);
 
   const [rdvsRes, favorisRes] = await Promise.all([
