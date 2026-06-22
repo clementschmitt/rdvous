@@ -10,7 +10,8 @@ function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "";
-  const isClient = next.startsWith("/mon-compte");
+  const isPro = !!searchParams.get("plan") || searchParams.get("pro") === "1";
+  const isClient = !isPro;
   const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

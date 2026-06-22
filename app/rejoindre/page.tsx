@@ -62,7 +62,7 @@ function RejoindreContent() {
         </p>
         <p style={{ textAlign: "center", marginTop: 8, fontSize: 12, color: T.muted }}>
           Vous êtes professionnel ?{" "}
-          <Link href="/signup" style={{ color: T.text, fontWeight: 600 }}>Espace pro →</Link>
+          <Link href="/signup?pro=1" style={{ color: T.text, fontWeight: 600 }}>Espace pro →</Link>
         </p>
       </div>
     </div>

@@ -233,7 +233,7 @@ export default function ProPage() {
       {/* ── NAV ── */}
       <SiteHeader
         links={[{ label: "Accueil", href: "/" }, { label: "Tarifs", href: "/pro#tarifs" }]}
-        cta={{ label: "Essayer gratuitement", href: "/signup" }}
+        cta={{ label: "Essayer gratuitement", href: "/signup?pro=1" }}
         context="pro"
       />
 
@@ -253,7 +253,7 @@ export default function ProPage() {
             RDVOUS aide les professionnels indépendants à gérer leurs rendez-vous, fidéliser leurs clients et gagner en visibilité locale — sans commissions abusives ni frais cachés.
           </p>
           <div className="pro-hero-actions" style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
-            <Link href="/signup" style={{ padding:"14px 32px", background:C.dark, color:"#fff", borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>
+            <Link href="/signup?pro=1" style={{ padding:"14px 32px", background:C.dark, color:"#fff", borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>
               Essayer gratuitement
             </Link>
             <a href="#tarifs" style={{ padding:"14px 32px", background:"transparent", color:C.text, border:`1px solid ${C.border}`, borderRadius:12, fontSize:14, fontWeight:600, textDecoration:"none" }}>
@@ -525,7 +525,7 @@ export default function ProPage() {
             <p style={{ fontSize:15, color:"rgba(255,255,255,0.5)", margin:"0 0 36px" }}>
               Démarrez gratuitement. Passez en illimité à 29€/mois — prix de lancement.
             </p>
-            <Link href="/signup" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
+            <Link href="/signup?pro=1" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
               Commencer gratuitement
             </Link>
           </div>
