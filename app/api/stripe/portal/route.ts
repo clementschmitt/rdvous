@@ -12,18 +12,20 @@ export async function POST(req: NextRequest) {
   const { data: { user }, error: authErr } = await admin.auth.getUser(token);
   if (authErr || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: su } = await admin
-    .from("salon_users")
-    .select("salon_id")
-    .eq("user_id", user.id)
-    .single();
+  const body = await req.json().catch(() => ({}));
+  const salonIdFromClient = body.salon_id;
 
-  if (!su) return NextResponse.json({ error: "Salon introuvable" }, { status: 404 });
+  let salonId = salonIdFromClient;
+  if (!salonId) {
+    const { data: su } = await admin.from("salon_users").select("salon_id").eq("user_id", user.id).single();
+    salonId = su?.salon_id;
+  }
+  if (!salonId) return NextResponse.json({ error: "Salon introuvable" }, { status: 404 });
 
   const { data: salon } = await admin
     .from("salons")
     .select("stripe_customer_id")
-    .eq("id", su.salon_id)
+    .eq("id", salonId)
     .single();
 
   if (!salon?.stripe_customer_id) return NextResponse.json({ error: "Aucun abonnement actif" }, { status: 400 });

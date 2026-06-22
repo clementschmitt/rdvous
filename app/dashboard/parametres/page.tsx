@@ -482,7 +482,8 @@ export default function ParametresPage() {
     const { data: { session } } = await supabase.auth.getSession();
     const res = await fetch("/api/stripe/portal", {
       method: "POST",
-      headers: { authorization: `Bearer ${session?.access_token}` },
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id }),
     });
     const { url } = await res.json();
     if (url) window.location.href = url;
@@ -1144,17 +1145,17 @@ export default function ParametresPage() {
               {([
                 { key: "free", label: "Gratuit", monthly: "0€", yearly: "0€", features: ["30 RDV/mois", "Page vitrine", "Rappels email"], locked: ["Fidélité & cagnotte", "Export clients", "SMS"] },
                 { key: "pro", label: "Pro", monthly: "29€/mois", yearly: "290€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "50 SMS/mois inclus"], locked: [] },
-                { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "50 SMS/mois inclus", "Stats avancées", "Support prioritaire"], locked: [] },
+                { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "Export clients", "150 SMS/mois inclus", "Stats avancées", "Support prioritaire"], locked: [] },
               ] as const).map(p => {
                 const isCurrent = plan === p.key;
                 const isUpgradable = (p.key === "pro" && plan === "free") || (p.key === "business" && (plan === "free" || plan === "pro"));
                 const price = billingInterval === "yearly" ? p.yearly : p.monthly;
                 return (
-                  <div key={p.key} style={{ border: isCurrent ? `2px solid ${m.couleur}` : "1px solid #e0e0e0", borderRadius: 12, padding: 16, background: isCurrent ? m.couleur + "08" : "#fff", position: "relative" }}>
+                  <div key={p.key} style={{ border: isCurrent ? `2px solid ${m.couleur}` : "1px solid #e0e0e0", borderRadius: 12, padding: 16, background: isCurrent ? m.couleur + "08" : "#fff", position: "relative", display: "flex", flexDirection: "column" }}>
                     {isCurrent && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: m.couleur, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>Plan actuel</div>}
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{p.label}</div>
                     <div style={{ fontSize: 18, fontWeight: 800, color: isCurrent ? m.couleur : "#1a1a1a", marginBottom: 12 }}>{price}</div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14, flexGrow: 1 }}>
                       {p.features.map(f => <div key={f} style={{ fontSize: 12, color: "#555", display: "flex", gap: 6 }}><span style={{ color: "#22c55e" }}>✓</span>{f}</div>)}
                       {p.locked.map(f => <div key={f} style={{ fontSize: 12, color: "#bbb", display: "flex", gap: 6 }}><span>✕</span>{f}</div>)}
                     </div>
