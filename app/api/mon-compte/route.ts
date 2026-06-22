@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
   const { data: clientRows } = await admin
     .from("clients")
-    .select("id, cagnotte, nb_visites, salon_id, salons(nom, metier, plan)")
+    .select("id, prenom, cagnotte, nb_visites, salon_id, salons(nom, metier, plan)")
     .eq("email", user.email);
 
   if (!clientRows || clientRows.length === 0)
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const clientIds = clientRows.map((c: { id: string }) => c.id);
 
-  type ClientRow = { id: string; cagnotte: number; nb_visites: number; salon_id: string; salons: { nom: string; metier: string; plan: string } | null };
+  type ClientRow = { id: string; prenom: string | null; cagnotte: number; nb_visites: number; salon_id: string; salons: { nom: string; metier: string; plan: string } | null };
   const rows = clientRows as unknown as ClientRow[];
 
   // Fetch app_settings for each salon (fidelite params)
@@ -78,10 +78,13 @@ export async function GET(req: NextRequest) {
     salonsRevus = [...new Set((avisData || []).map((a: { salon_id: string }) => a.salon_id))];
   }
 
+  const prenom = rows.find(r => r.prenom)?.prenom || null;
+
   return NextResponse.json({
     rdvs: rdvsRes.data || [],
     cagnottes,
     favoris: favorisRes.data || [],
     salonsRevus,
+    prenom,
   });
 }

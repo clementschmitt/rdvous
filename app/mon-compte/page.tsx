@@ -74,6 +74,7 @@ function StarSelector({ note, onChange }: { note: number; onChange: (n: number) 
 export default function MonComptePage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [prenom, setPrenom] = useState<string | null>(null);
   const [rdvs, setRdvs] = useState<Rdv[]>([]);
   const [cagnottes, setCagnottes] = useState<{ salon_id: string; salon_nom: string; metier: string; montant: number; nb_visites: number; nb_visites_fidelite: number; montant_recompense: number }[]>([]);
   const [favoris, setFavoris] = useState<Favori[]>([]);
@@ -93,6 +94,15 @@ export default function MonComptePage() {
   const [photoError, setPhotoError] = useState<Record<string, string>>({});
   const photoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [activeTab, setActiveTab] = useState<"rdvs" | "favoris" | "galerie">("rdvs");
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -112,6 +122,7 @@ export default function MonComptePage() {
         setRdvs(json.rdvs || []);
         setFavoris(json.favoris || []);
         setSalonsRevus(new Set(json.salonsRevus || []));
+        setPrenom(json.prenom || null);
       }
       setLoading(false);
     })();
@@ -122,6 +133,7 @@ export default function MonComptePage() {
     await supabase.auth.signOut();
     router.push("/");
   }
+
 
   async function handleConfirm() {
     if (!confirm || !token) return;
@@ -338,24 +350,31 @@ export default function MonComptePage() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px 32px 64px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "20px 16px 88px" : "40px 32px 64px" }}>
 
         {/* En-tête */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
           <div>
-            <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 600, color: T.text, margin: 0, letterSpacing: "-0.3px" }}>Bonjour 👋</h1>
+            <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 600, color: T.text, margin: 0, letterSpacing: "-0.3px" }}>
+              Bonjour{prenom ? `, ${prenom}` : ""}
+            </h1>
             {email && <div style={{ fontSize: 13, color: T.muted, marginTop: 4 }}>{email}</div>}
           </div>
-          <button onClick={handleLogout} style={{ fontSize: 12, color: T.muted, background: "none", border: `1px solid ${T.border}`, borderRadius: 20, padding: "7px 16px", cursor: "pointer" }}>
-            Déconnexion
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Link href="/mon-compte/parametres" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", border: `1px solid ${T.border}`, textDecoration: "none", fontSize: 18, color: T.muted }}>
+              ⚙
+            </Link>
+            <button onClick={handleLogout} style={{ fontSize: 12, color: T.muted, background: "none", border: `1px solid ${T.border}`, borderRadius: 20, padding: "7px 16px", cursor: "pointer" }}>
+              Déconnexion
+            </button>
+          </div>
         </div>
 
         {/* Grid 2 colonnes */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 28, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 20 : 28, alignItems: "start" }}>
 
           {/* Colonne gauche — RDVs */}
-          <div>
+          <div style={{ order: isMobile ? 2 : 1, display: isMobile && activeTab !== "rdvs" ? "none" : undefined }}>
             {/* Prochain rendez-vous */}
             {hero && (() => {
               const c = metierCouleur(hero.salons?.metier);
@@ -500,10 +519,10 @@ export default function MonComptePage() {
           </div>
 
           {/* Colonne droite — Sidebar */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          <div style={{ display: isMobile && activeTab === "rdvs" ? "none" : "flex", flexDirection: "column", gap: 20, order: isMobile ? 1 : 2 }}>
 
             {/* Favoris */}
-            {favoris.length > 0 && (
+            {favoris.length > 0 && (!isMobile || activeTab === "favoris") && (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Mes salons favoris</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -529,7 +548,7 @@ export default function MonComptePage() {
             )}
 
             {/* Fidélité */}
-            {cagnottes.length > 0 && (
+            {cagnottes.length > 0 && (!isMobile || activeTab === "favoris") && (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Fidélité</div>
                 <div style={{ background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)", borderRadius: 14, padding: "14px 16px" }}>
@@ -561,7 +580,7 @@ export default function MonComptePage() {
             )}
 
             {/* Dernières photos */}
-            {(() => {
+            {(!isMobile || activeTab === "galerie") && (() => {
               const photos = rdvs.filter(r => r.photo_reference_url && r.statut === "effectue").slice(0, 9);
               if (!photos.length) return null;
               return (
@@ -583,10 +602,34 @@ export default function MonComptePage() {
               );
             })()}
 
+
           </div>
         </div>
 
       </div>
+
+      {/* Bottom nav — mobile uniquement */}
+      {isMobile && (() => {
+        const tabs: { key: "rdvs" | "favoris" | "galerie"; label: string; icon: string }[] = [
+          { key: "rdvs", label: "RDVs", icon: "📅" },
+          { key: "favoris", label: "Favoris", icon: "♥" },
+          { key: "galerie", label: "Photos", icon: "🖼" },
+        ];
+        return (
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.white, borderTop: `1px solid ${T.border}`, display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
+            {tabs.map(t => {
+              const active = activeTab === t.key;
+              return (
+                <button key={t.key} onClick={() => setActiveTab(t.key)}
+                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", borderTop: active ? `2px solid ${T.text}` : "2px solid transparent", marginTop: -1 }}>
+                  <span style={{ fontSize: 20 }}>{t.icon}</span>
+                  <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: active ? T.text : T.muted, letterSpacing: "0.03em" }}>{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Lightbox */}
       {lightboxUrl && (
