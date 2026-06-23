@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       admin.from("rendez_vous").select("id, source").eq("salon_id", salonId).gte("date_heure", monthStart.toISOString()).neq("statut", "annule"),
       (() => {
         let q = admin.from("rendez_vous").select("id, date_heure, statut, source, created_at, clients(prenom, nom, email)", { count: "exact" })
-          .eq("salon_id", salonId).gte("date_heure", periodStart).neq("statut", "annule").order("date_heure", { ascending: false }).range(from, to);
+          .eq("salon_id", salonId).gte("date_heure", periodStart).neq("statut", "annule").order("created_at", { ascending: false }).range(from, to);
         if (periodEnd) q = q.lte("date_heure", periodEnd);
         return q;
       })(),
