@@ -36,10 +36,34 @@ export async function POST(req: NextRequest) {
     clientId = newClient.id;
   }
 
+  // Récupérer la durée totale des prestations
+  const { data: prestationData } = await admin.from("prestations").select("duree_minutes").in("id", ids);
+  const dureeMinutes = (prestationData || []).reduce((s, p) => s + (p.duree_minutes || 0), 0) || 60;
+
+  // Vérifier que le créneau est toujours disponible (anti double-réservation)
+  const toMin = (hhmm: string) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+  const slotDebutMin = toMin(heure);
+  const slotFinMin = slotDebutMin + dureeMinutes;
+  const { data: rdvsExistants } = await admin
+    .from("rendez_vous")
+    .select("date_heure, duree_minutes")
+    .eq("salon_id", salon_id)
+    .eq("statut", "planifie")
+    .gte("date_heure", `${date}T00:00:00`)
+    .lte("date_heure", `${date}T23:59:59`);
+  const conflit = (rdvsExistants || []).some(r => {
+    const rdvDebutMin = toMin(r.date_heure.slice(11, 16));
+    const rdvFinMin = rdvDebutMin + (r.duree_minutes || 60);
+    return rdvDebutMin < slotFinMin && rdvFinMin > slotDebutMin;
+  });
+  if (conflit) {
+    return NextResponse.json({ error: "Ce créneau n'est plus disponible. Veuillez en choisir un autre." }, { status: 409 });
+  }
+
   // Créer le RDV
   const cancelToken = crypto.randomUUID();
   const { data: rdv, error } = await admin.from("rendez_vous")
-    .insert({ salon_id, client_id: clientId, date_heure: `${date}T${heure}:00`, statut: "planifie", adresse_domicile: adresse_domicile || null, cancel_token: cancelToken })
+    .insert({ salon_id, client_id: clientId, date_heure: `${date}T${heure}:00`, statut: "planifie", duree_minutes: dureeMinutes, adresse_domicile: adresse_domicile || null, cancel_token: cancelToken })
     .select("id")
     .single();
 
