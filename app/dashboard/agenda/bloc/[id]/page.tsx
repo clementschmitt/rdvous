@@ -6,7 +6,7 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const CRENEAUX = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${["00", "15", "30", "45"][i % 4]}`);
+const CRENEAUX = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${["00", "15", "30", "45"][i % 4]}`);
 
 function toMin(hhmm: string) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
 
@@ -44,18 +44,22 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
         .single();
       if (error || !data) { setNotFound(true); return; }
       setTitre(data.titre);
-      const startDate = data.date_heure.slice(0, 10);
-      const startHeure = data.date_heure.slice(11, 16);
-      setDate(startDate);
-      setHeure(startHeure);
-      // Calculer la date et heure de fin depuis duree_minutes
-      const endMs = new Date(data.date_heure).getTime() + data.duree_minutes * 60000;
-      const endDate = new Date(endMs);
-      const endDateStr = endDate.toISOString().slice(0, 10);
-      const endH = String(endDate.getHours()).padStart(2, "0");
-      const endM = String(endDate.getMinutes()).padStart(2, "0");
+      const pad = (n: number) => String(n).padStart(2, "0");
+      const startDateStr = data.date_heure.slice(0, 10);
+      const startTimeStr = data.date_heure.slice(11, 16);
+      setDate(startDateStr);
+      setHeure(startTimeStr);
+      // Calcul fin purement arithmétique — pas de conversion timezone
+      const [sh, sm] = startTimeStr.split(":").map(Number);
+      const endTotalMin = sh * 60 + sm + data.duree_minutes;
+      const extraDays = Math.floor(endTotalMin / 1440);
+      const endMinInDay = endTotalMin % 1440;
+      const endTimeStr = `${pad(Math.floor(endMinInDay / 60))}:${pad(endMinInDay % 60)}`;
+      const endDateObj = new Date(startDateStr + "T12:00:00");
+      endDateObj.setDate(endDateObj.getDate() + extraDays);
+      const endDateStr = `${endDateObj.getFullYear()}-${pad(endDateObj.getMonth() + 1)}-${pad(endDateObj.getDate())}`;
       setDateFin(endDateStr);
-      setHeureFin(`${endH}:${endM}`);
+      setHeureFin(endTimeStr);
       setRecurrence((data.recurrence as "" | "hebdomadaire") || "");
       setRecurrenceFin(data.recurrence_fin || "");
       setNotes(data.notes || "");
