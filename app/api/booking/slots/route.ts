@@ -13,7 +13,12 @@ export async function GET(req: NextRequest) {
 
   const jourSemaine = (new Date(date + "T12:00:00").getDay() + 6) % 7; // 0=lundi
 
-  const [{ data: templatePlages }, { data: rdvs }, { data: exception }, { data: settings }, { data: conges }] = await Promise.all([
+  // Pour les blocs multi-jours, on cherche jusqu'à 30 jours en arrière
+  const dateMinus30 = new Date(date + "T12:00:00");
+  dateMinus30.setDate(dateMinus30.getDate() - 30);
+  const dateMinus30Str = dateMinus30.toISOString().slice(0, 10);
+
+  const [{ data: templatePlages }, { data: rdvs }, { data: exception }, { data: settings }, { data: conges }, { data: blocs }] = await Promise.all([
     admin.from("disponibilites").select("heure_debut, heure_fin").eq("salon_id", salon_id).eq("jour_semaine", jourSemaine),
 
     admin.from("rendez_vous")
@@ -25,6 +30,7 @@ export async function GET(req: NextRequest) {
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
     admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour, planning_ouverture_heure").eq("salon_id", salon_id).single(),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
+    admin.from("agenda_evenements").select("date_heure, duree_minutes").eq("salon_id", salon_id).gte("date_heure", `${dateMinus30Str}T00:00:00`).lte("date_heure", `${date}T23:59:59`),
   ]);
 
   // Horizon de planification : date au-delà de la limite
@@ -69,6 +75,17 @@ export async function GET(req: NextRequest) {
     const dureeRdv = r.duree_minutes || r.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0) || 60;
     return { debut, fin: debut + dureeRdv };
   });
+
+  // Blocs personnels : calculer la plage occupée sur ce jour précis
+  const dateMs = new Date(date + "T00:00:00").getTime();
+  for (const bloc of (blocs || [])) {
+    const blocStartMs = new Date(bloc.date_heure).getTime();
+    const blocEndMs = blocStartMs + (bloc.duree_minutes || 0) * 60000;
+    if (blocEndMs <= dateMs || blocStartMs >= dateMs + 86400000) continue; // ne chevauche pas ce jour
+    const debutSurJour = Math.max(0, Math.round((blocStartMs - dateMs) / 60000));
+    const finSurJour = Math.min(24 * 60, Math.round((blocEndMs - dateMs) / 60000));
+    occupes.push({ debut: debutSurJour, fin: finSurJour });
+  }
 
   const delaiHeures = settings?.delai_min_reservation_heures ?? 0;
   const maintenant = new Date();

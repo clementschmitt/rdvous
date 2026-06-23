@@ -6,18 +6,9 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-const DUREES = [
-  { label: "15 min", value: 15 },
-  { label: "30 min", value: 30 },
-  { label: "45 min", value: 45 },
-  { label: "1h", value: 60 },
-  { label: "1h30", value: 90 },
-  { label: "2h", value: 120 },
-  { label: "3h", value: 180 },
-  { label: "Toute la journée", value: 480 },
-];
+const CRENEAUX = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${["00", "15", "30", "45"][i % 4]}`);
 
-const CRENEAUX = Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`);
+function toMin(hhmm: string) { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; }
 
 export default function EditBlocPage({ params }: { params: Promise<{ id: string }> }) {
   const salon = useSalon();
@@ -27,7 +18,8 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
   const [titre, setTitre] = useState("");
   const [date, setDate] = useState("");
   const [heure, setHeure] = useState("09:00");
-  const [duree, setDuree] = useState(60);
+  const [heureFin, setHeureFin] = useState("");
+  const [dateFin, setDateFin] = useState("");
   const [recurrence, setRecurrence] = useState<"" | "hebdomadaire">("");
   const [recurrenceFin, setRecurrenceFin] = useState("");
   const [notes, setNotes] = useState("");
@@ -52,9 +44,18 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
         .single();
       if (error || !data) { setNotFound(true); return; }
       setTitre(data.titre);
-      setDate(data.date_heure.slice(0, 10));
-      setHeure(data.date_heure.slice(11, 16));
-      setDuree(data.duree_minutes);
+      const startDate = data.date_heure.slice(0, 10);
+      const startHeure = data.date_heure.slice(11, 16);
+      setDate(startDate);
+      setHeure(startHeure);
+      // Calculer la date et heure de fin depuis duree_minutes
+      const endMs = new Date(data.date_heure).getTime() + data.duree_minutes * 60000;
+      const endDate = new Date(endMs);
+      const endDateStr = endDate.toISOString().slice(0, 10);
+      const endH = String(endDate.getHours()).padStart(2, "0");
+      const endM = String(endDate.getMinutes()).padStart(2, "0");
+      setDateFin(endDateStr);
+      setHeureFin(`${endH}:${endM}`);
       setRecurrence((data.recurrence as "" | "hebdomadaire") || "");
       setRecurrenceFin(data.recurrence_fin || "");
       setNotes(data.notes || "");
@@ -64,6 +65,12 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!titre.trim()) { setError("Titre requis."); return; }
+    if (!heureFin) { setError("Heure de fin requise."); return; }
+    if (dateFin < date) { setError("La date de fin doit être après la date de début."); return; }
+    if (dateFin === date && toMin(heureFin) <= toMin(heure)) { setError("L'heure de fin doit être après l'heure de début."); return; }
+    const debutMs = new Date(`${date}T${heure}:00`).getTime();
+    const finMs = new Date(`${dateFin}T${heureFin}:00`).getTime();
+    const duree = Math.round((finMs - debutMs) / 60000);
     setLoading(true);
     setError("");
     const supabase = createSupabase();
@@ -109,21 +116,28 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
-                <label style={labelStyle}>Date *</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)} required style={inputStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Heure *</label>
-                <select value={heure} onChange={e => setHeure(e.target.value)} style={inputStyle}>
+                <label style={labelStyle}>Heure de début *</label>
+                <select value={heure} onChange={e => { setHeure(e.target.value); if (dateFin === date && heureFin && toMin(heureFin) <= toMin(e.target.value)) setHeureFin(""); }} style={inputStyle}>
                   {CRENEAUX.map(h => <option key={h} value={h}>{h}</option>)}
                 </select>
               </div>
+              <div>
+                <label style={labelStyle}>Heure de fin *</label>
+                <select value={heureFin} onChange={e => setHeureFin(e.target.value)} style={inputStyle}>
+                  <option value="">--</option>
+                  {CRENEAUX.filter(h => dateFin > date || toMin(h) > toMin(heure)).map(h => <option key={h} value={h}>{h}</option>)}
+                </select>
+              </div>
             </div>
-            <div>
-              <label style={labelStyle}>Durée *</label>
-              <select value={duree} onChange={e => setDuree(Number(e.target.value))} style={inputStyle}>
-                {DUREES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Date de début *</label>
+                <input type="date" value={date} onChange={e => { setDate(e.target.value); if (dateFin < e.target.value) setDateFin(e.target.value); }} required style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Date de fin *</label>
+                <input type="date" value={dateFin} min={date} onChange={e => setDateFin(e.target.value)} required style={inputStyle} />
+              </div>
             </div>
           </div>
         </Section>

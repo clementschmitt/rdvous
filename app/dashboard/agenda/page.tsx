@@ -830,7 +830,10 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                   const dayEvts: Evenement[] = [];
                   for (const ev of evenements) {
                     if (!ev.recurrence) {
-                      if (ev.date_heure.slice(0, 10) === ds) dayEvts.push(ev);
+                      const evStartDate = ev.date_heure.slice(0, 10);
+                      const evEndMs = new Date(ev.date_heure).getTime() + ev.duree_minutes * 60000;
+                      const evEndDate = new Date(evEndMs - 1).toISOString().slice(0, 10);
+                      if (ds >= evStartDate && ds <= evEndDate) dayEvts.push(ev);
                     } else if (ev.recurrence === "hebdomadaire") {
                       const evDay = new Date(ev.date_heure).getDay();
                       if (info.day.getDay() === evDay) {
@@ -841,15 +844,22 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                     }
                   }
                   return dayEvts.map(ev => {
-                    const evMin = timeToMin(ev.date_heure.slice(11, 16));
-                    const top = (evMin - grilleDebut) / 60 * PX_PAR_HEURE;
-                    const height = Math.max(22, ev.duree_minutes / 60 * PX_PAR_HEURE - 3);
+                    const evStartMin = timeToMin(ev.date_heure.slice(11, 16));
+                    const evStartDate = ev.date_heure.slice(0, 10);
+                    const isStartDay = ds === evStartDate;
+                    // Calcul fin en minutes depuis minuit du jour courant
+                    const minutesDepuisDebutBloc = isStartDay ? 0 : (new Date(ds + "T00:00:00").getTime() - new Date(evStartDate + "T00:00:00").getTime()) / 60000;
+                    const startMin = isStartDay ? evStartMin : grilleDebut;
+                    const endMinRaw = evStartMin + ev.duree_minutes - minutesDepuisDebutBloc;
+                    const endMin = Math.min(endMinRaw, grilleFin);
+                    const top = (startMin - grilleDebut) / 60 * PX_PAR_HEURE;
+                    const height = Math.max(22, (endMin - startMin) / 60 * PX_PAR_HEURE - 3);
                     return (
                       <div key={`ev-${ev.id}-${ds}`}
                         onPointerDown={e => e.stopPropagation()}
                         onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/bloc/${ev.id}`); }}
-                        style={{ position: "absolute", top, left: 3, right: 3, height, background: "#f5f5f5", borderLeft: "3px solid #aaa", borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", zIndex: 6, opacity: 0.9 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#888", lineHeight: 1.3 }}>{formatHeure(ev.date_heure)}</div>
+                        style={{ position: "absolute", top, left: 3, right: 3, height, background: "#f5f5f5", borderLeft: "3px solid #aaa", borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", zIndex: 4, opacity: 0.9 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "#888", lineHeight: 1.3 }}>{isStartDay ? formatHeure(ev.date_heure) : "→"}</div>
                         {height > 26 && <div style={{ fontSize: 11, fontWeight: 600, color: "#555", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titre}</div>}
                         {height > 44 && ev.recurrence && <div style={{ fontSize: 9, color: "#aaa" }}>↻ hebdo</div>}
                       </div>
