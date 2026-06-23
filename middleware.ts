@@ -29,7 +29,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/onboarding") ||
-    pathname.startsWith("/mon-compte");
+    (pathname.startsWith("/mon-compte") && !pathname.startsWith("/mon-compte/reset-password"));
   const isApi = pathname.startsWith("/api");
 
   // Tout ce qui n'est pas protégé est public (vitrine, slug, home, pro, etc.)
