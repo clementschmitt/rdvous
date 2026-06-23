@@ -151,6 +151,30 @@ export function templateRelance({ prenom, salonNom, contenu }: {
     </div>`;
 }
 
+export function templateDeplacement({ prenom, salonNom, ancienDateStr, ancienHeureStr, nouveauDateStr, nouveauHeureStr, prestations }: {
+  prenom: string;
+  salonNom: string;
+  ancienDateStr: string;
+  ancienHeureStr: string;
+  nouveauDateStr: string;
+  nouveauHeureStr: string;
+  prestations: { nom: string }[];
+}) {
+  const prestationsStr = prestations.map(p => p.nom).join(", ");
+  return `
+    <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+      <div style="background:#fffbeb;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #f59e0b">
+        <div style="font-size:15px;font-weight:700;color:#b45309;margin-bottom:4px">Rendez-vous déplacé</div>
+        <div style="font-size:22px;font-weight:700;margin-top:8px">${nouveauDateStr} à ${nouveauHeureStr}</div>
+        <div style="font-size:14px;color:#666;margin-top:4px">${salonNom}</div>
+      </div>
+      <p style="font-size:14px;line-height:1.6">Bonjour ${prenom},</p>
+      <p style="font-size:14px;line-height:1.6">Votre rendez-vous initialement prévu le <strong>${ancienDateStr} à ${ancienHeureStr}</strong> a été déplacé au <strong>${nouveauDateStr} à ${nouveauHeureStr}</strong> chez <strong>${salonNom}</strong>.</p>
+      ${prestationsStr ? `<p style="font-size:14px;color:#666;margin:0">Prestation(s) : ${prestationsStr}</p>` : ""}
+      <p style="font-size:14px;line-height:1.6;color:#666;margin-top:16px">Si vous avez des questions, n'hésitez pas à contacter ${salonNom} directement.</p>
+    </div>`;
+}
+
 export function templateRappel({ prenom, salonNom, dateStr, heureStr, prestations, contenu }: {
   prenom: string;
   salonNom: string;

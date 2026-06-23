@@ -50,6 +50,7 @@ export default function RDVDetailPage() {
   const [editingDateHeure, setEditingDateHeure] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [newHeure, setNewHeure] = useState("");
+  const [notifyClient, setNotifyClient] = useState(true);
 
   useEffect(() => {
     if (!salon) return;
@@ -191,8 +192,11 @@ export default function RDVDetailPage() {
 
   async function saveDateHeure() {
     setSaving(true);
-    const supabase = createSupabase();
-    await supabase.from("rendez_vous").update({ date_heure: `${newDate}T${newHeure}:00` }).eq("id", id);
+    await fetch("/api/rdv/deplacer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rdv_id: id, old_date_heure: rdv?.date_heure, new_date: newDate, new_heure: newHeure, notify: notifyClient && !!rdv?.clients?.email }),
+    });
     setEditingDateHeure(false);
     load();
     setSaving(false);
@@ -260,6 +264,12 @@ export default function RDVDetailPage() {
                     {Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`).map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
                 </div>
+                {rdv?.clients?.email && (
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#555", cursor: "pointer" }}>
+                    <input type="checkbox" checked={notifyClient} onChange={e => setNotifyClient(e.target.checked)} />
+                    Prévenir le client par email
+                  </label>
+                )}
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={saveDateHeure} disabled={saving} style={{ ...btnGhost, borderColor: m.couleur, color: m.couleur }}>{saving ? "..." : "Enregistrer"}</button>
                   <button onClick={() => setEditingDateHeure(false)} style={btnGhost}>Annuler</button>

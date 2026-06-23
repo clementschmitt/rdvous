@@ -439,6 +439,9 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
   const [conflicts, setConflicts] = useState<RdvConflict[] | null>(null);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
 
+  // Notification post-drag
+  const [notifyDrag, setNotifyDrag] = useState<{ rdv_id: string; old_date_heure: string; new_date: string; new_heure: string } | null>(null);
+
   const weekStartStr = toDateStr(weekDays[0]);
   const weekEndStr = toDateStr(weekDays[6]);
 
@@ -566,9 +569,13 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
         const newDateHeure = `${newDateStr}T${newTimeStr}:00`;
         const origDateHeure = `${rdvDrag.rdv.date_heure.slice(0, 10)}T${rdvDrag.rdv.date_heure.slice(11, 16)}:00`;
         if (newDateHeure !== origDateHeure) {
-          const supabase = createSupabase();
-          await supabase.from("rendez_vous").update({ date_heure: newDateHeure }).eq("id", rdvDrag.rdv.id);
+          await fetch("/api/rdv/deplacer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rdv_id: rdvDrag.rdv.id, new_date: newDateStr, new_heure: newTimeStr, notify: false }),
+          });
           onRdvChange();
+          setNotifyDrag({ rdv_id: rdvDrag.rdv.id, old_date_heure: rdvDrag.rdv.date_heure, new_date: newDateStr, new_heure: newTimeStr });
         }
       } else {
         router.push(`/dashboard/agenda/${rdvDrag.rdv.id}`);
@@ -1012,6 +1019,16 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
           </div>
         </div>
       )}
+    {notifyDrag && (
+      <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#1a1a1a", color: "#fff", borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", zIndex: 9999, fontSize: 14 }}>
+        <span>RDV déplacé. Prévenir le client ?</span>
+        <button onClick={async () => {
+          await fetch("/api/rdv/deplacer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...notifyDrag, notify: true }) });
+          setNotifyDrag(null);
+        }} style={{ background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Oui</button>
+        <button onClick={() => setNotifyDrag(null)} style={{ background: "transparent", color: "#aaa", border: "1px solid #444", borderRadius: 6, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>Non</button>
+      </div>
+    )}
     </div>
   );
 }

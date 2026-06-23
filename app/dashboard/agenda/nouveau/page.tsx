@@ -116,21 +116,32 @@ function NouveauRDVContent() {
     }
 
     const tarifInsert = overrideActif && montantOverride !== "" ? Number(montantOverride) : null;
+    const cancelToken = crypto.randomUUID();
 
-    const { data: rdv, error: rdvErr } = await supabase
-      .from("rendez_vous")
-      .insert({
-        salon_id: salon!.id,
-        client_id: clientId,
-        date_heure: `${date}T${heure}:00`,
-        montant_cagnotte_utilise: cagnotteAUtiliser,
-        notes: notes || null,
-        tarif: tarifInsert,
-      })
-      .select()
-      .single();
+    const { data: rdvId, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
+      p_salon_id: salon!.id,
+      p_client_id: clientId,
+      p_date_heure: `${date}T${heure}:00`,
+      p_duree_minutes: dureeTotal || 60,
+      p_statut: "planifie",
+      p_cancel_token: cancelToken,
+      p_adresse_domicile: null,
+      p_notes: notes || null,
+      p_tarif: tarifInsert,
+      p_montant_cagnotte_utilise: cagnotteAUtiliser || null,
+    });
 
-    if (rdvErr || !rdv) { setError(rdvErr?.message || "Erreur"); setLoading(false); return; }
+    if (rdvErr || !rdvId) {
+      if (rdvErr?.message?.includes("CONFLIT_CRENEAU")) {
+        setError("Ce créneau vient d'être réservé. Actualisez l'agenda avant de créer un nouveau rendez-vous.");
+      } else {
+        setError(rdvErr?.message || "Erreur");
+      }
+      setLoading(false);
+      return;
+    }
+
+    const rdv = { id: rdvId as string };
 
     await supabase.from("rendez_vous_prestations").insert(
       selectedPrests.map(pid => ({ rendez_vous_id: rdv.id, prestation_id: pid }))
