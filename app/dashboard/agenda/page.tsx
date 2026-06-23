@@ -44,11 +44,17 @@ export default function AgendaPage() {
   const salon = useSalon();
   const router = useRouter();
   const [vue, setVue] = useState<"semaine" | "mois">("semaine");
-  const [semaine, setSemaine] = useState(() => getMonday(new Date()));
+  const [semaine, setSemaine] = useState(() => {
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem("agenda_semaine") : null;
+    return saved ? getMonday(new Date(saved + "T12:00:00")) : getMonday(new Date());
+  });
   const [moisCourant, setMoisCourant] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [rdvs, setRdvs] = useState<RDV[]>([]);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
-  const [jourDate, setJourDate] = useState(() => new Date());
+  const [jourDate, setJourDate] = useState(() => {
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem("agenda_semaine") : null;
+    return saved ? new Date(saved + "T12:00:00") : new Date();
+  });
   const [vueMobile, setVueMobile] = useState<"jour" | "semaine" | "mois">("jour");
 
   const loadSemaine = useCallback(async (lundi: Date) => {
@@ -95,6 +101,10 @@ export default function AgendaPage() {
     if (vue === "mois" || vueMobile === "mois") loadMois(moisCourant);
     else loadSemaine(semaine);
   }, [salon, vue, vueMobile, semaine, moisCourant, loadSemaine, loadMois]);
+
+  useEffect(() => {
+    sessionStorage.setItem("agenda_semaine", toDateStr(semaine));
+  }, [semaine]);
 
   useEffect(() => {
     const monday = getMonday(jourDate);
