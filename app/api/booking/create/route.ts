@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
     p_statut: "planifie",
     p_cancel_token: cancelToken,
     p_adresse_domicile: adresse_domicile || null,
+    p_source: "client",
   });
 
   if (error) {

@@ -129,6 +129,7 @@ function NouveauRDVContent() {
       p_notes: notes || null,
       p_tarif: tarifInsert,
       p_montant_cagnotte_utilise: cagnotteAUtiliser || null,
+      p_source: "salon",
     });
 
     if (rdvErr || !rdvId) {
