@@ -182,6 +182,7 @@ export default function BookingWidget({
   }
 
   async function handleSubmit() {
+    if (selected.length === 0) { setError("Veuillez sélectionner au moins une prestation."); return; }
     if (!prenom.trim() || !nom.trim()) { setError("Prénom et nom requis."); return; }
     if (!email.trim()) { setError("Email requis."); return; }
     if (!/^[a-zA-Z0-9_%+\-]([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-])?@[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$/.test(email) || email.includes("..")) { setError("Adresse email invalide."); return; }
