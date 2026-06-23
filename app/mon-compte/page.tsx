@@ -12,6 +12,7 @@ type Rdv = {
   statut: string;
   salon_id: string;
   tarif: number | null;
+  duree_minutes: number | null;
   photo_reference_url: string | null;
   salons: { nom: string; slug: string; metier: string } | null;
   rendez_vous_prestations: { prestations: { nom: string; tarif: number; sur_devis: boolean } | null }[];
@@ -36,6 +37,22 @@ function joursAvant(dateStr: string): string {
   if (diff < 7) return `Dans ${diff} jours`;
   if (diff < 14) return "La semaine prochaine";
   return `Dans ${Math.round(diff / 7)} semaines`;
+}
+
+function googleCalendarUrl(rdv: Rdv): string {
+  const dateStr = rdv.date_heure.slice(0, 10).replace(/-/g, "");
+  const startH = parseInt(rdv.date_heure.slice(11, 13));
+  const startM = parseInt(rdv.date_heure.slice(14, 16));
+  const duree = rdv.duree_minutes || 60;
+  const endTotalMin = startH * 60 + startM + duree;
+  const endH = String(Math.floor(endTotalMin / 60) % 24).padStart(2, "0");
+  const endM = String(endTotalMin % 60).padStart(2, "0");
+  const startTime = `${String(startH).padStart(2, "0")}${String(startM).padStart(2, "0")}00`;
+  const endTime = `${endH}${endM}00`;
+  const prestations = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
+  const title = encodeURIComponent(`${prestations || "Rendez-vous"} — ${rdv.salons?.nom || ""}`);
+  const dates = `${dateStr}T${startTime}/${dateStr}T${endTime}`;
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}`;
 }
 
 function rebookPath(rdv: Rdv): string {
@@ -271,7 +288,12 @@ export default function MonComptePage() {
   );
 
   const RdvActions = ({ rdv }: { rdv: Rdv }) => (
-    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+    <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+      <a href={googleCalendarUrl(rdv)} target="_blank" rel="noopener noreferrer"
+        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#1a73e8", background: "#fff", border: "1px solid #c5dbf7", borderRadius: 9, padding: "7px 14px", textDecoration: "none" }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Google Agenda
+      </a>
       <button onClick={() => { setConfirm({ rdv_id: rdv.id, action: "deplacer" }); setActionError(""); }}
         style={{ fontSize: 12, fontWeight: 600, color: T.text, background: "#fff", border: `1px solid ${T.border}`, borderRadius: 9, padding: "7px 14px", cursor: "pointer" }}>
         Déplacer
