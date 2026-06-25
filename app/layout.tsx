@@ -15,7 +15,14 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "rdvous",
-  description: "La plateforme de gestion pour les pros du soin",
+  description: "Réservez en ligne chez vos professionnels du bien-être préférés",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "rdvous",
+    startupImage: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -28,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${cormorant.className} ${inter.className}`} style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         {children}
+        <script dangerouslySetInnerHTML={{ __html: `if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }` }} />
       </body>
     </html>
   );
