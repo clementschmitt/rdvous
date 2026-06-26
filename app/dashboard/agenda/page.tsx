@@ -325,6 +325,7 @@ export default function AgendaPage() {
           today={today}
           router={router}
           onRdvChange={() => loadSemaine(semaine)}
+          onRdvMove={(id, newDateHeure) => setRdvs(prev => prev.map(r => r.id === id ? { ...r, date_heure: newDateHeure } : r))}
         />
       )}
 
@@ -404,7 +405,7 @@ function soustraireIntervalle(plages: Plage[], a: number, b: number): Plage[] {
   return out.filter(p => timeToMin(p.heure_fin) > timeToMin(p.heure_debut));
 }
 
-function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, today, router, onRdvChange }: {
+function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, today, router, onRdvChange, onRdvMove }: {
   salonId: string;
   weekDays: Date[];
   rdvs: RDV[];
@@ -413,6 +414,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
   today: string;
   router: ReturnType<typeof useRouter>;
   onRdvChange: () => void;
+  onRdvMove: (id: string, newDateHeure: string) => void;
 }) {
   const [dispos, setDispos] = useState<JourDispo[]>([]);
   const [conges, setConges] = useState<Conge[]>([]);
@@ -560,28 +562,32 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
     }
   }
 
-  async function finishDrag() {
+  function finishDrag() {
     if (rdvDrag) {
-      if (didDrag.current) {
-        const newDay = weekDays[rdvDrag.currentColIdx];
-        const newDateStr = toDateStr(newDay);
-        const newTimeStr = minToTime(rdvDrag.currentMin);
-        const newDateHeure = `${newDateStr}T${newTimeStr}:00`;
-        const origDateHeure = `${rdvDrag.rdv.date_heure.slice(0, 10)}T${rdvDrag.rdv.date_heure.slice(11, 16)}:00`;
-        if (newDateHeure !== origDateHeure) {
-          await fetch("/api/rdv/deplacer", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rdv_id: rdvDrag.rdv.id, new_date: newDateStr, new_heure: newTimeStr, notify: false }),
-          });
-          onRdvChange();
-          setNotifyDrag({ rdv_id: rdvDrag.rdv.id, old_date_heure: rdvDrag.rdv.date_heure, new_date: newDateStr, new_heure: newTimeStr });
-        }
-      } else {
-        router.push(`/dashboard/agenda/${rdvDrag.rdv.id}`);
-      }
+      const snapshot = rdvDrag;
+      const wasDrag = didDrag.current;
       setRdvDrag(null);
       didDrag.current = false;
+      if (wasDrag) {
+        const newDay = weekDays[snapshot.currentColIdx];
+        const newDateStr = toDateStr(newDay);
+        const newTimeStr = minToTime(snapshot.currentMin);
+        const newDateHeure = `${newDateStr}T${newTimeStr}:00`;
+        const origDateHeure = `${snapshot.rdv.date_heure.slice(0, 10)}T${snapshot.rdv.date_heure.slice(11, 16)}:00`;
+        if (newDateHeure !== origDateHeure) {
+          onRdvMove(snapshot.rdv.id, newDateHeure);
+          fetch("/api/rdv/deplacer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rdv_id: snapshot.rdv.id, new_date: newDateStr, new_heure: newTimeStr, notify: false }),
+          }).then(() => {
+            onRdvChange();
+            setNotifyDrag({ rdv_id: snapshot.rdv.id, old_date_heure: snapshot.rdv.date_heure, new_date: newDateStr, new_heure: newTimeStr });
+          });
+        }
+      } else {
+        router.push(`/dashboard/agenda/${snapshot.rdv.id}`);
+      }
       return;
     }
     if (vDrag) {
