@@ -878,8 +878,10 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                   return (
                     <div key={rdv.id}
                       onPointerDown={e => onRdvPointerDown(e, rdv, i, duree)}
-                      style={{ position: "absolute", top, left: 3, right: 3, height, background: `${couleur}18`, borderLeft: `3px solid ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "grab", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", zIndex: 6, opacity: isBeingDragged ? 0.3 : 1, transition: isBeingDragged ? "none" : "opacity 0.15s" }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: couleur, lineHeight: 1.3 }}>{formatHeure(rdv.date_heure)}</div>
+                      style={{ position: "absolute", top, left: 3, right: 18, height, background: `${couleur}18`, borderLeft: `3px solid ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "grab", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", zIndex: 6, opacity: isBeingDragged ? 0.3 : 1, transition: isBeingDragged ? "none" : "opacity 0.15s" }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: couleur, lineHeight: 1.3 }}>
+                        {formatHeure(rdv.date_heure)} <span style={{ color: "#888", fontWeight: 400 }}>· {formatDuree(duree)}</span>
+                      </div>
                       {height > 26 && (
                         <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {rdv.clients ? `${rdv.clients.prenom} ${rdv.clients.nom}` : "—"}
@@ -887,7 +889,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                       )}
                       {height > 44 && (
                         <div style={{ fontSize: 10, color: "#888", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {prestaNoms}{duree ? ` · ${formatDuree(duree)}` : ""}
+                          {prestaNoms}
                         </div>
                       )}
                     </div>
@@ -896,7 +898,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
 
                 {/* Ghost RDV en cours de drag */}
                 {rdvDrag && rdvDrag.currentColIdx === i && (
-                  <div style={{ position: "absolute", top: (rdvDrag.currentMin - grilleDebut) / 60 * PX_PAR_HEURE, left: 3, right: 3, height: Math.max(22, rdvDrag.duree / 60 * PX_PAR_HEURE - 3), background: `${couleur}30`, border: `2px dashed ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", zIndex: 9, pointerEvents: "none" }}>
+                  <div style={{ position: "absolute", top: (rdvDrag.currentMin - grilleDebut) / 60 * PX_PAR_HEURE, left: 3, right: 18, height: Math.max(22, rdvDrag.duree / 60 * PX_PAR_HEURE - 3), background: `${couleur}30`, border: `2px dashed ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", zIndex: 9, pointerEvents: "none" }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: couleur }}>{minToTime(rdvDrag.currentMin)}</div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {rdvDrag.rdv.clients ? `${rdvDrag.rdv.clients.prenom} ${rdvDrag.rdv.clients.nom}` : "—"}

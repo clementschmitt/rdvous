@@ -27,7 +27,10 @@ function NouveauRDVContent() {
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [overrideActif, setOverrideActif] = useState(false);
   const [montantOverride, setMontantOverride] = useState<number | "">("");
+  const [dureeOverrideActif, setDureeOverrideActif] = useState(false);
+  const [dureeOverride, setDureeOverride] = useState<number | "">(60);
   const [notes, setNotes] = useState("");
+  const [forcerConflit, setForcerConflit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [clientSearch, setClientSearch] = useState("");
@@ -39,6 +42,7 @@ function NouveauRDVContent() {
   const prestasSelectionnees = prestations.filter(p => selectedPrests.includes(p.id));
   const tarifTotal = prestasSelectionnees.reduce((s, p) => s + p.tarif, 0);
   const dureeTotal = prestasSelectionnees.reduce((s, p) => s + p.duree_minutes, 0);
+  const dureeFinal = dureeOverrideActif && dureeOverride !== "" ? Number(dureeOverride) : dureeTotal || 60;
   const tarifBase = overrideActif && montantOverride !== "" ? Number(montantOverride) : tarifTotal;
   const cagnotteMax = clientSelectionne ? Math.min(clientSelectionne.cagnotte, tarifBase) : 0;
   const tarifFinal = Math.max(0, tarifBase - cagnotteAUtiliser);
@@ -92,7 +96,7 @@ function NouveauRDVContent() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!clientId) { setError("Sélectionnez un client."); return; }
-    if (selectedPrests.length === 0) { setError("Sélectionnez au moins une prestation."); return; }
+    if (selectedPrests.length === 0 && !dureeOverrideActif) { setError("Sélectionnez au moins une prestation, ou activez une durée personnalisée."); return; }
     setLoading(true);
     setError("");
 
@@ -118,31 +122,60 @@ function NouveauRDVContent() {
     const tarifInsert = overrideActif && montantOverride !== "" ? Number(montantOverride) : null;
     const cancelToken = crypto.randomUUID();
 
-    const { data: rdvId, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
-      p_salon_id: salon!.id,
-      p_client_id: clientId,
-      p_date_heure: `${date}T${heure}:00`,
-      p_duree_minutes: dureeTotal || 60,
-      p_statut: "planifie",
-      p_cancel_token: cancelToken,
-      p_adresse_domicile: null,
-      p_notes: notes || null,
-      p_tarif: tarifInsert,
-      p_montant_cagnotte_utilise: cagnotteAUtiliser || null,
-      p_source: "salon",
-    });
+    let rdvId: string | null = null;
 
-    if (rdvErr || !rdvId) {
-      if (rdvErr?.message?.includes("CONFLIT_CRENEAU")) {
-        setError("Ce créneau vient d'être réservé. Actualisez l'agenda avant de créer un nouveau rendez-vous.");
-      } else {
-        setError(rdvErr?.message || "Erreur");
+    if (forcerConflit) {
+      // Insert direct — bypass la vérification de conflit de créneau
+      const { data: inserted, error: insertErr } = await supabase
+        .from("rendez_vous")
+        .insert({
+          salon_id: salon!.id,
+          client_id: clientId,
+          date_heure: `${date}T${heure}:00`,
+          duree_minutes: dureeFinal,
+          statut: "planifie",
+          cancel_token: cancelToken,
+          adresse_domicile: null,
+          notes: notes || null,
+          tarif: tarifInsert,
+          montant_cagnotte_utilise: cagnotteAUtiliser || null,
+          source: "salon",
+        })
+        .select("id")
+        .single();
+      if (insertErr || !inserted) {
+        setError(insertErr?.message || "Erreur");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-      return;
+      rdvId = inserted.id;
+    } else {
+      const { data, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
+        p_salon_id: salon!.id,
+        p_client_id: clientId,
+        p_date_heure: `${date}T${heure}:00`,
+        p_duree_minutes: dureeTotal || 60,
+        p_statut: "planifie",
+        p_cancel_token: cancelToken,
+        p_adresse_domicile: null,
+        p_notes: notes || null,
+        p_tarif: tarifInsert,
+        p_montant_cagnotte_utilise: cagnotteAUtiliser || null,
+        p_source: "salon",
+      });
+      if (rdvErr || !data) {
+        if (rdvErr?.message?.includes("CONFLIT_CRENEAU")) {
+          setError("Créneau déjà occupé. Cochez \"Forcer le créneau\" si vous souhaitez quand même créer ce rendez-vous.");
+        } else {
+          setError(rdvErr?.message || "Erreur");
+        }
+        setLoading(false);
+        return;
+      }
+      rdvId = data as string;
     }
 
-    const rdv = { id: rdvId as string };
+    const rdv = { id: rdvId! };
 
     await supabase.from("rendez_vous_prestations").insert(
       selectedPrests.map(pid => ({ rendez_vous_id: rdv.id, prestation_id: pid }))
@@ -170,8 +203,11 @@ function NouveauRDVContent() {
     `${c.prenom} ${c.nom}`.toLowerCase().includes(clientSearch.toLowerCase())
   );
 
-  // 08:00 → 22:30, pas de 30min
-  const CRENEAUX = Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`);
+  // 08:00 → 22:45, pas de 15min
+  const CRENEAUX = Array.from({ length: 60 }, (_, i) => {
+    const total = 8 * 60 + i * 15;
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  }).filter(t => t <= "22:45");
 
   const activeCat = selectedCat ?? categories[0]?.id ?? null;
   const uncategorized = prestations.filter(p => !p.categorie_id);
@@ -224,6 +260,10 @@ function NouveauRDVContent() {
               </select>
             </div>
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", userSelect: "none", marginTop: 12 }}>
+            <input type="checkbox" checked={forcerConflit} onChange={e => setForcerConflit(e.target.checked)} style={{ accentColor: m.couleur }} />
+            Forcer le créneau (ignorer les chevauchements)
+          </label>
         </Section>
 
         <Section titre={`${m.labelClients.replace(/s$/, "")} *`}>
@@ -283,6 +323,27 @@ function NouveauRDVContent() {
                 </div>
               )}
             </>
+          )}
+        </Section>
+
+        <Section titre="Durée">
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", userSelect: "none" }}>
+            <input type="checkbox" checked={dureeOverrideActif} onChange={e => setDureeOverrideActif(e.target.checked)} style={{ accentColor: m.couleur }} />
+            Durée personnalisée{dureeTotal > 0 ? ` (calculée depuis les prestations : ${dureeTotal} min)` : ""}
+          </label>
+          {dureeOverrideActif && (
+            <div style={{ marginTop: 10 }}>
+              <label style={labelStyle}>Durée (minutes)</label>
+              <input
+                type="number"
+                min={5}
+                step={5}
+                value={dureeOverride}
+                onChange={e => setDureeOverride(e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder="60"
+                style={inputStyle}
+              />
+            </div>
           )}
         </Section>
 

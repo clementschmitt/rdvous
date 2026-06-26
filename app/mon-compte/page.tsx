@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { T } from "@/lib/theme";
@@ -35,11 +36,15 @@ function joursAvant(dateStr: string): string {
   if (diff <= 0) return "Aujourd'hui";
   if (diff === 1) return "Demain";
   if (diff < 7) return `Dans ${diff} jours`;
-  if (diff < 14) return "La semaine prochaine";
+  // "La semaine prochaine" uniquement si dans la vraie semaine calendaire suivante
+  const lundiCetteSemai = new Date(n); lundiCetteSemai.setDate(n.getDate() - ((n.getDay() + 6) % 7));
+  const lundiProchaine = new Date(lundiCetteSemai); lundiProchaine.setDate(lundiCetteSemai.getDate() + 7);
+  const dimancheProchaine = new Date(lundiProchaine); dimancheProchaine.setDate(lundiProchaine.getDate() + 6);
+  if (d >= lundiProchaine && d <= dimancheProchaine) return "La semaine prochaine";
   return `Dans ${Math.round(diff / 7)} semaines`;
 }
 
-function googleCalendarUrl(rdv: Rdv): string {
+function calendarData(rdv: Rdv) {
   const dateStr = rdv.date_heure.slice(0, 10).replace(/-/g, "");
   const startH = parseInt(rdv.date_heure.slice(11, 13));
   const startM = parseInt(rdv.date_heure.slice(14, 16));
@@ -50,9 +55,45 @@ function googleCalendarUrl(rdv: Rdv): string {
   const startTime = `${String(startH).padStart(2, "0")}${String(startM).padStart(2, "0")}00`;
   const endTime = `${endH}${endM}00`;
   const prestations = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
-  const title = encodeURIComponent(`${prestations || "Rendez-vous"} — ${rdv.salons?.nom || ""}`);
-  const dates = `${dateStr}T${startTime}/${dateStr}T${endTime}`;
-  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${dates}`;
+  const title = `${prestations || "Rendez-vous"} — ${rdv.salons?.nom || ""}`;
+  return { dateStr, startTime, endTime, title };
+}
+
+function googleCalendarUrl(rdv: Rdv): string {
+  const { dateStr, startTime, endTime, title } = calendarData(rdv);
+  return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${dateStr}T${startTime}/${dateStr}T${endTime}`;
+}
+
+function outlookUrl(rdv: Rdv): string {
+  const { dateStr, startTime, endTime, title } = calendarData(rdv);
+  return `https://outlook.live.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(title)}&startdt=${dateStr}T${startTime}&enddt=${dateStr}T${endTime}&path=%2Fcalendar%2Faction%2Fcompose&rru=addevent`;
+}
+
+function office365Url(rdv: Rdv): string {
+  const { dateStr, startTime, endTime, title } = calendarData(rdv);
+  return `https://outlook.office.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(title)}&startdt=${dateStr}T${startTime}&enddt=${dateStr}T${endTime}&path=%2Fcalendar%2Faction%2Fcompose&rru=addevent`;
+}
+
+function yahooUrl(rdv: Rdv): string {
+  const { dateStr, startTime, endTime, title } = calendarData(rdv);
+  return `https://calendar.yahoo.com/?v=60&title=${encodeURIComponent(title)}&st=${dateStr}T${startTime}&et=${dateStr}T${endTime}`;
+}
+
+function downloadIcs(rdv: Rdv): void {
+  const { dateStr, startTime, endTime, title } = calendarData(rdv);
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//rdvous//FR",
+    "BEGIN:VEVENT",
+    `DTSTART:${dateStr}T${startTime}`,
+    `DTEND:${dateStr}T${endTime}`,
+    `SUMMARY:${title}`,
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const blob = new Blob([ics], { type: "text/calendar" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "rdvous.ics"; a.click();
+  URL.revokeObjectURL(url);
 }
 
 function rebookPath(rdv: Rdv): string {
@@ -106,6 +147,7 @@ export default function MonComptePage() {
   const [avisForm, setAvisForm] = useState<Record<string, { note: number; commentaire: string }>>({});
   const [avisLoading, setAvisLoading] = useState<Record<string, boolean>>({});
   const [avisSubmitted, setAvisSubmitted] = useState<Set<string>>(new Set());
+  const [calendarMenuOpen, setCalendarMenuOpen] = useState<string | null>(null);
 
   const [photoLoading, setPhotoLoading] = useState<Record<string, boolean>>({});
   const [photoError, setPhotoError] = useState<Record<string, string>>({});
@@ -287,13 +329,61 @@ export default function MonComptePage() {
     </div>
   );
 
+  const CalendarMenu = ({ rdv }: { rdv: Rdv }) => {
+    const btnRef = useRef<HTMLButtonElement>(null);
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+    const open = calendarMenuOpen === rdv.id;
+    useEffect(() => {
+      if (open && btnRef.current) {
+        const r = btnRef.current.getBoundingClientRect();
+        setPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX });
+      }
+    }, [open]);
+    useEffect(() => {
+      if (!open) return;
+      const close = () => setCalendarMenuOpen(null);
+      document.addEventListener("click", close);
+      return () => document.removeEventListener("click", close);
+    }, [open]);
+    return (
+      <div style={{ position: "relative" }}>
+        <button ref={btnRef} onClick={e => { e.stopPropagation(); setCalendarMenuOpen(open ? null : rdv.id); }}
+          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#1a73e8", background: "#fff", border: "1px solid #c5dbf7", borderRadius: 9, padding: "7px 14px", cursor: "pointer" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Ajouter au calendrier
+        </button>
+        {open && pos && createPortal(
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: pos.top, left: pos.left, background: "#fff", border: "1px solid #e8e0d8", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.12)", zIndex: 9999, minWidth: 190, overflow: "hidden" }}>
+            {[
+              { label: "Google Agenda", href: googleCalendarUrl(rdv) },
+              { label: "Outlook.com", href: outlookUrl(rdv) },
+              { label: "Office 365", href: office365Url(rdv) },
+              { label: "Yahoo Calendar", href: yahooUrl(rdv) },
+            ].map(({ label, href }) => (
+              <a key={label} href={href} target="_blank" rel="noopener noreferrer"
+                onClick={() => setCalendarMenuOpen(null)}
+                style={{ display: "block", padding: "10px 16px", fontSize: 13, color: "#2c1810", textDecoration: "none", borderBottom: "1px solid #f0ebe4" }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#f9f5f1")}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                {label}
+              </a>
+            ))}
+            <button onClick={() => { downloadIcs(rdv); setCalendarMenuOpen(null); }}
+              style={{ display: "block", width: "100%", padding: "10px 16px", fontSize: 13, color: "#2c1810", background: "none", border: "none", textAlign: "left", cursor: "pointer" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#f9f5f1")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+              Apple / iCal (.ics)
+            </button>
+          </div>,
+          document.body
+        )}
+      </div>
+    );
+  };
+
   const RdvActions = ({ rdv }: { rdv: Rdv }) => (
     <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-      <a href={googleCalendarUrl(rdv)} target="_blank" rel="noopener noreferrer"
-        style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#1a73e8", background: "#fff", border: "1px solid #c5dbf7", borderRadius: 9, padding: "7px 14px", textDecoration: "none" }}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        Google Agenda
-      </a>
+      <CalendarMenu rdv={rdv} />
       <button onClick={() => { setConfirm({ rdv_id: rdv.id, action: "deplacer" }); setActionError(""); }}
         style={{ fontSize: 12, fontWeight: 600, color: T.text, background: "#fff", border: `1px solid ${T.border}`, borderRadius: 9, padding: "7px 14px", cursor: "pointer" }}>
         Déplacer
@@ -372,25 +462,34 @@ export default function MonComptePage() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "20px 16px 88px" : "40px 32px 64px" }}>
 
-        {/* En-tête */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
-          <div>
-            <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 600, color: T.text, margin: 0, letterSpacing: "-0.3px" }}>
-              Bonjour{prenom ? `, ${prenom}` : ""}
-            </h1>
-            {email && <div style={{ fontSize: 13, color: T.muted, marginTop: 4 }}>{email}</div>}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/mon-compte/parametres" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", border: `1px solid ${T.border}`, textDecoration: "none", fontSize: 18, color: T.muted }}>
-              ⚙
-            </Link>
-            <button onClick={handleLogout} style={{ fontSize: 12, color: T.muted, background: "none", border: `1px solid ${T.border}`, borderRadius: 20, padding: "7px 16px", cursor: "pointer" }}>
-              Déconnexion
-            </button>
+      {/* Bandeau header sombre */}
+      <div style={{ background: T.text, padding: isMobile ? "20px 16px 24px" : "28px 40px 32px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Mon espace</div>
+              <h1 style={{ fontFamily: T.heading, fontSize: isMobile ? 28 : 36, fontWeight: 600, color: "#fff", margin: 0, letterSpacing: "-0.5px" }}>
+                Bonjour{prenom ? `, ${prenom}` : ""}
+              </h1>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Link href="/recherche" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", color: T.text, borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                {isMobile ? "Réserver" : "Prendre un rendez-vous"}
+              </Link>
+              <Link href="/mon-compte/parametres" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.2)", textDecoration: "none", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
+                ⚙
+              </Link>
+              <button onClick={handleLogout} style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", background: "none", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 20, padding: "7px 16px", cursor: "pointer" }}>
+                Déconnexion
+              </button>
+            </div>
           </div>
         </div>
+      </div>
+
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "24px 16px 88px" : "36px 32px 64px" }}>
 
         {/* Grid 2 colonnes */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 20 : 28, alignItems: "start" }}>
@@ -406,30 +505,30 @@ export default function MonComptePage() {
               const isConfirming = confirm?.rdv_id === hero.id;
               const prix = calcPrix(hero);
               return (
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Prochain rendez-vous</div>
-                  <div style={{ background: T.white, borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,0.07)", border: `1px solid ${c.clair}66` }}>
-                    <div style={{ height: 4, background: c.couleur }} />
-                    <div style={{ padding: "18px 20px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                          <Avatar rdv={hero} size={44} />
-                          <div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <span style={{ fontFamily: T.heading, fontSize: 19, fontWeight: 600, color: T.text }}>{hero.salons?.nom || "Salon"}</span>
-                              <HeartBtn rdv={hero} />
-                            </div>
-                            {prestations && <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{prestations}</div>}
+                <div style={{ marginBottom: 28 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Prochain rendez-vous</div>
+                  <div style={{ background: T.white, borderRadius: 20, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.09)", border: `1px solid ${c.clair}` }}>
+                    {/* Bandeau couleur métier */}
+                    <div style={{ background: c.couleur + "18", borderBottom: `1px solid ${c.clair}`, padding: "16px 22px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <Avatar rdv={hero} size={48} />
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontFamily: T.heading, fontSize: 21, fontWeight: 600, color: T.text }}>{hero.salons?.nom || "Salon"}</span>
+                            <HeartBtn rdv={hero} />
                           </div>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: c.couleur, background: c.clair + "55", padding: "4px 11px", borderRadius: 20 }}>{joursAvant(hero.date_heure)}</span>
-                          {prix != null && <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{prix} €</span>}
+                          {prestations && <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{prestations}</div>}
                         </div>
                       </div>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 8, textTransform: "capitalize" }}>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: T.text }}>{date}</span>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: c.couleur }}>{heure}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: c.couleur, background: "#fff", padding: "5px 13px", borderRadius: 20, border: `1px solid ${c.clair}`, whiteSpace: "nowrap" }}>{joursAvant(hero.date_heure)}</span>
+                    </div>
+                    <div style={{ padding: "20px 22px" }}>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
+                        <div>
+                          <div style={{ fontSize: 22, fontWeight: 700, color: T.text, textTransform: "capitalize", letterSpacing: "-0.3px" }}>{date}</div>
+                          <div style={{ fontSize: 28, fontWeight: 800, color: c.couleur, letterSpacing: "-0.5px", lineHeight: 1.1 }}>{heure}</div>
+                        </div>
+                        {prix != null && <div style={{ fontSize: 24, fontWeight: 700, color: T.text }}>{prix} €</div>}
                       </div>
                       {isConfirming ? <ActionConfirm rdv={hero} /> : <RdvActions rdv={hero} />}
                     </div>
@@ -451,18 +550,18 @@ export default function MonComptePage() {
                     const isConfirming = confirm?.rdv_id === rdv.id;
                     const prix = calcPrix(rdv);
                     return (
-                      <div key={rdv.id} style={{ background: T.white, borderRadius: 14, border: `1px solid ${T.border}`, padding: "13px 16px" }}>
+                      <div key={rdv.id} style={{ background: T.white, borderRadius: 16, border: `1px solid ${T.border}`, padding: "14px 18px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                           <Avatar rdv={rdv} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{rdv.salons?.nom || "Salon"}</span>
+                              <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{rdv.salons?.nom || "Salon"}</span>
                               <HeartBtn rdv={rdv} />
                             </div>
-                            <div style={{ fontSize: 12, color: T.muted, textTransform: "capitalize" }}>{date} · {heure}{prestations ? ` · ${prestations}` : ""}</div>
+                            <div style={{ fontSize: 12, color: T.muted, textTransform: "capitalize", marginTop: 2 }}>{date} · <strong style={{ color: c.couleur }}>{heure}</strong>{prestations ? ` · ${prestations}` : ""}</div>
                           </div>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: c.couleur }}>{joursAvant(rdv.date_heure)}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: c.couleur, background: c.clair + "55", padding: "3px 9px", borderRadius: 20 }}>{joursAvant(rdv.date_heure)}</span>
                             {prix != null && <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{prix} €</span>}
                           </div>
                         </div>
@@ -480,7 +579,7 @@ export default function MonComptePage() {
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 6 }}>Aucun rendez-vous à venir</div>
                 <div style={{ fontSize: 13, color: T.muted, marginBottom: 16 }}>Prenez rendez-vous chez vos salons préférés.</div>
-                <Link href="/" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                <Link href="/recherche" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                   Trouver un salon
                 </Link>
               </div>
