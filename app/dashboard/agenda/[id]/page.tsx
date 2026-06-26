@@ -7,7 +7,8 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
 
-type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number };
+type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; categorie_id: string | null };
+type Category = { id: string; nom: string; ordre: number };
 type RDV = {
   id: string; date_heure: string; statut: string; notes: string | null;
   montant_cagnotte_utilise: number; tarif: number | null; client_id: string;
@@ -35,6 +36,8 @@ export default function RDVDetailPage() {
 
   const [editingPrestations, setEditingPrestations] = useState(false);
   const [allPrestations, setAllPrestations] = useState<Prestation[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const [capsules, setCapsules] = useState<Capsules>({ g: [0,0,0,0,0], d: [0,0,0,0,0] });
@@ -77,8 +80,13 @@ export default function RDVDetailPage() {
 
   async function startEditPrestations() {
     const supabase = createSupabase();
-    const { data } = await supabase.from("prestations").select("id, nom, duree_minutes, tarif").eq("salon_id", salon!.id).eq("actif", true).order("nom");
-    setAllPrestations((data || []) as Prestation[]);
+    const [{ data: pData }, { data: cData }] = await Promise.all([
+      supabase.from("prestations").select("id, nom, duree_minutes, tarif, categorie_id").eq("salon_id", salon!.id).eq("actif", true).order("nom"),
+      supabase.from("prestation_categories").select("id, nom, ordre").eq("salon_id", salon!.id).order("ordre"),
+    ]);
+    setAllPrestations((pData || []) as Prestation[]);
+    setAllCategories((cData || []) as Category[]);
+    setSelectedCat(null);
     setSelectedIds(new Set(rdv!.rendez_vous_prestations.map(rp => rp.prestation_id)));
     setEditingPrestations(true);
   }
@@ -334,15 +342,52 @@ export default function RDVDetailPage() {
 
           {editingPrestations ? (
             <div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                {allPrestations.map(p => {
-                  const sel = selectedIds.has(p.id);
-                  return (
-                    <button key={p.id} onClick={() => togglePresta(p.id)} style={{ padding: "6px 12px", border: `2px solid ${sel ? m.couleur : "#e0e0e0"}`, borderRadius: 20, background: sel ? `${m.couleur}15` : "#fff", color: sel ? m.couleur : "#555", fontSize: 12, fontWeight: sel ? 600 : 400, cursor: "pointer" }}>
-                      {p.nom} — {p.duree_minutes}min — {p.tarif}€
-                    </button>
-                  );
-                })}
+              {allCategories.length > 0 && (() => {
+                const uncategorized = allPrestations.filter(p => !p.categorie_id);
+                return (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                    {allCategories.map(cat => {
+                      const isActive = selectedCat === cat.id;
+                      const count = [...selectedIds].filter(id => allPrestations.find(p => p.id === id && p.categorie_id === cat.id)).length;
+                      return (
+                        <button key={cat.id} type="button" onClick={() => setSelectedCat(cat.id)}
+                          style={{ padding: "5px 12px", border: `1.5px solid ${isActive ? m.couleur : "#e0e0e0"}`, borderRadius: 20, background: isActive ? m.couleur : "#fff", color: isActive ? "#fff" : "#555", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                          {cat.nom}
+                          {count > 0 && <span style={{ background: isActive ? "rgba(255,255,255,0.35)" : m.couleur, color: "#fff", borderRadius: 10, padding: "0 6px", fontSize: 11, fontWeight: 700 }}>{count}</span>}
+                        </button>
+                      );
+                    })}
+                    {uncategorized.length > 0 && (
+                      <button type="button" onClick={() => setSelectedCat("__autres")}
+                        style={{ padding: "5px 12px", border: `1.5px solid ${selectedCat === "__autres" ? m.couleur : "#e0e0e0"}`, borderRadius: 20, background: selectedCat === "__autres" ? m.couleur : "#fff", color: selectedCat === "__autres" ? "#fff" : "#555", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                        Autres
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+              <div style={{ border: "1px solid #e8e8e8", borderRadius: 8, overflow: "hidden", marginBottom: 10 }}>
+                {(() => {
+                  const uncategorized = allPrestations.filter(p => !p.categorie_id);
+                  const activeCat = selectedCat ?? allCategories[0]?.id ?? null;
+                  const visible = activeCat === "__autres" ? uncategorized : activeCat ? allPrestations.filter(p => p.categorie_id === activeCat) : allPrestations;
+                  return visible.length === 0
+                    ? <div style={{ padding: "14px 16px", fontSize: 13, color: "#bbb" }}>Aucune prestation</div>
+                    : visible.map((p, i) => {
+                        const sel = selectedIds.has(p.id);
+                        return (
+                          <div key={p.id} onClick={() => togglePresta(p.id)}
+                            style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", cursor: "pointer", background: sel ? `${m.couleur}08` : "#fff", borderBottom: i < visible.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, border: `2px solid ${sel ? m.couleur : "#d0d0d0"}`, background: sel ? m.couleur : "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {sel && <span style={{ color: "#fff", fontSize: 10, fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                            </div>
+                            <span style={{ flex: 1, fontSize: 13, color: "#1a1a1a" }}>{p.nom}</span>
+                            <span style={{ fontSize: 12, color: "#aaa", flexShrink: 0 }}>{p.duree_minutes}min</span>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: sel ? m.couleur : "#555", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{p.tarif}€</span>
+                          </div>
+                        );
+                      });
+                })()}
               </div>
               {selectedIds.size > 0 && (
                 <div style={{ fontSize: 13, color: "#666" }}>Total : <b>{selectedPrests.reduce((s, p) => s + p.duree_minutes, 0)}min — {selectedPrests.reduce((s, p) => s + p.tarif, 0)}€</b></div>
