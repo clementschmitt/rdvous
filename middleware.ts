@@ -21,6 +21,14 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Intercepte /?code= (reset password PKCE) et redirige vers la bonne page
+  const code = request.nextUrl.searchParams.get("code");
+  if (code && request.nextUrl.pathname === "/") {
+    const resetUrl = new URL("/mon-compte/reset-password", request.url);
+    resetUrl.searchParams.set("code", code);
+    return NextResponse.redirect(resetUrl);
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   const { pathname } = request.nextUrl;
 
