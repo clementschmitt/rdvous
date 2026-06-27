@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { createSupabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { T } from "@/lib/theme";
 
@@ -17,8 +17,9 @@ function EyeIcon({ open }: { open: boolean }) {
   );
 }
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [ready, setReady] = useState(false);
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -30,6 +31,17 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     const supabase = createSupabase();
+    const code = searchParams.get("code");
+
+    if (code) {
+      // PKCE flow : échange le code contre une session
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (!error) setReady(true);
+      });
+      return;
+    }
+
+    // Fallback : ancien flow implicite (PASSWORD_RECOVERY event)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setReady(true);
     });
@@ -110,4 +122,8 @@ export default function ResetPasswordPage() {
       </div>
     </div>
   );
+}
+
+export default function ResetPasswordPage() {
+  return <Suspense><ResetPasswordContent /></Suspense>;
 }

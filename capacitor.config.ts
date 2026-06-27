@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: 'rdvous',
   webDir: 'out',
   server: {
-    url: 'https://rdvous.fr',
+    url: 'https://rdvous.fr/app',
     cleartext: false,
   },
 };

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { T } from "@/lib/theme";
 import { METIERS, type Metier } from "@/lib/metiers";
 import Link from "next/link";
+import AppBottomNav from "@/app/components/AppBottomNav";
 
 type Rdv = {
   id: string;
@@ -474,7 +475,7 @@ export default function MonComptePage() {
               </h1>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Link href="/recherche" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", color: T.text, borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+              <Link href="/app" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", color: T.text, borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 {isMobile ? "Réserver" : "Prendre un rendez-vous"}
               </Link>
@@ -488,6 +489,24 @@ export default function MonComptePage() {
           </div>
         </div>
       </div>
+
+      {/* Top tabs — mobile uniquement */}
+      {isMobile && (
+        <div style={{ background: "#fff", borderBottom: "1px solid #f0f0f0", display: "flex" }}>
+          {(["rdvs", "favoris", "galerie"] as const).map((tab, i) => {
+            const labels = ["Agenda", "Favoris", "Photos"];
+            const active = activeTab === tab;
+            return (
+              <button key={tab} onClick={() => setActiveTab(tab)}
+                style={{ flex: 1, padding: "14px 0", background: "none", border: "none", cursor: "pointer",
+                  borderBottom: active ? "2px solid #1a1a1a" : "2px solid transparent",
+                  fontSize: 14, fontWeight: active ? 600 : 400, color: active ? "#1a1a1a" : "#aaa" }}>
+                {labels[i]}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "24px 16px 88px" : "36px 32px 64px" }}>
 
@@ -579,7 +598,7 @@ export default function MonComptePage() {
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 6 }}>Aucun rendez-vous à venir</div>
                 <div style={{ fontSize: 13, color: T.muted, marginBottom: 16 }}>Prenez rendez-vous chez vos salons préférés.</div>
-                <Link href="/recherche" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                <Link href="/app" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                   Trouver un salon
                 </Link>
               </div>
@@ -729,28 +748,7 @@ export default function MonComptePage() {
 
       </div>
 
-      {/* Bottom nav — mobile uniquement */}
-      {isMobile && (() => {
-        const tabs: { key: "rdvs" | "favoris" | "galerie"; label: string; icon: string }[] = [
-          { key: "rdvs", label: "RDVs", icon: "📅" },
-          { key: "favoris", label: "Favoris", icon: "♥" },
-          { key: "galerie", label: "Photos", icon: "🖼" },
-        ];
-        return (
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: T.white, borderTop: `1px solid ${T.border}`, display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
-            {tabs.map(t => {
-              const active = activeTab === t.key;
-              return (
-                <button key={t.key} onClick={() => setActiveTab(t.key)}
-                  style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, padding: "10px 0", background: "none", border: "none", cursor: "pointer", borderTop: active ? `2px solid ${T.text}` : "2px solid transparent", marginTop: -1 }}>
-                  <span style={{ fontSize: 20 }}>{t.icon}</span>
-                  <span style={{ fontSize: 10, fontWeight: active ? 700 : 500, color: active ? T.text : T.muted, letterSpacing: "0.03em" }}>{t.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        );
-      })()}
+      {isMobile && <AppBottomNav />}
 
       {/* Lightbox */}
       {lightboxUrl && (
