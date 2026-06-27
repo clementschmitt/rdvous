@@ -21,16 +21,22 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  // Intercepte /?code= (reset password PKCE) et redirige vers la bonne page
   const code = request.nextUrl.searchParams.get("code");
-  if (code && request.nextUrl.pathname === "/") {
+  const { pathname } = request.nextUrl;
+
+  // Intercepte /?code= → redirige vers reset-password
+  if (code && pathname === "/") {
     const resetUrl = new URL("/mon-compte/reset-password", request.url);
     resetUrl.searchParams.set("code", code);
     return NextResponse.redirect(resetUrl);
   }
 
+  // Laisse la page reset-password gérer le code elle-même — ne pas consommer via getUser()
+  if (code && pathname === "/mon-compte/reset-password") {
+    return NextResponse.next({ request });
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
 
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
   const isProtected =

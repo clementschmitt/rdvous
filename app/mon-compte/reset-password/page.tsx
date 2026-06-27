@@ -31,21 +31,20 @@ function ResetPasswordContent() {
 
   useEffect(() => {
     const supabase = createSupabase();
-    const code = searchParams.get("code");
+    const timeout = setTimeout(() => setError("Lien invalide ou expiré. Faites une nouvelle demande."), 8000);
 
-    if (code) {
-      // PKCE flow : échange le code contre une session
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (!error) setReady(true);
-      });
-      return;
-    }
-
-    // Fallback : ancien flow implicite (PASSWORD_RECOVERY event)
+    // Supabase détecte et échange le code automatiquement (detectSessionInUrl: true)
+    // On écoute le PASSWORD_RECOVERY event qui se déclenche après l'échange
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setReady(true);
+      if (event === "PASSWORD_RECOVERY") { clearTimeout(timeout); setReady(true); }
     });
-    return () => subscription.unsubscribe();
+
+    // Race condition : si le client a déjà échangé le code avant l'écoute
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) { clearTimeout(timeout); setReady(true); }
+    });
+
+    return () => { subscription.unsubscribe(); clearTimeout(timeout); };
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -74,7 +73,18 @@ function ResetPasswordContent() {
 
   if (!ready) return (
     <div style={{ minHeight: "100vh", background: T.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ textAlign: "center", color: T.muted, fontSize: 14 }}>Vérification du lien...</div>
+      <div style={{ textAlign: "center", maxWidth: 340, padding: 24 }}>
+        {error ? (
+          <>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>❌</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: T.text, marginBottom: 8 }}>Lien invalide ou expiré</div>
+            <div style={{ fontSize: 13, color: T.muted, marginBottom: 20 }}>Faites une nouvelle demande de réinitialisation.</div>
+            <a href="/mon-compte/parametres" style={{ fontSize: 13, fontWeight: 600, color: T.text }}>Retour aux paramètres →</a>
+          </>
+        ) : (
+          <div style={{ color: T.muted, fontSize: 14 }}>Vérification du lien...</div>
+        )}
+      </div>
     </div>
   );
 
