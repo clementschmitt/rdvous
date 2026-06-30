@@ -15,7 +15,7 @@ import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier"
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
-type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_confirmation_active: boolean; sms_rappel_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number; planning_ouverture_heure: number };
+type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_confirmation_active: boolean; sms_rappel_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number; planning_ouverture_heure: number; date_limite_planning: string };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
@@ -33,7 +33,7 @@ export default function ParametresPage() {
   const salon = useSalon();
   const [tab, setTab] = useState<Tab>("prestations");
   const [prestations, setPrestations] = useState<Prestation[]>([]);
-  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_confirmation_active: true, sms_rappel_active: true, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23, planning_ouverture_heure: 0 });
+  const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_confirmation_active: true, sms_rappel_active: true, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23, planning_ouverture_heure: 0, date_limite_planning: "" });
   const [categories, setCategories] = useState<Category[]>([]);
   const [newCategorie, setNewCategorie] = useState("");
   const [editCategorieId, setEditCategorieId] = useState<string | null>(null);
@@ -901,7 +901,33 @@ export default function ParametresPage() {
                         <option value={365}>1 an</option>
                       </select>
                     </div>
-                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>Les clientes voient toujours X jours à l'avance depuis aujourd'hui.</div>
+                    <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>
+                      {settings.planning_horizon_jours === 0
+                        ? "Les clientes peuvent réserver n'importe quelle date future."
+                        : `Les clientes voient les ${settings.planning_horizon_jours} prochains jours à partir d'aujourd'hui.`}
+                    </div>
+                    {settings.planning_ouverture_mode === "horizon" && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0f0f0" }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 6 }}>Fermeture du planning</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <input
+                            type="date"
+                            value={settings.date_limite_planning}
+                            onChange={e => setSettings(s => ({ ...s, date_limite_planning: e.target.value }))}
+                            style={{ padding: "6px 10px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13 }}
+                          />
+                          {settings.date_limite_planning && (
+                            <button onClick={() => setSettings(s => ({ ...s, date_limite_planning: "" }))}
+                              style={{ fontSize: 12, color: "#e74c3c", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                              Supprimer
+                            </button>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>
+                          Aucune réservation ne sera acceptée après cette date. Laissez vide pour ne pas limiter.
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </label>
                 <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>

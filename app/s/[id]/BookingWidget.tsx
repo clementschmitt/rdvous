@@ -23,7 +23,7 @@ function getMondayOfWeek(offset: number) {
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function BookingWidget({
-  salonId, prestations, categories = [], dispos = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, planningOuvertureMode = "horizon", planningOuvertureJour = 23, salonTel, modeReservation = "menu",
+  salonId, prestations, categories = [], dispos = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, planningOuvertureMode = "horizon", planningOuvertureJour = 23, salonTel, modeReservation = "menu", planningDateLimite,
 }: {
   salonId: string;
   prestations: Prestation[];
@@ -37,6 +37,7 @@ export default function BookingWidget({
   planningOuvertureJour?: number;
   salonTel?: string;
   modeReservation?: "menu" | "guide";
+  planningDateLimite?: string;
 }) {
   const heureOuvMin = dispos.length > 0 ? dispos.reduce((min, d) => d.heure_debut < min ? d.heure_debut : min, dispos[0].heure_debut) : "08:00";
   const heureOuvMax = dispos.length > 0 ? dispos.reduce((max, d) => d.heure_fin > max ? d.heure_fin : max, dispos[0].heure_fin) : "20:00";
@@ -116,6 +117,11 @@ export default function BookingWidget({
     maxDate = toISO(new Date(targetYear, targetMonth + 1, 0));
   } else if (planningHorizonJours > 0) {
     maxDate = toISO(addDays(new Date(), planningHorizonJours));
+  }
+  // Appliquer la date limite comme plafond supplémentaire
+  if (planningDateLimite) {
+    const limiteStr = planningDateLimite;
+    if (!maxDate || limiteStr < maxDate) maxDate = limiteStr;
   }
   let ouvertureInfo: string | null = null;
   if (planningOuvertureMode === "date_fixe" && maxDate) {

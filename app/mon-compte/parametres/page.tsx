@@ -25,6 +25,12 @@ export default function ParametresPage() {
     })();
   }, [router]);
 
+  async function handleLogout() {
+    const supabase = createSupabase();
+    await supabase.auth.signOut();
+    router.push("/");
+  }
+
   async function handleReset() {
     setLoading(true);
     const supabase = createSupabase();
@@ -101,6 +107,14 @@ export default function ParametresPage() {
               </>
             )}
           </div>
+        </div>
+
+        {/* Déconnexion */}
+        <div style={{ marginTop: 16 }}>
+          <button onClick={handleLogout}
+            style={{ width: "100%", padding: "11px", background: "none", color: "#e74c3c", border: "1px solid #fca5a5", borderRadius: 9, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+            Se déconnecter
+          </button>
         </div>
 
       </div>

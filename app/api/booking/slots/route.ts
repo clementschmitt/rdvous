@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       .gte("date_heure", `${date}T00:00:00`)
       .lte("date_heure", `${date}T23:59:59`),
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
-    admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour, planning_ouverture_heure").eq("salon_id", salon_id).single(),
+    admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour, planning_ouverture_heure, date_limite_planning").eq("salon_id", salon_id).single(),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
     admin.from("agenda_evenements").select("date_heure, duree_minutes").eq("salon_id", salon_id).gte("date_heure", `${dateMinus30Str}T00:00:00`).lte("date_heure", `${date}T23:59:59`),
   ]);
@@ -38,6 +38,13 @@ export async function GET(req: NextRequest) {
   const ouvertureMode = settings?.planning_ouverture_mode ?? "horizon";
   const ouvertureJour = settings?.planning_ouverture_jour ?? 23;
   const ouvertureHeure = settings?.planning_ouverture_heure ?? 0;
+
+  // Fermeture du planning : uniquement en mode horizon glissant
+  const dateLimitePlanning = settings?.date_limite_planning as string | null | undefined;
+  if (dateLimitePlanning && ouvertureMode === "horizon") {
+    const limiteDate = new Date(dateLimitePlanning + "T23:59:59");
+    if (new Date(date + "T12:00:00") > limiteDate) return NextResponse.json({ slots: [] });
+  }
   if (ouvertureMode === "date_fixe") {
     // Heure courante en heure française (gère automatiquement l'heure d'été/hiver)
     const nowFrance = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
