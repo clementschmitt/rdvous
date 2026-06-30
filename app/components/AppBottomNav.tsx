@@ -2,12 +2,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccentColor } from "@/lib/accent-color";
+import { useState, useEffect } from "react";
 
 export default function AppBottomNav() {
   const pathname = usePathname();
   const { color } = useAccentColor();
+  const [homeHref, setHomeHref] = useState("/");
 
-  const isHome = pathname === "/app";
+  useEffect(() => {
+    const isNative = !!(window as any).Capacitor?.isNativePlatform?.();
+    setHomeHref(isNative ? "/app" : "/");
+  }, []);
+
+  const isHome = pathname === "/app" || pathname === "/";
   const isRdv = pathname.startsWith("/mon-compte") && !pathname.startsWith("/mon-compte/parametres");
   const isProfil = pathname.startsWith("/mon-compte/parametres");
 
@@ -20,7 +27,7 @@ export default function AppBottomNav() {
       display: "flex", justifyContent: "space-around",
       padding: "10px 0 24px", zIndex: 200,
     }}>
-      <Link href="/app" style={{ textDecoration: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <Link href={homeHref} style={{ textDecoration: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill={isHome ? color : "none"} stroke={active(isHome).stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 12L12 3L21 12V21H15V15H9V21H3V12Z"/>
         </svg>

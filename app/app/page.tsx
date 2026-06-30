@@ -53,7 +53,6 @@ export default function AppHomePage() {
   const greeting = hour < 12 ? "Bonjour" : hour < 18 ? "Bon après-midi" : "Bonsoir";
 
   useEffect(() => {
-    localStorage.setItem("rdvous_app", "1");
     const supabase = createSupabase();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return;

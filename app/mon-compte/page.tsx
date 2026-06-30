@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { T } from "@/lib/theme";
 import { METIERS, type Metier } from "@/lib/metiers";
 import Link from "next/link";
-import AppBottomNav from "@/app/components/AppBottomNav";
+import AppNavConditional from "@/app/components/AppNavConditional";
 import { useAccentColor } from "@/lib/accent-color";
 
 type Rdv = {
@@ -468,18 +468,17 @@ export default function MonComptePage() {
 
       {/* Header */}
       <div style={{ background: accentColor, padding: isMobile ? "20px 20px 22px" : "28px 40px 32px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <div style={{ width: 56, height: 1.5, background: "rgba(255,255,255,0.5)", marginBottom: 5 }} />
-              <div style={{ fontFamily: T.heading, fontSize: 28, fontWeight: 400, color: "#fff", letterSpacing: "0.04em", lineHeight: 1 }}>rdvous</div>
-            </div>
-            <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>
-              {new Date().getHours() < 12 ? "Bonjour" : new Date().getHours() < 18 ? "Bon après-midi" : "Bonsoir"}{prenom ? `, ${prenom}` : ""}
-            </div>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ width: 56, height: 1.5, background: "rgba(255,255,255,0.5)", marginBottom: 5 }} />
+            <div style={{ fontFamily: T.heading, fontSize: 28, fontWeight: 400, color: "#fff", letterSpacing: "0.04em", lineHeight: 1 }}>rdvous</div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>
+            {new Date().getHours() < 12 ? "Bonjour" : new Date().getHours() < 18 ? "Bon après-midi" : "Bonsoir"}{prenom ? `, ${prenom}` : ""}
           </div>
           {!isMobile && (
-            <Link href="/app" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.15)" }}>
+            <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.15)" }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               Prendre un rendez-vous
             </Link>
@@ -595,7 +594,7 @@ export default function MonComptePage() {
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 6 }}>Aucun rendez-vous à venir</div>
                 <div style={{ fontSize: 13, color: T.muted, marginBottom: 16 }}>Prenez rendez-vous chez vos salons préférés.</div>
-                <Link href="/app" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                <Link href="/" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                   Trouver un salon
                 </Link>
               </div>
@@ -745,7 +744,7 @@ export default function MonComptePage() {
 
       </div>
 
-      {isMobile && <AppBottomNav />}
+      <AppNavConditional />
 
       {/* Lightbox */}
       {lightboxUrl && (

@@ -123,7 +123,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
 
       {/* Header — transparent over hero, solid white on scroll */}
       <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} />
-      <AppNavConditional />
+      <AppNavConditional showTopBar />
 
       {/* Hero */}
       {photos.length > 0 ? (

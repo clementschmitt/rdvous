@@ -12,7 +12,7 @@ export default function SiteHeader({ links = [], cta, account = true, context = 
   const [isAppMode, setIsAppMode] = useState(false);
 
   useEffect(() => {
-    setIsAppMode(localStorage.getItem("rdvous_app") === "1");
+    setIsAppMode(!!(window as any).Capacitor?.isNativePlatform?.());
     createSupabase().auth.getSession().then(({ data }) => {
       const user = data.session?.user;
       setLoggedIn(!!user);

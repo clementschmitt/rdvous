@@ -4,6 +4,14 @@ import { useRouter } from "next/navigation";
 import AppBottomNav from "./AppBottomNav";
 import { useAccentColor } from "@/lib/accent-color";
 
+function isCapacitorApp(): boolean {
+  return typeof window !== "undefined" && !!(window as any).Capacitor?.isNativePlatform?.();
+}
+
+function isMobileWeb(): boolean {
+  return typeof window !== "undefined" && window.innerWidth < 1024;
+}
+
 function AppTopBar() {
   const router = useRouter();
   const { color } = useAccentColor();
@@ -29,15 +37,20 @@ function AppTopBar() {
   );
 }
 
-export default function AppNavConditional() {
+export default function AppNavConditional({ showTopBar = false }: { showTopBar?: boolean }) {
   const [isApp, setIsApp] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
-    setIsApp(localStorage.getItem("rdvous_app") === "1");
+    setIsApp(isCapacitorApp());
+    setIsMobile(isMobileWeb());
   }, []);
-  if (!isApp) return null;
+
+  if (!isApp && !isMobile) return null;
+
   return (
     <>
-      <AppTopBar />
+      {isApp && showTopBar && <AppTopBar />}
       <AppBottomNav />
     </>
   );
