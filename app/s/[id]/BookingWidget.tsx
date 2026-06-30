@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { formatPrix } from "@/lib/prix";
+import { createSupabase } from "@/lib/supabase";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean; categorie_id?: string | null; description?: string | null };
 type Category = { id: string; nom: string; selection_type: "unique" | "multiple" | "libre" };
@@ -45,6 +46,13 @@ export default function BookingWidget({
   const endSlot = endH * 2 + (endM >= 30 ? 1 : 0);
   const CRENEAUX = Array.from({ length: endSlot - startSlot + 1 }, (_, i) => { const total = startSlot + i; return `${String(Math.floor(total / 2)).padStart(2, "0")}:${total % 2 === 0 ? "00" : "30"}`; });
   const [step, setStep] = useState<"select" | "contact" | "done" | "waitlist" | "waitlist_done">("select");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    createSupabase().auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+  }, []);
   const [selected, setSelected] = useState<Prestation[]>([]);
   const [openStepId, setOpenStepId] = useState<string | null>(null);
   const [confirmedSteps, setConfirmedSteps] = useState<Set<string>>(new Set());
@@ -260,18 +268,31 @@ export default function BookingWidget({
       </div>
       <div style={{ height: 1, background: "#f0f0f0" }} />
       <div style={{ background: "#f9f9f9", borderRadius: 10, padding: "16px 18px", textAlign: "center" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>Retrouvez vos rendez-vous en ligne</div>
-        <div style={{ fontSize: 12, color: "#888", marginBottom: 14, lineHeight: 1.5 }}>Créez votre espace rdvous pour accéder à votre historique et votre cagnotte fidélité.</div>
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-          <a href={`/rejoindre?email=${encodeURIComponent(email)}`}
-            style={{ padding: "9px 18px", background: couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-            Créer mon espace
-          </a>
-          <a href={`/login?email=${encodeURIComponent(email)}`}
-            style={{ padding: "9px 18px", background: "#fff", color: "#555", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-            J'ai déjà un compte
-          </a>
-        </div>
+        {isLoggedIn ? (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>Retrouvez vos rendez-vous</div>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 14, lineHeight: 1.5 }}>Accédez à votre historique et votre cagnotte fidélité.</div>
+            <a href="/mon-compte"
+              style={{ padding: "9px 18px", background: couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: "none", display: "inline-block" }}>
+              Voir mes rendez-vous
+            </a>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>Retrouvez vos rendez-vous en ligne</div>
+            <div style={{ fontSize: 12, color: "#888", marginBottom: 14, lineHeight: 1.5 }}>Créez votre espace rdvous pour accéder à votre historique et votre cagnotte fidélité.</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+              <a href={`/rejoindre?email=${encodeURIComponent(email)}`}
+                style={{ padding: "9px 18px", background: couleur, color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                Créer mon espace
+              </a>
+              <a href={`/login?email=${encodeURIComponent(email)}`}
+                style={{ padding: "9px 18px", background: "#fff", color: "#555", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                J'ai déjà un compte
+              </a>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

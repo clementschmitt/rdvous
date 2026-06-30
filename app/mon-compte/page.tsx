@@ -7,6 +7,7 @@ import { T } from "@/lib/theme";
 import { METIERS, type Metier } from "@/lib/metiers";
 import Link from "next/link";
 import AppBottomNav from "@/app/components/AppBottomNav";
+import { useAccentColor } from "@/lib/accent-color";
 
 type Rdv = {
   id: string;
@@ -156,6 +157,7 @@ export default function MonComptePage() {
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [activeTab, setActiveTab] = useState<"rdvs" | "favoris" | "galerie">("rdvs");
+  const { color: accentColor } = useAccentColor();
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 1024);
@@ -464,29 +466,24 @@ export default function MonComptePage() {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Bandeau header sombre */}
-      <div style={{ background: T.text, padding: isMobile ? "20px 16px 24px" : "28px 40px 32px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
-            <div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>Mon espace</div>
-              <h1 style={{ fontFamily: T.heading, fontSize: isMobile ? 28 : 36, fontWeight: 600, color: "#fff", margin: 0, letterSpacing: "-0.5px" }}>
-                Bonjour{prenom ? `, ${prenom}` : ""}
-              </h1>
+      {/* Header */}
+      <div style={{ background: accentColor, padding: isMobile ? "20px 20px 22px" : "28px 40px 32px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ width: 56, height: 1.5, background: "rgba(255,255,255,0.5)", marginBottom: 5 }} />
+              <div style={{ fontFamily: T.heading, fontSize: 28, fontWeight: 400, color: "#fff", letterSpacing: "0.04em", lineHeight: 1 }}>rdvous</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <Link href="/app" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#fff", color: T.text, borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                {isMobile ? "Réserver" : "Prendre un rendez-vous"}
-              </Link>
-              <Link href="/mon-compte/parametres" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", border: "1px solid rgba(255,255,255,0.2)", textDecoration: "none", fontSize: 16, color: "rgba(255,255,255,0.7)" }}>
-                ⚙
-              </Link>
-              <button onClick={handleLogout} style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", background: "none", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 20, padding: "7px 16px", cursor: "pointer" }}>
-                Déconnexion
-              </button>
+            <div style={{ fontSize: 16, color: "rgba(255,255,255,0.6)" }}>
+              {new Date().getHours() < 12 ? "Bonjour" : new Date().getHours() < 18 ? "Bon après-midi" : "Bonsoir"}{prenom ? `, ${prenom}` : ""}
             </div>
           </div>
+          {!isMobile && (
+            <Link href="/app" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,255,255,0.1)", color: "#fff", borderRadius: 10, padding: "9px 18px", fontSize: 13, fontWeight: 600, textDecoration: "none", border: "1px solid rgba(255,255,255,0.15)" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Prendre un rendez-vous
+            </Link>
+          )}
         </div>
       </div>
 

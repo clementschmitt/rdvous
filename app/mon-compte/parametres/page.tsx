@@ -4,6 +4,7 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { T } from "@/lib/theme";
+import { useAccentColor, ACCENT_COLORS } from "@/lib/accent-color";
 
 export default function ParametresPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function ParametresPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { color: accentColor, setColor: setAccentColor } = useAccentColor();
 
   useEffect(() => {
     (async () => {
@@ -52,6 +54,28 @@ export default function ParametresPage() {
           <div style={{ background: T.white, borderRadius: 14, border: `1px solid ${T.border}`, padding: "14px 16px" }}>
             <div style={{ fontSize: 12, color: T.muted, marginBottom: 2 }}>Adresse email</div>
             <div style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{email}</div>
+          </div>
+        </div>
+
+        {/* Couleur personnalisée */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Couleur</div>
+          <div style={{ background: T.white, borderRadius: 14, border: `1px solid ${T.border}`, padding: "16px" }}>
+            <div style={{ fontSize: 13, color: T.muted, marginBottom: 14 }}>Personnalisez votre expérience</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {ACCENT_COLORS.map(c => (
+                <button key={c.key} onClick={() => setAccentColor(c.hex)} title={c.label}
+                  style={{
+                    width: 36, height: 36, borderRadius: "50%", background: c.hex,
+                    border: accentColor === c.hex ? `3px solid ${c.hex}` : "3px solid transparent",
+                    outline: accentColor === c.hex ? `2px solid ${c.hex}` : "2px solid transparent",
+                    outlineOffset: 2,
+                    cursor: "pointer", transition: "transform 0.15s",
+                    transform: accentColor === c.hex ? "scale(1.15)" : "scale(1)",
+                  }}
+                />
+              ))}
+            </div>
           </div>
         </div>
 

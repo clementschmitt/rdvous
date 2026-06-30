@@ -9,14 +9,18 @@ export default function SiteHeader({ links = [], cta, account = true, context = 
   const [loggedIn, setLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAppMode, setIsAppMode] = useState(false);
 
   useEffect(() => {
+    setIsAppMode(localStorage.getItem("rdvous_app") === "1");
     createSupabase().auth.getSession().then(({ data }) => {
       const user = data.session?.user;
       setLoggedIn(!!user);
       setIsPro(!!user && user.user_metadata?.user_type !== "client");
     });
   }, []);
+
+  if (isAppMode) return null;
 
   const accountHref = context === "pro"
     ? (loggedIn ? (isPro ? "/dashboard" : "/onboarding") : "/login?next=/dashboard")

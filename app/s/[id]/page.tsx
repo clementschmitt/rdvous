@@ -3,6 +3,7 @@ import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import SiteHeader from "@/app/components/SiteHeader";
+import AppNavConditional from "@/app/components/AppNavConditional";
 import { formatPrix } from "@/lib/prix";
 import PrestationDescription from "./PrestationDescription";
 import SidebarContact from "./SidebarContact";
@@ -107,7 +108,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const hasHoraires = dispos.length > 0;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif", overflowX: "clip", paddingTop: 56, boxSizing: "border-box" }}>
+    <div className="rdvous-page-body" style={{ minHeight: "100vh", background: "#f7f7f5", fontFamily: "'Inter', system-ui, sans-serif", overflowX: "clip", paddingTop: 56, boxSizing: "border-box" }}>
       <style>{`
         @media (max-width: 640px) {
           .vitrine-layout { flex-direction: column !important; align-items: stretch !important; padding-top: 16px !important; }
@@ -122,6 +123,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
 
       {/* Header — transparent over hero, solid white on scroll */}
       <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} />
+      <AppNavConditional />
 
       {/* Hero */}
       {photos.length > 0 ? (
