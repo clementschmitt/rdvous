@@ -345,6 +345,9 @@ export default function HomePage() {
           <Link href="/pro" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Espace pro</Link>
           <Link href="/mon-compte" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Mon compte</Link>
           <Link href="/mentions-legales" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Mentions légales</Link>
+          <Link href="/confidentialite" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>Confidentialité</Link>
+          <Link href="/cgu" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>CGU</Link>
+          <Link href="/cgv" style={{ fontSize:13, color:"#8a7a6a", textDecoration:"none" }}>CGV</Link>
         </div>
         <span style={{ fontSize:12, color:"#b8a898" }}>© 2026 rdvous</span>
       </footer>
