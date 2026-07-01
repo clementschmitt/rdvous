@@ -513,7 +513,7 @@ export default function MonComptePage() {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 20 : 28, alignItems: "start" }}>
 
           {/* Colonne gauche — RDVs */}
-          <div style={{ order: isMobile ? 2 : 1, display: isMobile && activeTab !== "rdvs" ? "none" : undefined }}>
+          <div style={{ order: isMobile ? 2 : 1, display: isMobile && activeTab !== "rdvs" ? "none" : undefined, minWidth: 0, overflow: "hidden" }}>
             {/* Prochain rendez-vous */}
             {hero && (() => {
               const c = metierCouleur(hero.salons?.metier);
@@ -658,7 +658,7 @@ export default function MonComptePage() {
           </div>
 
           {/* Colonne droite — Sidebar */}
-          <div style={{ display: isMobile && activeTab === "rdvs" ? "none" : "flex", flexDirection: "column", gap: 20, order: isMobile ? 1 : 2 }}>
+          <div style={{ display: isMobile && activeTab === "rdvs" ? "none" : "flex", flexDirection: "column", gap: 20, order: isMobile ? 1 : 2, minWidth: 0 }}>
 
             {/* Favoris */}
             {favoris.length > 0 && (!isMobile || activeTab === "favoris") && (
