@@ -627,13 +627,13 @@ export default function MonComptePage() {
                               <Avatar rdv={rdv} size={36} />
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                  <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{rdv.salons?.nom || "Salon"}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rdv.salons?.nom || "Salon"}</span>
                                   {effectue && <HeartBtn rdv={rdv} />}
                                 </div>
-                                <div style={{ fontSize: 11, color: T.muted, textTransform: "capitalize" }}>{date}{prestations ? ` · ${prestations}` : ""}</div>
+                                <div style={{ fontSize: 11, color: T.muted, textTransform: "capitalize", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{date}{prestations ? ` · ${prestations}` : ""}</div>
                               </div>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: annule ? "#e74c3c" : "#999", background: annule ? "#fee2e2" : "#f0f0f0", padding: "2px 8px", borderRadius: 20 }}>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, flexShrink: 0 }}>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: annule ? "#e74c3c" : "#999", background: annule ? "#fee2e2" : "#f0f0f0", padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
                                   {annule ? "Annulé" : "Terminé"}
                                 </span>
                                 {prix != null && <span style={{ fontSize: 12, fontWeight: 700, color: T.text }}>{prix} €</span>}
