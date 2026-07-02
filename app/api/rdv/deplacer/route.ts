@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
 
   const { data: rdv } = await admin
     .from("rendez_vous")
-    .select("date_heure, clients(prenom, email), rendez_vous_prestations(prestations(nom)), salons(nom), salon_id")
+    .select("date_heure, clients(prenom, nom, email), rendez_vous_prestations(prestations(nom)), salons(nom), salon_id")
     .eq("id", rdv_id)
     .single();
 
@@ -22,8 +22,18 @@ export async function POST(req: NextRequest) {
 
   await admin.from("rendez_vous").update({ date_heure: `${new_date}T${new_heure}:00` }).eq("id", rdv_id);
 
+  const client = rdv.clients as unknown as { prenom: string; nom: string; email: string | null } | null;
+  await admin.from("rdv_events").insert({
+    salon_id: rdv.salon_id,
+    rdv_id,
+    type: "deplacement",
+    old_date_heure: ancienSource,
+    new_date_heure: `${new_date}T${new_heure}:00`,
+    client_prenom: client?.prenom || null,
+    client_nom: client?.nom || null,
+  });
+
   if (notify) {
-    const client = rdv.clients as unknown as { prenom: string; email: string | null } | null;
     const salon = rdv.salons as unknown as { nom: string } | null;
     const prestations = ((rdv.rendez_vous_prestations || []) as unknown as { prestations: { nom: string } | null }[])
       .map(rp => rp.prestations).filter(Boolean) as { nom: string }[];

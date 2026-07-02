@@ -11,6 +11,7 @@ const REFRESH_INTERVAL = 30;
 type Salon = { id: string; nom: string; metier: string };
 type StatBlock = { total: number; client: number; salon: number };
 type RecentRdv = { id: string; date_heure: string; statut: string; source: string; created_at: string; clients: { prenom: string; nom: string; email: string | null } | null };
+type RdvEvent = { id: string; type: string; old_date_heure: string; new_date_heure: string; client_prenom: string | null; client_nom: string | null; created_at: string };
 type GlobalRdv = { id: string; date_heure: string; statut: string; source: string; created_at: string; salons: { nom: string; metier: string } | null; clients: { prenom: string; nom: string; email: string | null; telephone: string | null } | null };
 type AuthUser = { id: string; email: string; created_at: string; user_type: string; confirmed: boolean };
 
@@ -61,6 +62,7 @@ export default function LivePage() {
   const [week, setWeek] = useState<StatBlock | null>(null);
   const [month, setMonth] = useState<StatBlock | null>(null);
   const [recent, setRecent] = useState<RecentRdv[]>([]);
+  const [events, setEvents] = useState<RdvEvent[]>([]);
   const [period, setPeriod] = useState<"today" | "week" | "month">("month");
   const [page, setPage] = useState(1);
   const [totalRdvs, setTotalRdvs] = useState(0);
@@ -87,6 +89,7 @@ export default function LivePage() {
       setRecent(json.recent || []);
       setTotalRdvs(json.total || 0);
       setPage(json.page || 1);
+      setEvents(json.events || []);
     } else {
       setRdvs(json.rdvs || []);
       setClients(json.clients || []);
@@ -251,6 +254,27 @@ export default function LivePage() {
                     style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${T.border}`, background: T.white, color: T.text, fontSize: 13, cursor: page >= Math.ceil(totalRdvs / perPage) ? "not-allowed" : "pointer", opacity: page >= Math.ceil(totalRdvs / perPage) ? 0.4 : 1 }}>
                     →
                   </button>
+                </div>
+              )}
+              {/* Déplacements */}
+              {events.length > 0 && (
+                <div style={{ marginTop: 32 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
+                    Déplacements récents ({events.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {events.map(e => (
+                      <div key={e.id} style={{ background: T.white, borderRadius: 12, border: `1px solid ${T.border}`, borderLeft: "3px solid #8b5cf6", padding: "12px 14px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{e.client_prenom} {e.client_nom}</span>
+                          <span style={{ fontSize: 11, color: T.muted }}>{timeAgo(e.created_at)}</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: T.muted }}>
+                          {e.old_date_heure.slice(0, 16).replace("T", " à ")} → {e.new_date_heure.slice(0, 16).replace("T", " à ")}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </>

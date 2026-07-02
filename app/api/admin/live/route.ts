@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       : monthStart.toISOString();
     const periodEnd = period === "today" ? `${todayStr}T23:59:59` : undefined;
 
-    const [rdvsToday, rdvsWeek, rdvsMonth, rdvsRecent] = await Promise.all([
+    const [rdvsToday, rdvsWeek, rdvsMonth, rdvsRecent, recentEvents] = await Promise.all([
       admin.from("rendez_vous").select("id, source").eq("salon_id", salonId).gte("date_heure", `${todayStr}T00:00:00`).lte("date_heure", `${todayStr}T23:59:59`).neq("statut", "annule"),
       admin.from("rendez_vous").select("id, source").eq("salon_id", salonId).gte("date_heure", weekStart.toISOString()).neq("statut", "annule"),
       admin.from("rendez_vous").select("id, source").eq("salon_id", salonId).gte("date_heure", monthStart.toISOString()).neq("statut", "annule"),
@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
         if (periodEnd) q = q.lte("date_heure", periodEnd);
         return q;
       })(),
+      admin.from("rdv_events").select("id, type, old_date_heure, new_date_heure, client_prenom, client_nom, created_at").eq("salon_id", salonId).order("created_at", { ascending: false }).limit(25),
     ]);
 
     const count = (rows: { source: string }[] | null, src?: string) =>
@@ -57,6 +58,7 @@ export async function GET(req: NextRequest) {
       total: rdvsRecent.count || 0,
       page,
       perPage,
+      events: recentEvents.data || [],
     });
   }
 
