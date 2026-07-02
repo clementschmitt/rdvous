@@ -1,11 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createSupabase } from "@/lib/supabase";
 import { METIERS, type Metier } from "@/lib/metiers";
 import { T } from "@/lib/theme";
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const [ready, setReady] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [metier, setMetier] = useState<Metier | null>(null);
   const [nom, setNom] = useState("");
@@ -17,6 +19,16 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
 
   const metierKeys = Object.keys(METIERS) as Metier[];
+
+  useEffect(() => {
+    (async () => {
+      const supabase = createSupabase();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push("/login?next=/onboarding"); return; }
+      if (user.user_metadata?.user_type === "client") { router.push("/mon-compte"); return; }
+      setReady(true);
+    })();
+  }, [router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +44,8 @@ export default function OnboardingPage() {
     if (!res.ok) { setError(json.error || "Erreur lors de la création du salon."); setLoading(false); return; }
     router.push("/dashboard");
   }
+
+  if (!ready) return null;
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
