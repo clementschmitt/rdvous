@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   await admin.from("rendez_vous").update({ date_heure: `${new_date}T${new_heure}:00` }).eq("id", rdv_id);
 
   const client = rdv.clients as unknown as { prenom: string; nom: string; email: string | null } | null;
-  await admin.from("rdv_events").insert({
+  const { error: eventError } = await admin.from("rdv_events").insert({
     salon_id: rdv.salon_id,
     rdv_id,
     type: "deplacement",
@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
     client_prenom: client?.prenom || null,
     client_nom: client?.nom || null,
   });
+  if (eventError) console.error("rdv_events insert error:", JSON.stringify(eventError));
 
   if (notify) {
     const salon = rdv.salons as unknown as { nom: string } | null;
