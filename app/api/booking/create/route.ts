@@ -40,6 +40,16 @@ export async function POST(req: NextRequest) {
   const { data: prestationData } = await admin.from("prestations").select("duree_minutes").in("id", ids);
   const dureeMinutes = (prestationData || []).reduce((s, p) => s + (p.duree_minutes || 0), 0) || 60;
 
+  // Revalidation serveur : ne jamais accepter un créneau sur un jour fermé ou en congé
+  // (le blocage côté créneaux ne suffit pas — un état périmé ou un appel direct peut le contourner)
+  const [{ data: dayExceptions }, { data: dayConges }] = await Promise.all([
+    admin.from("disponibilites_exceptions").select("ferme").eq("salon_id", salon_id).eq("date", date),
+    admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
+  ]);
+  if ((dayExceptions || []).some(e => e.ferme) || (dayConges && dayConges.length > 0)) {
+    return NextResponse.json({ error: "Ce jour n'est pas disponible à la réservation." }, { status: 409 });
+  }
+
   // Créer le RDV de façon atomique (pg_advisory_lock — élimine la race condition)
   const cancelToken = crypto.randomUUID();
   const { data: rdvId, error } = await admin.rpc("create_rdv_safe", {

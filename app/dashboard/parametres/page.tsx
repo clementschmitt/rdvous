@@ -538,7 +538,7 @@ export default function ParametresPage() {
     const res = await fetch("/api/settings", {
       method: "POST",
       headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ ...settings, salon_id: salon!.id }),
+      body: JSON.stringify({ ...settings, date_limite_planning: settings.date_limite_planning || null, salon_id: salon!.id }),
     });
     const json = await res.json();
     setSaving(s => ({ ...s, [key]: false }));

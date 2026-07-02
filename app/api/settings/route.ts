@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
   const { salon_id, ...settingsData } = body;
   if (!salon_id) return NextResponse.json({ error: "salon_id manquant" }, { status: 400 });
 
+  // Champs DATE : une chaîne vide fait échouer Postgres ("invalid input syntax for type date")
+  if (settingsData.date_limite_planning === "") settingsData.date_limite_planning = null;
+
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const isAdmin = user.email === ADMIN_EMAIL;
