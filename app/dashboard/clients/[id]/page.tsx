@@ -45,6 +45,16 @@ export default function ClientDetailPage() {
   const [animalForm, setAnimalForm] = useState<AnimalForm | null>(null);
   const [animalSaving, setAnimalSaving] = useState(false);
 
+  const [ajustOpen, setAjustOpen] = useState(false);
+  const [ajustMontant, setAjustMontant] = useState("");
+  const [ajustSaving, setAjustSaving] = useState(false);
+  const [ajustError, setAjustError] = useState("");
+
+  const [fidOpen, setFidOpen] = useState(false);
+  const [fidDelta, setFidDelta] = useState("");
+  const [fidSaving, setFidSaving] = useState(false);
+  const [fidError, setFidError] = useState("");
+
   const RDV_PER_PAGE = 10;
 
   useEffect(() => {
@@ -117,6 +127,32 @@ export default function ClientDetailPage() {
     load();
   }
 
+  async function handleAjustCagnotte() {
+    const montant = parseFloat(ajustMontant.replace(",", "."));
+    if (isNaN(montant) || montant === 0) { setAjustError("Montant invalide."); return; }
+    const nouveauSolde = (client!.cagnotte || 0) + montant;
+    if (nouveauSolde < 0) { setAjustError("Le solde ne peut pas être négatif."); return; }
+    setAjustSaving(true); setAjustError("");
+    const supabase = createSupabase();
+    await Promise.all([
+      supabase.from("clients").update({ cagnotte: nouveauSolde }).eq("id", id),
+      supabase.from("cagnotte_mouvements").insert({ salon_id: salon!.id, client_id: id, montant, type: "ajustement_manuel" }),
+    ]);
+    setAjustOpen(false); setAjustMontant(""); setAjustSaving(false);
+    load();
+  }
+
+  async function handleAjustFidelite() {
+    const delta = parseInt(fidDelta);
+    if (isNaN(delta) || delta === 0) { setFidError("Nombre de visites invalide."); return; }
+    const nouvVisites = Math.max(0, (client!.nb_visites || 0) + delta);
+    setFidSaving(true); setFidError("");
+    const supabase = createSupabase();
+    await supabase.from("clients").update({ nb_visites: nouvVisites }).eq("id", id);
+    setFidOpen(false); setFidDelta(""); setFidSaving(false);
+    load();
+  }
+
   async function handleDeleteAnimal(animalId: string, nom: string) {
     if (!confirm(`Supprimer ${nom} ? Cette action est irréversible.`)) return;
     const supabase = createSupabase();
@@ -171,14 +207,74 @@ export default function ClientDetailPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
         <div style={{ background: client.cagnotte > 0 ? `${m.couleur}12` : "#f9f9f9", border: `1px solid ${client.cagnotte > 0 ? m.couleur : "#e0e0e0"}`, borderRadius: 10, padding: "16px 20px" }}>
           <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>Cagnotte</div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: client.cagnotte > 0 ? m.couleur : "#bbb" }}>{client.cagnotte.toFixed(2)} €</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: client.cagnotte > 0 ? m.couleur : "#bbb" }}>{client.cagnotte.toFixed(2)} €</div>
+            {!ajustOpen && (
+              <button onClick={() => { setAjustOpen(true); setAjustMontant(""); setAjustError(""); }} style={{ fontSize: 11, fontWeight: 600, color: m.couleur, background: "none", border: `1px solid ${m.couleur}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
+                Ajuster
+              </button>
+            )}
+          </div>
+          {ajustOpen && (
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setAjustMontant(v => v.startsWith("-") ? v.slice(1) : (v ? v : ""))} style={{ padding: "5px 10px", fontSize: 12, fontWeight: 700, background: ajustMontant && !ajustMontant.startsWith("-") ? "#e8f5e9" : "#f9f9f9", border: "1px solid #e0e0e0", borderRadius: 6, cursor: "pointer", color: "#27ae60" }}>+</button>
+                <button onClick={() => setAjustMontant(v => v.startsWith("-") ? v : (v ? `-${v}` : "-"))} style={{ padding: "5px 10px", fontSize: 12, fontWeight: 700, background: ajustMontant.startsWith("-") ? "#fdecea" : "#f9f9f9", border: "1px solid #e0e0e0", borderRadius: 6, cursor: "pointer", color: "#e74c3c" }}>−</button>
+                <input
+                  type="number" step="0.5" min="0"
+                  value={ajustMontant.replace("-", "")}
+                  onChange={e => setAjustMontant(ajustMontant.startsWith("-") ? `-${e.target.value}` : e.target.value)}
+                  placeholder="0.00"
+                  style={{ flex: 1, padding: "5px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13 }}
+                />
+                <span style={{ alignSelf: "center", fontSize: 13, color: "#888" }}>€</span>
+              </div>
+              {ajustError && <div style={{ fontSize: 12, color: "#e74c3c" }}>{ajustError}</div>}
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setAjustOpen(false)} style={{ ...btnGhost, padding: "5px 10px", fontSize: 12 }}>Annuler</button>
+                <button onClick={handleAjustCagnotte} disabled={ajustSaving || !ajustMontant || ajustMontant === "-"} style={{ ...btnPrimary, background: m.couleur, padding: "5px 12px", fontSize: 12, opacity: (!ajustMontant || ajustMontant === "-") ? 0.5 : 1 }}>
+                  {ajustSaving ? "..." : "Confirmer"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ background: "#f9f9f9", border: "1px solid #e0e0e0", borderRadius: 10, padding: "16px 20px" }}>
-          <div style={{ fontSize: 12, color: "#999", marginBottom: 4 }}>Fidélité — {progression} / {settings.nb_visites_fidelite} visites</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ fontSize: 12, color: "#999" }}>Fidélité — {progression} / {settings.nb_visites_fidelite} visites</div>
+            {!fidOpen && (
+              <button onClick={() => { setFidOpen(true); setFidDelta(""); setFidError(""); }} style={{ fontSize: 11, fontWeight: 600, color: m.couleur, background: "none", border: `1px solid ${m.couleur}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
+                Ajuster
+              </button>
+            )}
+          </div>
           <div style={{ height: 8, background: "#e0e0e0", borderRadius: 4, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${pct}%`, background: m.couleur, borderRadius: 4, transition: "width 0.4s" }} />
           </div>
           <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>Récompense à {settings.nb_visites_fidelite} visites : {settings.montant_recompense} €</div>
+          {fidOpen && (
+            <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button onClick={() => setFidDelta(v => v.startsWith("-") ? v.slice(1) : v)} style={{ padding: "5px 10px", fontSize: 12, fontWeight: 700, background: fidDelta && !fidDelta.startsWith("-") ? "#e8f5e9" : "#f0f0f0", border: "1px solid #e0e0e0", borderRadius: 6, cursor: "pointer", color: "#27ae60" }}>+</button>
+                <button onClick={() => setFidDelta(v => v.startsWith("-") ? v : (v ? `-${v}` : "-"))} style={{ padding: "5px 10px", fontSize: 12, fontWeight: 700, background: fidDelta.startsWith("-") ? "#fdecea" : "#f0f0f0", border: "1px solid #e0e0e0", borderRadius: 6, cursor: "pointer", color: "#e74c3c" }}>−</button>
+                <input
+                  type="number" step="1" min="0"
+                  value={fidDelta.replace("-", "")}
+                  onChange={e => setFidDelta(fidDelta.startsWith("-") ? `-${e.target.value}` : e.target.value)}
+                  placeholder="0"
+                  style={{ flex: 1, padding: "5px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 13 }}
+                />
+                <span style={{ fontSize: 12, color: "#888", whiteSpace: "nowrap" }}>visite(s)</span>
+              </div>
+              {fidError && <div style={{ fontSize: 12, color: "#e74c3c" }}>{fidError}</div>}
+              <div style={{ display: "flex", gap: 6 }}>
+                <button onClick={() => setFidOpen(false)} style={{ ...btnGhost, padding: "5px 10px", fontSize: 12 }}>Annuler</button>
+                <button onClick={handleAjustFidelite} disabled={fidSaving || !fidDelta || fidDelta === "-"} style={{ ...btnPrimary, background: m.couleur, padding: "5px 12px", fontSize: 12, opacity: (!fidDelta || fidDelta === "-") ? 0.5 : 1 }}>
+                  {fidSaving ? "..." : "Confirmer"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
