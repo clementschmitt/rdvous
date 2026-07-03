@@ -69,6 +69,16 @@ export default function NouveauClientPage() {
       parrain_id = parrain.id;
     }
 
+    // Dédup avant INSERT : cherche par email puis par téléphone
+    if (email) {
+      const { data: dup } = await supabase.from("clients").select("id").eq("salon_id", salon!.id).eq("email", email).maybeSingle();
+      if (dup) { setError("Une cliente avec cet email existe déjà."); setLoading(false); return; }
+    }
+    if (telephone) {
+      const { data: dup } = await supabase.from("clients").select("id").eq("salon_id", salon!.id).eq("telephone", telephone).maybeSingle();
+      if (dup) { setError("Une cliente avec ce numéro de téléphone existe déjà."); setLoading(false); return; }
+    }
+
     const code_parrainage = await genererCode(supabase, salon!.id, prenom, dateNaissance);
 
     const { error: err } = await supabase.from("clients").insert({

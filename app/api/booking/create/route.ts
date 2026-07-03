@@ -10,7 +10,9 @@ export async function POST(req: NextRequest) {
     if (!success) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans une heure." }, { status: 429 });
   }
 
-  const { salon_id, prestation_ids, date, heure, prenom, nom, email, telephone, adresse_domicile } = await req.json();
+  const { salon_id, prestation_ids, date, heure, prenom, nom, email: emailRaw, telephone, adresse_domicile } = await req.json();
+  const email = (emailRaw || "").trim().toLowerCase();
+  const telephoneNorm = telephone ? telephone.replace(/[^0-9]/g, "").replace(/^33/, "0") : null;
 
   const ids: string[] = Array.isArray(prestation_ids) ? prestation_ids : prestation_ids ? [prestation_ids] : [];
   if (!salon_id || ids.length === 0 || !date || !heure || !prenom || !nom || !email || !telephone) {
@@ -19,21 +21,38 @@ export async function POST(req: NextRequest) {
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  // Trouver ou créer le client
+  // Trouver ou créer le client — upsert atomique sur (salon_id, email) pour éviter les doublons en race condition
   let clientId: string;
-  if (email) {
-    const { data: existing } = await admin.from("clients").select("id").eq("salon_id", salon_id).eq("email", email).single();
-    if (existing) {
-      clientId = existing.id;
+  const { data: upserted, error: upsertErr } = await admin
+    .from("clients")
+    .upsert(
+      { salon_id, prenom, nom, email, telephone: telephoneNorm },
+      { onConflict: "salon_id,email", ignoreDuplicates: false }
+    )
+    .select("id")
+    .single();
+  if (upsertErr || !upserted) {
+    // Fallback si la contrainte unique n'est pas encore posée : cherche par email puis par téléphone normalisé
+    const { data: byEmail } = await admin.from("clients").select("id").eq("salon_id", salon_id).eq("email", email).maybeSingle();
+    if (byEmail) {
+      clientId = byEmail.id;
+    } else if (telephoneNorm) {
+      const { data: byPhone } = await admin.from("clients").select("id").eq("salon_id", salon_id).eq("telephone", telephoneNorm).maybeSingle();
+      if (byPhone) {
+        await admin.from("clients").update({ email }).eq("id", byPhone.id);
+        clientId = byPhone.id;
+      } else {
+        const { data: newClient } = await admin.from("clients").insert({ salon_id, prenom, nom, email, telephone: telephoneNorm }).select("id").single();
+        if (!newClient) return NextResponse.json({ error: "Erreur création client" }, { status: 500 });
+        clientId = newClient.id;
+      }
     } else {
-      const { data: newClient } = await admin.from("clients").insert({ salon_id, prenom, nom, email, telephone: telephone || null }).select("id").single();
+      const { data: newClient } = await admin.from("clients").insert({ salon_id, prenom, nom, email, telephone: telephoneNorm }).select("id").single();
       if (!newClient) return NextResponse.json({ error: "Erreur création client" }, { status: 500 });
       clientId = newClient.id;
     }
   } else {
-    const { data: newClient } = await admin.from("clients").insert({ salon_id, prenom, nom, telephone: telephone || null }).select("id").single();
-    if (!newClient) return NextResponse.json({ error: "Erreur création client" }, { status: 500 });
-    clientId = newClient.id;
+    clientId = upserted.id;
   }
 
   // Récupérer la durée totale des prestations

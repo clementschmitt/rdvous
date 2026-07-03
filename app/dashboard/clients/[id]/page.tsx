@@ -53,6 +53,12 @@ export default function ClientDetailPage() {
   const [fidOpen, setFidOpen] = useState(false);
   const [fidDelta, setFidDelta] = useState("");
   const [fidSaving, setFidSaving] = useState(false);
+
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeResults, setMergeResults] = useState<{ id: string; prenom: string; nom: string; telephone: string | null }[]>([]);
+  const [mergeTarget, setMergeTarget] = useState<{ id: string; prenom: string; nom: string; telephone: string | null } | null>(null);
+  const [mergeSaving, setMergeSaving] = useState(false);
   const [fidError, setFidError] = useState("");
 
   const RDV_PER_PAGE = 10;
@@ -153,6 +159,39 @@ export default function ClientDetailPage() {
     load();
   }
 
+  async function handleMergeSearch(q: string) {
+    setMergeSearch(q);
+    if (q.length < 2) { setMergeResults([]); return; }
+    const supabase = createSupabase();
+    const { data } = await supabase
+      .from("clients")
+      .select("id, prenom, nom, telephone")
+      .eq("salon_id", salon!.id)
+      .neq("id", id)
+      .or(`prenom.ilike.%${q}%,nom.ilike.%${q}%,telephone.ilike.%${q}%`)
+      .limit(8);
+    setMergeResults((data || []) as typeof mergeResults);
+  }
+
+  async function handleMerge() {
+    if (!mergeTarget || !client) return;
+    setMergeSaving(true);
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    const res = await fetch("/api/clients/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session?.access_token}` },
+      body: JSON.stringify({ client_a_id: id, client_b_id: mergeTarget.id, salon_id: salon!.id }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+      router.push(`/dashboard/clients/${json.master_id}`);
+    } else {
+      alert(json.error || "Erreur lors de la fusion");
+      setMergeSaving(false);
+    }
+  }
+
   async function handleDeleteAnimal(animalId: string, nom: string) {
     if (!confirm(`Supprimer ${nom} ? Cette action est irréversible.`)) return;
     const supabase = createSupabase();
@@ -188,6 +227,7 @@ export default function ClientDetailPage() {
           ) : (
             <>
               <button onClick={() => setEditing(true)} style={btnGhost}>Modifier</button>
+              <button onClick={() => { setMergeOpen(true); setMergeSearch(""); setMergeResults([]); setMergeTarget(null); }} style={{ ...btnGhost, color: "#8b5cf6", borderColor: "#8b5cf6" }}>Fusionner</button>
               <button onClick={handleDelete} style={{ ...btnGhost, color: "#e74c3c", borderColor: "#e74c3c" }}>Supprimer</button>
             </>
           )}
@@ -416,6 +456,69 @@ export default function ClientDetailPage() {
           </>
         )}
       </Section>
+
+      {mergeOpen && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 440, maxWidth: "92vw", boxShadow: "0 8px 32px rgba(0,0,0,0.18)" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Fusionner la fiche</div>
+            <div style={{ fontSize: 12, color: "#999", marginBottom: 18 }}>Les RDVs et la cagnotte seront regroupés sur la fiche ayant le RDV le plus ancien. L&apos;autre sera supprimée définitivement.</div>
+
+            {!mergeTarget ? (
+              <>
+                <input
+                  autoFocus
+                  value={mergeSearch}
+                  onChange={e => handleMergeSearch(e.target.value)}
+                  placeholder="Rechercher une cliente par nom ou téléphone..."
+                  style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, boxSizing: "border-box", marginBottom: 10 }}
+                />
+                {mergeResults.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 240, overflowY: "auto" }}>
+                    {mergeResults.map(r => (
+                      <button key={r.id} onClick={() => setMergeTarget(r)} style={{ textAlign: "left", padding: "10px 12px", border: "1px solid #e0e0e0", borderRadius: 8, background: "#f9f9f9", cursor: "pointer", fontSize: 13, width: "100%" }}>
+                        <span style={{ fontWeight: 600 }}>{r.prenom} {r.nom}</span>
+                        {r.telephone && <span style={{ color: "#999", marginLeft: 8, fontSize: 12 }}>{r.telephone}</span>}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {mergeSearch.length >= 2 && mergeResults.length === 0 && (
+                  <div style={{ fontSize: 12, color: "#bbb", textAlign: "center", padding: "12px 0" }}>Aucun résultat</div>
+                )}
+              </>
+            ) : (
+              <div>
+                <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "stretch" }}>
+                  <div style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid #e0e0e0", background: "#f9f9f9" }}>
+                    <div style={{ fontSize: 11, color: "#999", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Fiche A</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{client!.prenom} {client!.nom}</div>
+                    {client!.telephone && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{client!.telephone}</div>}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", fontSize: 20, color: "#8b5cf6", flexShrink: 0 }}>⟷</div>
+                  <div style={{ flex: 1, padding: "12px 14px", borderRadius: 10, border: "1px solid #e0e0e0", background: "#f9f9f9" }}>
+                    <div style={{ fontSize: 11, color: "#999", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Fiche B</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{mergeTarget.prenom} {mergeTarget.nom}</div>
+                    {mergeTarget.telephone && <div style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{mergeTarget.telephone}</div>}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: "#c0392b", padding: "8px 12px", background: "#fdecea", borderRadius: 8 }}>
+                  La fiche avec le RDV le plus ancien sera conservée. L&apos;autre disparaîtra.
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 16, justifyContent: "flex-end" }}>
+              {mergeTarget && <button onClick={() => setMergeTarget(null)} style={{ ...btnGhost, fontSize: 12 }}>← Retour</button>}
+              <button onClick={() => setMergeOpen(false)} style={{ ...btnGhost, fontSize: 12 }}>Annuler</button>
+              {mergeTarget && (
+                <button onClick={handleMerge} disabled={mergeSaving} style={{ ...btnPrimary, background: "#8b5cf6", fontSize: 12 }}>
+                  {mergeSaving ? "Fusion en cours..." : "Confirmer la fusion"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
