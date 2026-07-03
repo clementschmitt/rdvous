@@ -71,12 +71,36 @@ function NouveauRDVContent() {
     if (!newClientForm.prenom.trim() || !newClientForm.nom.trim()) return;
     setSavingNewClient(true);
     const supabase = createSupabase();
+    const tel = newClientForm.telephone.trim() || null;
+    const mail = newClientForm.email.trim() || null;
+
+    // Dédup : cherche d'abord par email, puis par téléphone
+    type DedupClient = { id: string; prenom: string; nom: string; cagnotte: number };
+    let existing: DedupClient | null = null;
+    if (mail) {
+      const { data } = await supabase.from("clients").select("id, prenom, nom, cagnotte").eq("salon_id", salon!.id).eq("email", mail).maybeSingle();
+      existing = data as DedupClient | null;
+    }
+    if (!existing && tel) {
+      const { data } = await supabase.from("clients").select("id, prenom, nom, cagnotte").eq("salon_id", salon!.id).eq("telephone", tel).maybeSingle();
+      existing = data as DedupClient | null;
+    }
+    if (existing) {
+      setClients(prev => prev.some(c => c.id === existing!.id) ? prev : [...prev, existing!].sort((a, b) => a.nom.localeCompare(b.nom)));
+      setClientId(existing.id);
+      setClientSearch(`${existing.prenom} ${existing.nom}`);
+      setShowNewClient(false);
+      setNewClientForm({ prenom: "", nom: "", telephone: "", email: "" });
+      setSavingNewClient(false);
+      return;
+    }
+
     const { data } = await supabase.from("clients").insert({
       salon_id: salon!.id,
       prenom: newClientForm.prenom.trim(),
       nom: newClientForm.nom.trim(),
-      telephone: newClientForm.telephone.trim() || null,
-      email: newClientForm.email.trim() || null,
+      telephone: tel,
+      email: mail,
     }).select("id, prenom, nom, cagnotte").single();
     if (data) {
       const newC = data as Client;
