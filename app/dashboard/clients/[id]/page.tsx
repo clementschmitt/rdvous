@@ -185,7 +185,9 @@ export default function ClientDetailPage() {
     });
     const json = await res.json();
     if (json.ok) {
-      router.push(`/dashboard/clients/${json.master_id}`);
+      setMergeOpen(false);
+      setMergeSaving(false);
+      router.push("/dashboard/clients?merged=1");
     } else {
       alert(json.error || "Erreur lors de la fusion");
       setMergeSaving(false);
