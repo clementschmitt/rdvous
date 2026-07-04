@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL!;
 
@@ -72,8 +73,8 @@ export async function POST(req: NextRequest) {
     cagnotte: (master.cagnotte || 0) + (duplicate.cagnotte || 0),
     nb_visites: (master.nb_visites || 0) + (duplicate.nb_visites || 0),
     // Champs texte : master en priorité, doublon en fallback
-    email:        pick(master.email, duplicate.email),
-    telephone:    pick(master.telephone, duplicate.telephone),
+    email:        normalizeEmail(pick(master.email, duplicate.email)),
+    telephone:    normalizePhone(pick(master.telephone, duplicate.telephone)),
     adresse:      pick(master.adresse, duplicate.adresse),
     code_postal:  pick(master.code_postal, duplicate.code_postal),
     ville:        pick(master.ville, duplicate.ville),

@@ -71,8 +71,9 @@ function NouveauRDVContent() {
     if (!newClientForm.prenom.trim() || !newClientForm.nom.trim()) return;
     setSavingNewClient(true);
     const supabase = createSupabase();
-    const tel = newClientForm.telephone.trim() || null;
-    const mail = newClientForm.email.trim() || null;
+    const { normalizePhone, normalizeEmail } = await import("@/lib/normalize");
+    const tel = normalizePhone(newClientForm.telephone);
+    const mail = normalizeEmail(newClientForm.email);
 
     // Dédup : cherche d'abord par email, puis par téléphone
     type DedupClient = { id: string; prenom: string; nom: string; cagnotte: number };

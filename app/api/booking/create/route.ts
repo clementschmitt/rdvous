@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateConfirmation, templateNouveauRdv } from "@/lib/email";
 import { sendSMS, smsConfirmation } from "@/lib/sms";
 import { bookingLimiter, getIP } from "@/lib/ratelimit";
+import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 
 export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV !== "development") {
@@ -11,8 +12,8 @@ export async function POST(req: NextRequest) {
   }
 
   const { salon_id, prestation_ids, date, heure, prenom, nom, email: emailRaw, telephone, adresse_domicile } = await req.json();
-  const email = (emailRaw || "").trim().toLowerCase();
-  const telephoneNorm = telephone ? telephone.replace(/[^0-9]/g, "").replace(/^33/, "0") : null;
+  const email = normalizeEmail(emailRaw) || emailRaw;
+  const telephoneNorm = normalizePhone(telephone);
 
   const ids: string[] = Array.isArray(prestation_ids) ? prestation_ids : prestation_ids ? [prestation_ids] : [];
   if (!salon_id || ids.length === 0 || !date || !heure || !prenom || !nom || !email || !telephone) {

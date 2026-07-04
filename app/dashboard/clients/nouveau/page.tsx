@@ -6,6 +6,7 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/CapsulesMesures";
+import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 
 function normaliserPrenom(prenom: string): string {
   return prenom.trim()
@@ -69,13 +70,16 @@ export default function NouveauClientPage() {
       parrain_id = parrain.id;
     }
 
+    const telNorm = normalizePhone(telephone);
+    const mailNorm = normalizeEmail(email);
+
     // Dédup avant INSERT : cherche par email puis par téléphone
-    if (email) {
-      const { data: dup } = await supabase.from("clients").select("id").eq("salon_id", salon!.id).eq("email", email).maybeSingle();
+    if (mailNorm) {
+      const { data: dup } = await supabase.from("clients").select("id").eq("salon_id", salon!.id).eq("email", mailNorm).maybeSingle();
       if (dup) { setError("Une cliente avec cet email existe déjà."); setLoading(false); return; }
     }
-    if (telephone) {
-      const { data: dup } = await supabase.from("clients").select("id").eq("salon_id", salon!.id).eq("telephone", telephone).maybeSingle();
+    if (telNorm) {
+      const { data: dup } = await supabase.from("clients").select("id").eq("salon_id", salon!.id).eq("telephone", telNorm).maybeSingle();
       if (dup) { setError("Une cliente avec ce numéro de téléphone existe déjà."); setLoading(false); return; }
     }
 
@@ -85,8 +89,8 @@ export default function NouveauClientPage() {
       salon_id: salon!.id,
       prenom,
       nom,
-      telephone: telephone || null,
-      email: email || null,
+      telephone: telNorm,
+      email: mailNorm,
       date_naissance: dateNaissance || null,
       adresse: adresse || null,
       code_postal: codePostal || null,
