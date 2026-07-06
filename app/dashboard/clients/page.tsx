@@ -1,11 +1,21 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { T } from "@/lib/theme";
+
+function MergedBanner() {
+  const searchParams = useSearchParams();
+  if (searchParams.get("merged") !== "1") return null;
+  return (
+    <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#166534", fontWeight: 500 }}>
+      Fusion effectuée. Les fiches ont été regroupées.
+    </div>
+  );
+}
 
 type Client = { id: string; prenom: string; nom: string; telephone: string | null; cagnotte: number };
 
@@ -14,8 +24,6 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [recherche, setRecherche] = useState("");
   const [loading, setLoading] = useState(true);
-  const searchParams = useSearchParams();
-  const merged = searchParams.get("merged") === "1";
 
   useEffect(() => {
     if (!salon) return;
@@ -50,11 +58,7 @@ export default function ClientsPage() {
           .clients-header { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
         }
       `}</style>
-      {merged && (
-        <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#166534", fontWeight: 500 }}>
-          Fusion effectuée. Les fiches ont été regroupées.
-        </div>
-      )}
+      <Suspense><MergedBanner /></Suspense>
       <div className="clients-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontFamily: T.heading, fontSize: 30, fontWeight: 600, color: T.text, letterSpacing: "-0.3px" }}>{m.labelClients}</h1>
         <Link
