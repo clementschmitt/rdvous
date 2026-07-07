@@ -9,6 +9,7 @@ import { Suspense } from "react";
 
 type Client = { id: string; prenom: string; nom: string; cagnotte: number };
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; categorie_id: string | null };
+type TagTarifMap = Record<string, number>; // prestation_id → prix_override
 type Category = { id: string; nom: string; ordre: number };
 
 function NouveauRDVContent() {
@@ -27,6 +28,9 @@ function NouveauRDVContent() {
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [overrideActif, setOverrideActif] = useState(false);
   const [montantOverride, setMontantOverride] = useState<number | "">("");
+  const [tagTarifMap, setTagTarifMap] = useState<TagTarifMap>({});
+  const [discountTags, setDiscountTags] = useState<{ id: string; nom: string; couleur: string }[]>([]);
+  const [prestaToTag, setPrestaToTag] = useState<Record<string, { id: string; nom: string; couleur: string }>>({});
   const [dureeOverrideActif, setDureeOverrideActif] = useState(false);
   const [dureeOverride, setDureeOverride] = useState<number | "">(60);
   const [notes, setNotes] = useState("");
@@ -41,9 +45,11 @@ function NouveauRDVContent() {
   const clientSelectionne = clients.find(c => c.id === clientId);
   const prestasSelectionnees = prestations.filter(p => selectedPrests.includes(p.id));
   const tarifTotal = prestasSelectionnees.reduce((s, p) => s + p.tarif, 0);
+  const tarifAvecTags = prestasSelectionnees.reduce((s, p) => s + (tagTarifMap[p.id] ?? p.tarif), 0);
+  const hasTagDiscount = tarifAvecTags < tarifTotal;
   const dureeTotal = prestasSelectionnees.reduce((s, p) => s + p.duree_minutes, 0);
   const dureeFinal = dureeOverrideActif && dureeOverride !== "" ? Number(dureeOverride) : dureeTotal || 60;
-  const tarifBase = overrideActif && montantOverride !== "" ? Number(montantOverride) : tarifTotal;
+  const tarifBase = overrideActif && montantOverride !== "" ? Number(montantOverride) : (hasTagDiscount ? tarifAvecTags : tarifTotal);
   const cagnotteMax = clientSelectionne ? Math.min(clientSelectionne.cagnotte, tarifBase) : 0;
   const tarifFinal = Math.max(0, tarifBase - cagnotteAUtiliser);
 
@@ -65,6 +71,38 @@ function NouveauRDVContent() {
   useEffect(() => {
     setCagnotteAUtiliser(0);
   }, [clientId, overrideActif]);
+
+  useEffect(() => {
+    if (!clientId || !salon) { setTagTarifMap({}); setDiscountTags([]); return; }
+    (async () => {
+      const supabase = createSupabase();
+      const { data: assignments } = await supabase.from("client_tag_assignments").select("tag_id").eq("client_id", clientId);
+      if (!assignments || assignments.length === 0) { setTagTarifMap({}); setDiscountTags([]); return; }
+      const tagIds = assignments.map((a: { tag_id: string }) => a.tag_id);
+      const [{ data: tarifs }, { data: tags }] = await Promise.all([
+        supabase.from("tag_tarifs").select("tag_id, prestation_id, prix_override").in("tag_id", tagIds),
+        supabase.from("client_tags").select("id, nom, couleur").in("id", tagIds),
+      ]);
+      if (!tarifs || tarifs.length === 0) { setTagTarifMap({}); setDiscountTags([]); setPrestaToTag({}); return; }
+      const map: TagTarifMap = {};
+      const tagByPresta: Record<string, string> = {};
+      for (const t of tarifs as { tag_id: string; prestation_id: string; prix_override: number }[]) {
+        if (map[t.prestation_id] === undefined || t.prix_override < map[t.prestation_id]) {
+          map[t.prestation_id] = t.prix_override;
+          tagByPresta[t.prestation_id] = t.tag_id;
+        }
+      }
+      const tagList = (tags || []) as { id: string; nom: string; couleur: string }[];
+      const tagById = Object.fromEntries(tagList.map(t => [t.id, t]));
+      const p2t: Record<string, { id: string; nom: string; couleur: string }> = {};
+      for (const [pid, tid] of Object.entries(tagByPresta)) {
+        if (tagById[tid]) p2t[pid] = tagById[tid];
+      }
+      setTagTarifMap(map);
+      setDiscountTags(tagList);
+      setPrestaToTag(p2t);
+    })();
+  }, [clientId, salon]);
 
   async function createClient(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +182,7 @@ function NouveauRDVContent() {
       }
     }
 
-    const tarifInsert = overrideActif && montantOverride !== "" ? Number(montantOverride) : null;
+    const tarifInsert = overrideActif && montantOverride !== "" ? Number(montantOverride) : (hasTagDiscount ? tarifAvecTags : null);
     const cancelToken = crypto.randomUUID();
 
     let rdvId: string | null = null;
@@ -256,7 +294,22 @@ function NouveauRDVContent() {
               </div>
               <span style={{ flex: 1, fontSize: 13, color: "#1a1a1a" }}>{p.nom}</span>
               <span style={{ fontSize: 12, color: "#aaa", flexShrink: 0 }}>{p.duree_minutes}min</span>
-              <span style={{ fontSize: 13, fontWeight: 600, color: sel ? m.couleur : "#555", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{p.tarif}€</span>
+              {tagTarifMap[p.id] !== undefined ? (
+                <span style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                  {prestaToTag[p.id] && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: `${prestaToTag[p.id].couleur}18`, color: prestaToTag[p.id].couleur, border: `1px solid ${prestaToTag[p.id].couleur}44`, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 700 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: prestaToTag[p.id].couleur, display: "inline-block" }} />
+                      {prestaToTag[p.id].nom}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    <span style={{ color: "#e74c3c", textDecoration: "line-through", fontWeight: 400, fontSize: 11, marginRight: 4 }}>{p.tarif}€</span>
+                    <span style={{ color: "#27ae60" }}>{tagTarifMap[p.id]}€</span>
+                  </span>
+                </span>
+              ) : (
+                <span style={{ fontSize: 13, fontWeight: 600, color: sel ? m.couleur : "#555", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{p.tarif}€</span>
+              )}
             </div>
           );
         })
@@ -343,8 +396,23 @@ function NouveauRDVContent() {
               )}
               {renderPrestaList(visiblePrestas)}
               {selectedPrests.length > 0 && (
-                <div style={{ fontSize: 13, color: "#666", marginTop: 10 }}>
-                  Total : <b>{dureeTotal} min</b> — <b>{tarifTotal} €</b>
+                <div style={{ fontSize: 13, color: "#666", marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  Total : <b>{dureeTotal} min</b> —{" "}
+                  {hasTagDiscount ? (
+                    <>
+                      <span style={{ textDecoration: "line-through", color: "#bbb" }}>{tarifTotal} €</span>
+                      <span style={{ fontWeight: 700, color: "#27ae60" }}>{tarifAvecTags} €</span>
+                      <span style={{ fontSize: 11, background: "#f0fdf4", color: "#16a34a", border: "1px solid #86efac", borderRadius: 10, padding: "1px 7px", fontWeight: 600 }}>Tarif préférentiel</span>
+                      {discountTags.map(tag => (
+                        <span key={tag.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${tag.couleur}18`, color: tag.couleur, border: `1px solid ${tag.couleur}44`, borderRadius: 10, padding: "1px 8px", fontSize: 11, fontWeight: 700 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: tag.couleur, display: "inline-block" }} />
+                          {tag.nom}
+                        </span>
+                      ))}
+                    </>
+                  ) : (
+                    <b>{tarifTotal} €</b>
+                  )}
                 </div>
               )}
             </>

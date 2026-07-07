@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
@@ -15,23 +16,39 @@ import DisponibilitesCalendrier from "@/app/components/DisponibilitesCalendrier"
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis: boolean; categorie_id: string | null; description: string | null; reservable: boolean };
 type Category = { id: string; nom: string; ordre: number; selection_type: "unique" | "multiple" | null };
+type ClientTag = { id: string; nom: string; couleur: string };
+type TagTarif = { id: string; tag_id: string; prestation_id: string; prix_override: number };
 type Settings = { delai_relance_mois: number; message_relance: string; email_expediteur: string; email_expediteur_nom: string; email_reception: string; email_confirmation_active: boolean; email_confirmation_objet: string; message_confirmation: string; email_rappel_active: boolean; email_rappel_objet: string; message_rappel_rdv: string; email_relance_objet: string; nb_visites_fidelite: number; montant_recompense: number; tarif_minimum: number; montant_parrain: number; montant_filleul: number; prestations_label: string; message_prestations: string; google_avis_url: string; google_note: number; google_nb_avis: number; google_place_id: string; sms_active: boolean; sms_confirmation_active: boolean; sms_rappel_active: boolean; sms_expediteur: string; sms_message_confirmation: string; sms_message_rappel: string; delai_min_reservation_heures: number; planning_horizon_jours: number; mode_reservation: "menu" | "guide"; agenda_heure_debut: string; agenda_heure_fin: string; planning_ouverture_mode: "horizon" | "date_fixe"; planning_ouverture_jour: number; planning_ouverture_heure: number; date_limite_planning: string };
 type Plage = { id?: string; heure_debut: string; heure_fin: string };
 type JourDispo = { actif: boolean; plages: Plage[] };
 type Conge = { id?: string; date_debut: string; date_fin: string; libelle: string };
-type Tab = "prestations" | "dispos" | "emails" | "fidelite" | "compte";
+type Tab = "prestations" | "dispos" | "emails" | "fidelite" | "tags" | "compte";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "prestations", label: "Prestations" },
   { key: "dispos", label: "Disponibilités" },
   { key: "emails", label: "Emails & SMS" },
   { key: "fidelite", label: "Fidélité" },
+  { key: "tags", label: "Tags" },
   { key: "compte", label: "Compte" },
 ];
 
 export default function ParametresPage() {
   const salon = useSalon();
-  const [tab, setTab] = useState<Tab>("prestations");
+  const router = useRouter();
+  const pathname = usePathname();
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window !== "undefined") {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (t && (["prestations", "dispos", "emails", "fidelite", "tags", "compte"] as string[]).includes(t)) return t as Tab;
+    }
+    return "prestations";
+  });
+
+  function changeTab(t: Tab) {
+    setTab(t);
+    router.replace(`${pathname}?tab=${t}`, { scroll: false });
+  }
   const [prestations, setPrestations] = useState<Prestation[]>([]);
   const [settings, setSettings] = useState<Settings>({ delai_relance_mois: 2, message_relance: "Bonjour {prenom}, cela fait un moment que nous ne vous avons pas vu !", email_expediteur: "", email_expediteur_nom: "rdvous", email_reception: "", email_confirmation_active: true, email_confirmation_objet: "Confirmation de votre rendez-vous", message_confirmation: "Bonjour {prenom}, votre rendez-vous du {date} à {heure} est confirmé. À bientôt !", email_rappel_active: true, email_rappel_objet: "Rappel : votre rendez-vous demain", message_rappel_rdv: "Bonjour {prenom}, nous vous rappelons votre rendez-vous demain {date} à {heure}. À demain !", email_relance_objet: "On pense à vous !", nb_visites_fidelite: 10, montant_recompense: 10, tarif_minimum: 0, montant_parrain: 5, montant_filleul: 5, prestations_label: "Prestations", message_prestations: "", google_avis_url: "", google_note: 0, google_nb_avis: 0, google_place_id: "", sms_active: false, sms_confirmation_active: true, sms_rappel_active: true, sms_expediteur: "rdvous", sms_message_confirmation: "", sms_message_rappel: "", delai_min_reservation_heures: 0, planning_horizon_jours: 0, mode_reservation: "menu", agenda_heure_debut: "08:00", agenda_heure_fin: "20:00", planning_ouverture_mode: "horizon", planning_ouverture_jour: 23, planning_ouverture_heure: 0, date_limite_planning: "" });
   const [categories, setCategories] = useState<Category[]>([]);
@@ -97,10 +114,23 @@ export default function ParametresPage() {
   const [googleSyncing, setGoogleSyncing] = useState(false);
   const [googleSyncMsg, setGoogleSyncMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [clientTags, setClientTags] = useState<ClientTag[]>([]);
+  const [tagTarifs, setTagTarifs] = useState<TagTarif[]>([]);
+  const [newTagNom, setNewTagNom] = useState("");
+  const [newTagCouleur, setNewTagCouleur] = useState("#8b5cf6");
+  const [addTarifFor, setAddTarifFor] = useState<string | null>(null);
+  const [addTarifPrestaId, setAddTarifPrestaId] = useState("");
+  const [addTarifPrix, setAddTarifPrix] = useState("");
+
   useEffect(() => {
     if (!salon) return;
     load();
   }, [salon]);
+
+  useEffect(() => {
+    if (!salon || tab !== "tags") return;
+    loadTags();
+  }, [salon, tab]);
 
   async function load() {
     const supabase = createSupabase();
@@ -531,6 +561,55 @@ export default function ParametresPage() {
     if (url) window.location.href = url;
   }
 
+  async function loadTags() {
+    const supabase = createSupabase();
+    const [tagsRes, tarifsRes] = await Promise.all([
+      supabase.from("client_tags").select("*").eq("salon_id", salon!.id).order("created_at"),
+      supabase.from("tag_tarifs").select("*").in(
+        "tag_id",
+        (await supabase.from("client_tags").select("id").eq("salon_id", salon!.id)).data?.map(t => t.id) || []
+      ),
+    ]);
+    setClientTags((tagsRes.data || []) as ClientTag[]);
+    setTagTarifs((tarifsRes.data || []) as TagTarif[]);
+  }
+
+  async function addTag() {
+    if (!newTagNom.trim()) return;
+    const supabase = createSupabase();
+    await supabase.from("client_tags").insert({
+      salon_id: salon!.id,
+      nom: newTagNom.trim(),
+      couleur: newTagCouleur,
+    });
+    setNewTagNom("");
+    loadTags();
+  }
+
+  async function deleteTag(id: string) {
+    if (!confirm("Supprimer ce tag ? Il sera retiré de toutes les fiches clientes.")) return;
+    const supabase = createSupabase();
+    await supabase.from("client_tags").delete().eq("id", id);
+    loadTags();
+  }
+
+  async function addTagTarif(tagId: string) {
+    if (!addTarifPrestaId || addTarifPrix === "") return;
+    const supabase = createSupabase();
+    await supabase.from("tag_tarifs").upsert(
+      { tag_id: tagId, prestation_id: addTarifPrestaId, prix_override: parseFloat(addTarifPrix) },
+      { onConflict: "tag_id,prestation_id" }
+    );
+    setAddTarifFor(null); setAddTarifPrestaId(""); setAddTarifPrix("");
+    loadTags();
+  }
+
+  async function deleteTagTarif(id: string) {
+    const supabase = createSupabase();
+    await supabase.from("tag_tarifs").delete().eq("id", id);
+    loadTags();
+  }
+
   async function saveSection(key: string) {
     setSaving(s => ({ ...s, [key]: true }));
     const supabase = createSupabase();
@@ -572,14 +651,14 @@ export default function ParametresPage() {
       {/* Onglets — desktop */}
       <div className="params-tabs" style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
         {TABS.map(t => (
-          <button key={t.key} className="params-tab" onClick={() => setTab(t.key)}
+          <button key={t.key} className="params-tab" onClick={() => changeTab(t.key)}
             style={{ padding: "8px 18px", border: "none", borderRadius: 8, fontSize: 13, fontWeight: tab === t.key ? 700 : 500, cursor: "pointer", whiteSpace: "nowrap", background: tab === t.key ? m.couleur : "#f0f0f0", color: tab === t.key ? "#fff" : "#666", transition: "all 0.15s" }}>
             {t.label}
           </button>
         ))}
       </div>
       {/* Onglets — mobile select */}
-      <select className="params-select" value={tab} onChange={e => setTab(e.target.value as Tab)}
+      <select className="params-select" value={tab} onChange={e => changeTab(e.target.value as Tab)}
         style={{ display: "none", width: "100%", padding: "10px 14px", marginBottom: 20, border: `1px solid ${m.couleurClaire}`, borderRadius: 8, fontSize: 14, fontWeight: 600, background: "#fff", color: "#1a1a1a", cursor: "pointer" }}>
         {TABS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
       </select>
@@ -1096,6 +1175,91 @@ export default function ParametresPage() {
           <SaveButton sectionKey="fidelite" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
         </Section>
         )
+      )}
+
+      {/* ── Tags ── */}
+      {tab === "tags" && (
+        <>
+          {clientTags.length === 0 && (
+            <Section titre="Tags clients">
+              <div style={{ fontSize: 13, color: "#bbb", textAlign: "center", padding: "12px 0" }}>
+                Aucun tag pour l&apos;instant. Créez-en un ci-dessous.
+              </div>
+            </Section>
+          )}
+          {clientTags.map(tag => {
+            const tarifs = tagTarifs.filter(t => t.tag_id === tag.id);
+            const isAdding = addTarifFor === tag.id;
+            return (
+              <Section key={tag.id} titre="" style={{ marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 14, height: 14, borderRadius: "50%", background: tag.couleur, flexShrink: 0 }} />
+                  <span style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>{tag.nom}</span>
+                  <button onClick={() => deleteTag(tag.id)} style={{ ...btnSmall("#e74c3c"), fontSize: 11 }}>Supprimer</button>
+                </div>
+
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
+                    Tarifs préférentiels
+                  </div>
+                  {tarifs.length === 0 && !isAdding && (
+                    <div style={{ fontSize: 12, color: "#ccc", marginBottom: 6 }}>Aucun tarif configuré</div>
+                  )}
+                  {tarifs.map(tt => {
+                    const presta = prestations.find(p => p.id === tt.prestation_id);
+                    if (!presta) return null;
+                    return (
+                      <div key={tt.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontSize: 13, flex: 1 }}>{presta.nom}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: tag.couleur }}>{tt.prix_override} €</span>
+                        <span style={{ fontSize: 12, color: "#bbb" }}>(base {presta.tarif} €)</span>
+                        <button onClick={() => deleteTagTarif(tt.id)} style={{ background: "none", border: "none", color: "#ccc", cursor: "pointer", fontSize: 13, padding: "0 4px" }}>✕</button>
+                      </div>
+                    );
+                  })}
+                  {isAdding ? (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 6, flexWrap: "wrap" }}>
+                      <select value={addTarifPrestaId} onChange={e => setAddTarifPrestaId(e.target.value)}
+                        style={{ flex: 2, ...miniInput, minWidth: 140 }}>
+                        <option value="">— Prestation —</option>
+                        {prestations.filter(p => !tarifs.some(t => t.prestation_id === p.id)).map(p => (
+                          <option key={p.id} value={p.id}>{p.nom} ({p.tarif} €)</option>
+                        ))}
+                      </select>
+                      <input type="number" min="0" step="0.5" value={addTarifPrix}
+                        onChange={e => setAddTarifPrix(e.target.value)}
+                        placeholder="Prix (€)" style={{ flex: 1, ...miniInput, minWidth: 80 }} />
+                      <button onClick={() => addTagTarif(tag.id)} style={btnSmall(tag.couleur)}>Ajouter</button>
+                      <button onClick={() => setAddTarifFor(null)} style={btnSmallGhost}>Annuler</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setAddTarifFor(tag.id); setAddTarifPrestaId(""); setAddTarifPrix(""); }}
+                      style={{ fontSize: 12, color: tag.couleur, background: "none", border: `1px dashed ${tag.couleur}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer", marginTop: 4 }}>
+                      + Ajouter un tarif préférentiel
+                    </button>
+                  )}
+                </div>
+              </Section>
+            );
+          })}
+
+          <Section titre="Nouveau tag" style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ flex: 2, minWidth: 120 }}>
+                <label style={labelStyle}>Nom *</label>
+                <input value={newTagNom} onChange={e => setNewTagNom(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && addTag()}
+                  placeholder="Ex : Fidèle, VIP, Pro…" style={{ ...miniInput, width: "100%" }} />
+              </div>
+              <div>
+                <label style={labelStyle}>Couleur</label>
+                <input type="color" value={newTagCouleur} onChange={e => setNewTagCouleur(e.target.value)}
+                  style={{ ...miniInput, width: 48, padding: "3px 4px", cursor: "pointer" }} />
+              </div>
+              <button onClick={addTag} style={{ ...btnSmall(m.couleur), padding: "9px 16px", fontSize: 13 }}>Créer</button>
+            </div>
+          </Section>
+        </>
       )}
 
       {/* ── Compte ── */}

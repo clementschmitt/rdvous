@@ -9,6 +9,7 @@ import { CapsulesMesures, parseCapsules, type Capsules } from "@/app/components/
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; categorie_id: string | null };
 type Category = { id: string; nom: string; ordre: number };
+type TagTarifMap = Record<string, number>; // prestation_id → prix_override
 type RDV = {
   id: string; date_heure: string; statut: string; notes: string | null;
   montant_cagnotte_utilise: number; tarif: number | null; client_id: string;
@@ -39,6 +40,8 @@ export default function RDVDetailPage() {
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [tagTarifMap, setTagTarifMap] = useState<TagTarifMap>({});
+  const [discountTags, setDiscountTags] = useState<{ id: string; nom: string; couleur: string }[]>([]);
 
   const [capsules, setCapsules] = useState<Capsules>({ g: [0,0,0,0,0], d: [0,0,0,0,0] });
   const [editingCapsules, setEditingCapsules] = useState(false);
@@ -76,6 +79,34 @@ export default function RDVDetailPage() {
     setCagnotteInput(parsed.montant_cagnotte_utilise || 0);
     const client = parsed.clients;
     if (client) setCapsules(parseCapsules(client.champs_metier?.mesures_capsules));
+
+    // Charger les tarifs préférentiels du client
+    if (parsed.client_id) {
+      const { data: assignments } = await supabase.from("client_tag_assignments").select("tag_id").eq("client_id", parsed.client_id);
+      if (assignments && assignments.length > 0) {
+        const tagIds = assignments.map((a: { tag_id: string }) => a.tag_id);
+        const [{ data: tarifs }, { data: tags }] = await Promise.all([
+          supabase.from("tag_tarifs").select("tag_id, prestation_id, prix_override").in("tag_id", tagIds),
+          supabase.from("client_tags").select("id, nom, couleur").in("id", tagIds),
+        ]);
+        const map: TagTarifMap = {};
+        const tagByPresta: Record<string, string> = {}; // prestation_id → tag_id gagnant
+        for (const t of (tarifs || []) as { tag_id: string; prestation_id: string; prix_override: number }[]) {
+          if (map[t.prestation_id] === undefined || t.prix_override < map[t.prestation_id]) {
+            map[t.prestation_id] = t.prix_override;
+            tagByPresta[t.prestation_id] = t.tag_id;
+          }
+        }
+        setTagTarifMap(map);
+        // Tags qui s'appliquent à au moins une prestation du RDV
+        const rdvPrestaIds = new Set(parsed.rendez_vous_prestations.map(rp => rp.prestation_id));
+        const activeTagIds = new Set(Object.entries(tagByPresta).filter(([pid]) => rdvPrestaIds.has(pid)).map(([, tid]) => tid));
+        setDiscountTags(((tags || []) as { id: string; nom: string; couleur: string }[]).filter(t => activeTagIds.has(t.id)));
+      } else {
+        setTagTarifMap({});
+        setDiscountTags([]);
+      }
+    }
   }
 
   async function startEditPrestations() {
@@ -88,6 +119,24 @@ export default function RDVDetailPage() {
     setAllCategories((cData || []) as Category[]);
     setSelectedCat(null);
     setSelectedIds(new Set(rdv!.rendez_vous_prestations.map(rp => rp.prestation_id)));
+
+    // Charger les tarifs préférentiels du client
+    const clientId = rdv!.client_id;
+    if (clientId) {
+      const { data: assignments } = await supabase.from("client_tag_assignments").select("tag_id").eq("client_id", clientId);
+      if (assignments && assignments.length > 0) {
+        const tagIds = assignments.map((a: { tag_id: string }) => a.tag_id);
+        const { data: tarifs } = await supabase.from("tag_tarifs").select("prestation_id, prix_override").in("tag_id", tagIds);
+        const map: TagTarifMap = {};
+        for (const t of (tarifs || []) as { prestation_id: string; prix_override: number }[]) {
+          if (map[t.prestation_id] === undefined || t.prix_override < map[t.prestation_id]) map[t.prestation_id] = t.prix_override;
+        }
+        setTagTarifMap(map);
+      } else {
+        setTagTarifMap({});
+      }
+    }
+
     setEditingPrestations(true);
   }
 
@@ -108,8 +157,10 @@ export default function RDVDetailPage() {
       await supabase.from("rendez_vous_prestations").insert([...selectedIds].map(pid => ({ rendez_vous_id: id, prestation_id: pid })));
     }
     const selected = allPrestations.filter(p => selectedIds.has(p.id));
+    const tarifBase = selected.reduce((s, p) => s + p.tarif, 0);
+    const tarifTags = selected.reduce((s, p) => s + (tagTarifMap[p.id] ?? p.tarif), 0);
     await supabase.from("rendez_vous").update({
-      tarif: selected.reduce((s, p) => s + p.tarif, 0),
+      tarif: tarifTags < tarifBase ? tarifTags : tarifBase,
       duree_minutes: selected.reduce((s, p) => s + p.duree_minutes, 0),
     }).eq("id", id);
     setEditingPrestations(false);
@@ -176,6 +227,8 @@ export default function RDVDetailPage() {
             body: JSON.stringify({ salon_id: salon!.id, client_id: client.id, montant: settings.montant_recompense }),
           });
         }
+
+
         const { data: clientFull } = await supabase.from("clients").select("parrain_id, parrainage_utilise, cagnotte").eq("id", client.id).single();
         if (clientFull && !clientFull.parrainage_utilise && clientFull.parrain_id && settings) {
           const { data: parrain } = await supabase.from("clients").select("cagnotte").eq("id", clientFull.parrain_id).single();
@@ -383,28 +436,81 @@ export default function RDVDetailPage() {
                             </div>
                             <span style={{ flex: 1, fontSize: 13, color: "#1a1a1a" }}>{p.nom}</span>
                             <span style={{ fontSize: 12, color: "#aaa", flexShrink: 0 }}>{p.duree_minutes}min</span>
-                            <span style={{ fontSize: 13, fontWeight: 600, color: sel ? m.couleur : "#555", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{p.tarif}€</span>
+                            {tagTarifMap[p.id] !== undefined ? (
+                              <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0, minWidth: 36, textAlign: "right" }}>
+                                <span style={{ color: "#e74c3c", textDecoration: "line-through", fontWeight: 400, fontSize: 11, marginRight: 4 }}>{p.tarif}€</span>
+                                <span style={{ color: "#27ae60" }}>{tagTarifMap[p.id]}€</span>
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 13, fontWeight: 600, color: sel ? m.couleur : "#555", flexShrink: 0, minWidth: 36, textAlign: "right" }}>{p.tarif}€</span>
+                            )}
                           </div>
                         );
                       });
                 })()}
               </div>
-              {selectedIds.size > 0 && (
-                <div style={{ fontSize: 13, color: "#666" }}>Total : <b>{selectedPrests.reduce((s, p) => s + p.duree_minutes, 0)}min — {selectedPrests.reduce((s, p) => s + p.tarif, 0)}€</b></div>
-              )}
+              {selectedIds.size > 0 && (() => {
+                const duree = selectedPrests.reduce((s, p) => s + p.duree_minutes, 0);
+                const tarifBase = selectedPrests.reduce((s, p) => s + p.tarif, 0);
+                const tarifTags = selectedPrests.reduce((s, p) => s + (tagTarifMap[p.id] ?? p.tarif), 0);
+                const hasDiscount = tarifTags < tarifBase;
+                return (
+                  <div style={{ fontSize: 13, color: "#666", display: "flex", alignItems: "center", gap: 8 }}>
+                    Total : <b>{duree}min</b> —
+                    {hasDiscount ? (
+                      <>
+                        <span style={{ textDecoration: "line-through", color: "#bbb" }}>{tarifBase}€</span>
+                        <span style={{ fontWeight: 700, color: "#27ae60" }}>{tarifTags}€</span>
+                        <span style={{ fontSize: 11, background: "#f0fdf4", color: "#16a34a", border: "1px solid #86efac", borderRadius: 10, padding: "1px 7px", fontWeight: 600 }}>Tarif préférentiel</span>
+                      </>
+                    ) : (
+                      <b>{tarifBase}€</b>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ) : (
             <>
               {rdv.rendez_vous_prestations.map(rp => rp.prestations && (
                 <div key={rp.prestation_id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f5f5f5", fontSize: 13 }}>
                   <span>{rp.prestations.nom}</span>
-                  <span style={{ color: "#666" }}>{rp.prestations.duree_minutes}min — {rp.prestations.tarif}€</span>
+                  {tagTarifMap[rp.prestation_id] !== undefined ? (
+                    <span style={{ color: "#666" }}>
+                      {rp.prestations.duree_minutes}min —{" "}
+                      <span style={{ textDecoration: "line-through", color: "#bbb", marginRight: 4 }}>{rp.prestations.tarif}€</span>
+                      <span style={{ color: "#27ae60", fontWeight: 700 }}>{tagTarifMap[rp.prestation_id]}€</span>
+                    </span>
+                  ) : (
+                    <span style={{ color: "#666" }}>{rp.prestations.duree_minutes}min — {rp.prestations.tarif}€</span>
+                  )}
                 </div>
               ))}
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontWeight: 700, fontSize: 14 }}>
                 <span>Total</span>
-                <span>{dureeTotal}min — {rdv.montant_cagnotte_utilise > 0 ? <><span style={{ textDecoration: "line-through", color: "#aaa", marginRight: 6 }}>{tarifTotal}€</span>{(tarifTotal - rdv.montant_cagnotte_utilise).toFixed(2)}€</> : `${tarifTotal}€`}</span>
+                <span>{dureeTotal}min — {(() => {
+                  const tarif = rdv.tarif ?? tarifTotal;
+                  const hasTagDiscount = rdv.tarif !== null && rdv.tarif < tarifTotal;
+                  if (rdv.montant_cagnotte_utilise > 0) {
+                    return <><span style={{ textDecoration: "line-through", color: "#aaa", marginRight: 6 }}>{hasTagDiscount ? <><span style={{ textDecoration: "line-through", color: "#bbb", fontSize: 12 }}>{tarifTotal}€ </span></> : null}{tarif}€</span>{(tarif - rdv.montant_cagnotte_utilise).toFixed(2)}€</>;
+                  }
+                  if (hasTagDiscount) {
+                    return <><span style={{ textDecoration: "line-through", color: "#bbb", fontWeight: 400, fontSize: 13, marginRight: 4 }}>{tarifTotal}€</span><span style={{ color: "#27ae60" }}>{tarif}€</span></>;
+                  }
+                  return `${tarif}€`;
+                })()}</span>
               </div>
+              {discountTags.length > 0 && rdv.tarif !== null && rdv.tarif < tarifTotal && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                  <span style={{ fontSize: 11, color: "#aaa" }}>Tarif préférentiel via</span>
+                  {discountTags.map(tag => (
+                    <span key={tag.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: `${tag.couleur}18`, color: tag.couleur, border: `1px solid ${tag.couleur}44`, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: tag.couleur, display: "inline-block" }} />
+                      {tag.nom}
+                    </span>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

@@ -20,6 +20,8 @@ type Animal = {
   nom: string; race: string | null; age: number | null; poids: number | null;
   comportement: string | null; notes: string | null;
 };
+type ClientTag = { id: string; nom: string; couleur: string };
+type TagAssignment = { id: string; tag_id: string; client_tags: ClientTag };
 type AnimalForm = { id?: string; nom: string; race: string; age: string; poids: string; comportement: string; notes: string };
 
 const ANIMAL_FORM_DEFAULT: AnimalForm = { nom: "", race: "", age: "", poids: "", comportement: "", notes: "" };
@@ -54,6 +56,10 @@ export default function ClientDetailPage() {
   const [fidDelta, setFidDelta] = useState("");
   const [fidSaving, setFidSaving] = useState(false);
 
+  const [tagAssignments, setTagAssignments] = useState<TagAssignment[]>([]);
+  const [allSalonTags, setAllSalonTags] = useState<ClientTag[]>([]);
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeSearch, setMergeSearch] = useState("");
   const [mergeResults, setMergeResults] = useState<{ id: string; prenom: string; nom: string; telephone: string | null }[]>([]);
@@ -85,6 +91,13 @@ export default function ClientDetailPage() {
     setRdvs((rdvRes.data || []) as unknown as RDV[]);
     if (sRes.data) setSettings(sRes.data as Settings);
     if (aRes) setAnimaux((aRes.data || []) as Animal[]);
+
+    const [assignRes, allTagsRes] = await Promise.all([
+      supabase.from("client_tag_assignments").select("id, tag_id, client_tags(id, nom, couleur)").eq("client_id", id),
+      supabase.from("client_tags").select("id, nom, couleur").eq("salon_id", salon!.id).order("created_at"),
+    ]);
+    setTagAssignments((assignRes.data || []) as unknown as TagAssignment[]);
+    setAllSalonTags((allTagsRes.data || []) as ClientTag[]);
   }
 
   async function handleSave() {
@@ -192,6 +205,19 @@ export default function ClientDetailPage() {
       alert(json.error || "Erreur lors de la fusion");
       setMergeSaving(false);
     }
+  }
+
+  async function addTagAssignment(tagId: string) {
+    const supabase = createSupabase();
+    await supabase.from("client_tag_assignments").insert({ client_id: id, tag_id: tagId });
+    setTagDropdownOpen(false);
+    load();
+  }
+
+  async function removeTagAssignment(assignmentId: string) {
+    const supabase = createSupabase();
+    await supabase.from("client_tag_assignments").delete().eq("id", assignmentId);
+    load();
   }
 
   async function handleDeleteAnimal(animalId: string, nom: string) {
@@ -431,6 +457,39 @@ export default function ClientDetailPage() {
         <ChampTextarea label="Préférences" value={form.preferences || ""} onChange={v => set("preferences", v)} editing={editing} />
         <ChampTextarea label="Notes internes" value={form.notes || ""} onChange={v => set("notes", v)} editing={editing} />
       </Section>
+
+      {allSalonTags.length > 0 && (
+        <Section titre="Tags" style={{ marginTop: 12 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            {tagAssignments.map(a => (
+              <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: `${a.client_tags.couleur}18`, border: `1px solid ${a.client_tags.couleur}60`, fontSize: 12, fontWeight: 600, color: a.client_tags.couleur }}>
+                {a.client_tags.nom}
+                <button onClick={() => removeTagAssignment(a.id)} style={{ background: "none", border: "none", color: a.client_tags.couleur, cursor: "pointer", padding: 0, fontSize: 13, lineHeight: 1 }}>✕</button>
+              </span>
+            ))}
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setTagDropdownOpen(v => !v)}
+                style={{ padding: "4px 10px", borderRadius: 20, border: `1px dashed ${m.couleur}`, background: "none", color: m.couleur, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                + Tag
+              </button>
+              {tagDropdownOpen && (
+                <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 10, boxShadow: "0 4px 14px rgba(0,0,0,0.1)", zIndex: 100, minWidth: 160, padding: 6 }}>
+                  {allSalonTags.filter(t => !tagAssignments.some(a => a.tag_id === t.id)).map(t => (
+                    <button key={t.id} onClick={() => addTagAssignment(t.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "7px 10px", background: "none", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.couleur, flexShrink: 0 }} />
+                      {t.nom}
+                    </button>
+                  ))}
+                  {allSalonTags.filter(t => !tagAssignments.some(a => a.tag_id === t.id)).length === 0 && (
+                    <div style={{ fontSize: 12, color: "#bbb", padding: "6px 10px" }}>Tous les tags sont assignés</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </Section>
+      )}
 
       <Section titre={`Historique RDV (${rdvs.length})`} style={{ marginTop: 12 }}>
         {rdvs.length === 0 ? (
