@@ -18,23 +18,42 @@ function MergedBanner() {
 }
 
 type Client = { id: string; prenom: string; nom: string; telephone: string | null; cagnotte: number };
+type ClientTag = { id: string; nom: string; couleur: string };
 
 export default function ClientsPage() {
   const salon = useSalon();
   const [clients, setClients] = useState<Client[]>([]);
   const [recherche, setRecherche] = useState("");
   const [loading, setLoading] = useState(true);
+  const [salonTags, setSalonTags] = useState<ClientTag[]>([]);
+  const [clientTagMap, setClientTagMap] = useState<Record<string, ClientTag[]>>({});
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
 
   useEffect(() => {
     if (!salon) return;
     (async () => {
       const supabase = createSupabase();
-      const { data } = await supabase
-        .from("clients")
-        .select("id, prenom, nom, telephone, cagnotte")
-        .eq("salon_id", salon.id)
-        .order("nom");
-      setClients((data || []) as Client[]);
+      const [{ data: clientsData }, { data: tagsData }] = await Promise.all([
+        supabase.from("clients").select("id, prenom, nom, telephone, cagnotte").eq("salon_id", salon.id).order("nom"),
+        supabase.from("client_tags").select("id, nom, couleur").eq("salon_id", salon.id).order("created_at"),
+      ]);
+      const clientList = (clientsData || []) as Client[];
+      setClients(clientList);
+      setSalonTags((tagsData || []) as ClientTag[]);
+
+      if (clientList.length > 0 && (tagsData || []).length > 0) {
+        const clientIds = clientList.map(c => c.id);
+        const { data: assignments } = await supabase
+          .from("client_tag_assignments")
+          .select("client_id, client_tags(id, nom, couleur)")
+          .in("client_id", clientIds);
+        const map: Record<string, ClientTag[]> = {};
+        for (const a of (assignments || []) as { client_id: string; client_tags: ClientTag }[]) {
+          if (!map[a.client_id]) map[a.client_id] = [];
+          map[a.client_id].push(a.client_tags);
+        }
+        setClientTagMap(map);
+      }
       setLoading(false);
     })();
   }, [salon]);
@@ -42,9 +61,11 @@ export default function ClientsPage() {
   if (!salon) return null;
   const m = METIERS[salon.metier];
 
-  const filtrés = clients.filter(c =>
-    `${c.prenom} ${c.nom} ${c.telephone || ""}`.toLowerCase().includes(recherche.toLowerCase())
-  );
+  const filtrés = clients.filter(c => {
+    const matchSearch = `${c.prenom} ${c.nom} ${c.telephone || ""}`.toLowerCase().includes(recherche.toLowerCase());
+    const matchTag = !tagFilter || (clientTagMap[c.id] || []).some(t => t.id === tagFilter);
+    return matchSearch && matchTag;
+  });
 
   function initiales(prenom: string, nom: string) {
     return `${prenom[0] || ""}${nom[0] || ""}`.toUpperCase();
@@ -73,8 +94,23 @@ export default function ClientsPage() {
         value={recherche}
         onChange={e => setRecherche(e.target.value)}
         placeholder={`Rechercher parmi ${clients.length} ${m.labelClients.toLowerCase()}...`}
-        style={{ width: "100%", padding: "10px 14px", border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 14, marginBottom: 16, boxSizing: "border-box", background: T.white, color: T.text, outline: "none" }}
+        style={{ width: "100%", padding: "10px 14px", border: `1px solid ${T.border}`, borderRadius: T.radiusSm, fontSize: 14, marginBottom: salonTags.length > 0 ? 10 : 16, boxSizing: "border-box", background: T.white, color: T.text, outline: "none" }}
       />
+      {salonTags.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+          <button onClick={() => setTagFilter(null)}
+            style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${tagFilter === null ? m.couleur : T.border}`, background: tagFilter === null ? m.couleur : T.white, color: tagFilter === null ? "#fff" : T.faint, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            Tous
+          </button>
+          {salonTags.map(tag => (
+            <button key={tag.id} onClick={() => setTagFilter(tagFilter === tag.id ? null : tag.id)}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 12px", borderRadius: 20, border: `1px solid ${tagFilter === tag.id ? tag.couleur : T.border}`, background: tagFilter === tag.id ? `${tag.couleur}18` : T.white, color: tagFilter === tag.id ? tag.couleur : T.faint, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: tag.couleur, display: "inline-block" }} />
+              {tag.nom}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ color: T.faint, fontSize: 14 }}>Chargement...</div>
@@ -92,7 +128,15 @@ export default function ClientsPage() {
                 {initiales(c.prenom, c.nom)}
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, color: T.text }}>{c.prenom} {c.nom}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontWeight: 600, fontSize: 14, color: T.text }}>{c.prenom} {c.nom}</span>
+                  {(clientTagMap[c.id] || []).map(tag => (
+                    <span key={tag.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 20, background: `${tag.couleur}18`, border: `1px solid ${tag.couleur}50`, fontSize: 11, fontWeight: 700, color: tag.couleur }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: tag.couleur, display: "inline-block" }} />
+                      {tag.nom}
+                    </span>
+                  ))}
+                </div>
                 {c.telephone && <div style={{ fontSize: 12, color: T.faint, marginTop: 2 }}>{c.telephone}</div>}
               </div>
               {c.cagnotte > 0 && (
