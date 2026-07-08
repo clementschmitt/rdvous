@@ -48,9 +48,9 @@ export default function ClientsPage() {
           .select("client_id, client_tags(id, nom, couleur)")
           .in("client_id", clientIds);
         const map: Record<string, ClientTag[]> = {};
-        for (const a of (assignments || []) as { client_id: string; client_tags: ClientTag }[]) {
+        for (const a of (assignments || []) as unknown as { client_id: string; client_tags: ClientTag }[]) {
           if (!map[a.client_id]) map[a.client_id] = [];
-          map[a.client_id].push(a.client_tags);
+          if (a.client_tags) map[a.client_id].push(a.client_tags);
         }
         setClientTagMap(map);
       }
