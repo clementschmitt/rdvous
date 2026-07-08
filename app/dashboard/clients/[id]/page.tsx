@@ -93,7 +93,7 @@ export default function ClientDetailPage() {
     if (aRes) setAnimaux((aRes.data || []) as Animal[]);
 
     const [assignRes, allTagsRes] = await Promise.all([
-      supabase.from("client_tag_assignments").select("id, tag_id, client_tags(id, nom, couleur)").eq("client_id", id),
+      supabase.from("client_tag_assignments").select("id, tag_id, assigned_at, client_tags(id, nom, couleur)").eq("client_id", id).order("assigned_at"),
       supabase.from("client_tags").select("id, nom, couleur").eq("salon_id", salon!.id).order("created_at"),
     ]);
     setTagAssignments((assignRes.data || []) as unknown as TagAssignment[]);
@@ -262,15 +262,52 @@ export default function ClientDetailPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28 }}>
-        <div style={{ width: 56, height: 56, borderRadius: "50%", background: `${m.couleur}20`, color: m.couleur, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 20 }}>
-          {client.prenom[0]}{client.nom[0]}
-        </div>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{client.prenom} {client.nom}</h1>
-          <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>Code parrainage : <b>{client.code_parrainage}</b></div>
-        </div>
-      </div>
+      {(() => {
+        const lastTag = tagAssignments.length > 0 ? tagAssignments[tagAssignments.length - 1].client_tags : null;
+        const hasTags = tagAssignments.length > 0;
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 28, padding: hasTags ? "16px 20px" : 0, background: lastTag ? `${lastTag.couleur}0e` : "transparent", border: lastTag ? `1px solid ${lastTag.couleur}30` : "none", borderRadius: hasTags ? 14 : 0, transition: "background 0.2s" }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: lastTag ? `${lastTag.couleur}25` : `${m.couleur}20`, color: lastTag ? lastTag.couleur : m.couleur, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 20, flexShrink: 0 }}>
+              {client.prenom[0]}{client.nom[0]}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
+                <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>{client.prenom} {client.nom}</h1>
+                {tagAssignments.map(a => (
+                  <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, background: `${a.client_tags.couleur}18`, border: `1px solid ${a.client_tags.couleur}60`, fontSize: 12, fontWeight: 700, color: a.client_tags.couleur }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: a.client_tags.couleur, display: "inline-block" }} />
+                    {a.client_tags.nom}
+                    <button onClick={() => removeTagAssignment(a.id)} style={{ background: "none", border: "none", color: a.client_tags.couleur, cursor: "pointer", padding: 0, fontSize: 13, lineHeight: 1, opacity: 0.6 }}>✕</button>
+                  </span>
+                ))}
+                {allSalonTags.length > 0 && (
+                  <div style={{ position: "relative" }}>
+                    <button onClick={() => setTagDropdownOpen(!tagDropdownOpen)}
+                      style={{ padding: "3px 10px", borderRadius: 20, border: `1px dashed ${m.couleur}80`, background: "none", color: m.couleur, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                      + Tag
+                    </button>
+                    {tagDropdownOpen && (
+                      <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 10, boxShadow: "0 4px 14px rgba(0,0,0,0.1)", zIndex: 100, minWidth: 160, padding: 6 }}>
+                        {allSalonTags.filter(t => !tagAssignments.some(a => a.tag_id === t.id)).map(t => (
+                          <button key={t.id} onClick={() => addTagAssignment(t.id)}
+                            style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "7px 10px", background: "none", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>
+                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.couleur, flexShrink: 0 }} />
+                            {t.nom}
+                          </button>
+                        ))}
+                        {allSalonTags.filter(t => !tagAssignments.some(a => a.tag_id === t.id)).length === 0 && (
+                          <div style={{ fontSize: 12, color: "#bbb", padding: "6px 10px" }}>Tous les tags sont assignés</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: "#999" }}>Code parrainage : <b>{client.code_parrainage}</b></div>
+            </div>
+          </div>
+        );
+      })()}
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
         <div style={{ background: client.cagnotte > 0 ? `${m.couleur}12` : "#f9f9f9", border: `1px solid ${client.cagnotte > 0 ? m.couleur : "#e0e0e0"}`, borderRadius: 10, padding: "16px 20px" }}>
@@ -458,38 +495,6 @@ export default function ClientDetailPage() {
         <ChampTextarea label="Notes internes" value={form.notes || ""} onChange={v => set("notes", v)} editing={editing} />
       </Section>
 
-      {allSalonTags.length > 0 && (
-        <Section titre="Tags" style={{ marginTop: 12 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            {tagAssignments.map(a => (
-              <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 20, background: `${a.client_tags.couleur}18`, border: `1px solid ${a.client_tags.couleur}60`, fontSize: 12, fontWeight: 600, color: a.client_tags.couleur }}>
-                {a.client_tags.nom}
-                <button onClick={() => removeTagAssignment(a.id)} style={{ background: "none", border: "none", color: a.client_tags.couleur, cursor: "pointer", padding: 0, fontSize: 13, lineHeight: 1 }}>✕</button>
-              </span>
-            ))}
-            <div style={{ position: "relative" }}>
-              <button onClick={() => setTagDropdownOpen(v => !v)}
-                style={{ padding: "4px 10px", borderRadius: 20, border: `1px dashed ${m.couleur}`, background: "none", color: m.couleur, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                + Tag
-              </button>
-              {tagDropdownOpen && (
-                <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: "#fff", border: "1px solid #e0e0e0", borderRadius: 10, boxShadow: "0 4px 14px rgba(0,0,0,0.1)", zIndex: 100, minWidth: 160, padding: 6 }}>
-                  {allSalonTags.filter(t => !tagAssignments.some(a => a.tag_id === t.id)).map(t => (
-                    <button key={t.id} onClick={() => addTagAssignment(t.id)}
-                      style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", padding: "7px 10px", background: "none", border: "none", borderRadius: 7, cursor: "pointer", fontSize: 13 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: t.couleur, flexShrink: 0 }} />
-                      {t.nom}
-                    </button>
-                  ))}
-                  {allSalonTags.filter(t => !tagAssignments.some(a => a.tag_id === t.id)).length === 0 && (
-                    <div style={{ fontSize: 12, color: "#bbb", padding: "6px 10px" }}>Tous les tags sont assignés</div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </Section>
-      )}
 
       <Section titre={`Historique RDV (${rdvs.length})`} style={{ marginTop: 12 }}>
         {rdvs.length === 0 ? (
