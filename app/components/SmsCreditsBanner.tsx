@@ -7,7 +7,7 @@ export default function SmsCreditsBanner() {
   const salon = useSalon();
   const [loading, setLoading] = useState(false);
 
-  if (!salon || !salon.sms_credits === undefined) return null;
+  if (!salon || salon.plan === "free") return null;
   const credits = salon.sms_credits ?? 0;
   if (credits > 10) return null;
 
