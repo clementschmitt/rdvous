@@ -405,6 +405,30 @@ function soustraireIntervalle(plages: Plage[], a: number, b: number): Plage[] {
   return out.filter(p => timeToMin(p.heure_fin) > timeToMin(p.heure_debut));
 }
 
+function layoutRdvs(rdvs: { id: string; debut: number; fin: number }[]): Record<string, { col: number; numCols: number }> {
+  if (rdvs.length === 0) return {};
+  const sorted = [...rdvs].sort((a, b) => a.debut - b.debut || a.fin - b.fin);
+  const cols: number[] = [];
+  const colEnds: number[] = [];
+  for (const rdv of sorted) {
+    let c = 0;
+    while (c < colEnds.length && colEnds[c] > rdv.debut) c++;
+    cols.push(c);
+    colEnds[c] = rdv.fin;
+  }
+  const result: Record<string, { col: number; numCols: number }> = {};
+  for (let i = 0; i < sorted.length; i++) {
+    let maxCol = cols[i];
+    for (let j = 0; j < sorted.length; j++) {
+      if (sorted[j].debut < sorted[i].fin && sorted[j].fin > sorted[i].debut) {
+        maxCol = Math.max(maxCol, cols[j]);
+      }
+    }
+    result[sorted[i].id] = { col: cols[i], numCols: maxCol + 1 };
+  }
+  return result;
+}
+
 function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, today, router, onRdvChange, onRdvMove }: {
   salonId: string;
   weekDays: Date[];
@@ -576,14 +600,29 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
         const origDateHeure = `${snapshot.rdv.date_heure.slice(0, 10)}T${snapshot.rdv.date_heure.slice(11, 16)}:00`;
         if (newDateHeure !== origDateHeure) {
           onRdvMove(snapshot.rdv.id, newDateHeure);
-          fetch("/api/rdv/deplacer", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ rdv_id: snapshot.rdv.id, new_date: newDateStr, new_heure: newTimeStr, notify: false }),
-          }).then(() => {
+          (async () => {
+            const envoyer = (force: boolean) => fetch("/api/rdv/deplacer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rdv_id: snapshot.rdv.id, new_date: newDateStr, new_heure: newTimeStr, notify: false, force }),
+            });
+
+            let res = await envoyer(false);
+
+            if (res.status === 409) {
+              const { error } = await res.json().catch(() => ({ error: "Ce créneau est déjà occupé." }));
+              if (!window.confirm(`${error}\n\nDéplacer quand même ?`)) {
+                onRdvChange(); // recharge depuis la base : annule le déplacement optimiste
+                return;
+              }
+              res = await envoyer(true);
+            }
+
             onRdvChange();
-            setNotifyDrag({ rdv_id: snapshot.rdv.id, old_date_heure: snapshot.rdv.date_heure, new_date: newDateStr, new_heure: newTimeStr });
-          });
+            if (res.ok) {
+              setNotifyDrag({ rdv_id: snapshot.rdv.id, old_date_heure: snapshot.rdv.date_heure, new_date: newDateStr, new_heure: newTimeStr });
+            }
+          })();
         }
       } else {
         router.push(`/dashboard/agenda/${snapshot.rdv.id}`);
@@ -776,6 +815,41 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
             const isToday = toDateStr(day) === today;
             const info = dayInfo(i);
             const dayRdvs = rdvsForDay(info.dateStr);
+
+            // Blocs personnels du jour, avec leurs bornes en minutes (gère récurrence et blocs multi-jours)
+            const ds = info.dateStr;
+            const dayEvts: { ev: Evenement; startMin: number; endMin: number }[] = [];
+            for (const evRaw of evenements) {
+              let ev = evRaw;
+              if (!evRaw.recurrence) {
+                const debutDate = evRaw.date_heure.slice(0, 10);
+                const finMs = new Date(evRaw.date_heure).getTime() + evRaw.duree_minutes * 60000;
+                const finDate = new Date(finMs - 1).toISOString().slice(0, 10);
+                if (ds < debutDate || ds > finDate) continue;
+              } else if (evRaw.recurrence === "hebdomadaire") {
+                if (info.day.getDay() !== new Date(evRaw.date_heure).getDay()) continue;
+                if (ds < evRaw.date_heure.slice(0, 10)) continue;
+                if (evRaw.recurrence_fin && ds > evRaw.recurrence_fin) continue;
+                ev = { ...evRaw, date_heure: `${ds}T${evRaw.date_heure.slice(11, 16)}:00` };
+              } else continue;
+
+              const evStartMin = timeToMin(ev.date_heure.slice(11, 16));
+              const isStartDay = ds === ev.date_heure.slice(0, 10);
+              const decalage = isStartDay ? 0 : (new Date(ds + "T00:00:00").getTime() - new Date(ev.date_heure.slice(0, 10) + "T00:00:00").getTime()) / 60000;
+              const startMin = isStartDay ? evStartMin : grilleDebut;
+              const endMin = Math.min(evStartMin + ev.duree_minutes - decalage, grilleFin);
+              dayEvts.push({ ev, startMin, endMin });
+            }
+
+            // Mise en page commune RDV + blocs personnels : tout ce qui se chevauche passe en colonnes
+            const rdvLayout = layoutRdvs([
+              ...dayRdvs.map(rdv => {
+                const debut = timeToMin(rdv.date_heure.slice(11, 16));
+                const dureeL = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0) || 30;
+                return { id: rdv.id, debut, fin: debut + dureeL };
+              }),
+              ...dayEvts.map(({ ev, startMin, endMin }) => ({ id: `ev-${ev.id}`, debut: startMin, fin: endMin })),
+            ]);
             // Zones fermées (gris) : complément des plages ouvertes (exception custom, ou horaires habituels avec pauses)
             const plagesOuvertes = info.custom || info.plages;
             const zonesFermees: { top: number; height: number }[] = [];
@@ -831,47 +905,22 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                 )}
 
                 {/* Blocs personnels */}
-                {(() => {
-                  const ds = info.dateStr;
-                  const dayEvts: Evenement[] = [];
-                  for (const ev of evenements) {
-                    if (!ev.recurrence) {
-                      const evStartDate = ev.date_heure.slice(0, 10);
-                      const evEndMs = new Date(ev.date_heure).getTime() + ev.duree_minutes * 60000;
-                      const evEndDate = new Date(evEndMs - 1).toISOString().slice(0, 10);
-                      if (ds >= evStartDate && ds <= evEndDate) dayEvts.push(ev);
-                    } else if (ev.recurrence === "hebdomadaire") {
-                      const evDay = new Date(ev.date_heure).getDay();
-                      if (info.day.getDay() === evDay) {
-                        if (ds < ev.date_heure.slice(0, 10)) continue;
-                        if (ev.recurrence_fin && ds > ev.recurrence_fin) continue;
-                        dayEvts.push({ ...ev, date_heure: `${ds}T${ev.date_heure.slice(11, 16)}:00` });
-                      }
-                    }
-                  }
-                  return dayEvts.map(ev => {
-                    const evStartMin = timeToMin(ev.date_heure.slice(11, 16));
-                    const evStartDate = ev.date_heure.slice(0, 10);
-                    const isStartDay = ds === evStartDate;
-                    // Calcul fin en minutes depuis minuit du jour courant
-                    const minutesDepuisDebutBloc = isStartDay ? 0 : (new Date(ds + "T00:00:00").getTime() - new Date(evStartDate + "T00:00:00").getTime()) / 60000;
-                    const startMin = isStartDay ? evStartMin : grilleDebut;
-                    const endMinRaw = evStartMin + ev.duree_minutes - minutesDepuisDebutBloc;
-                    const endMin = Math.min(endMinRaw, grilleFin);
-                    const top = (startMin - grilleDebut) / 60 * PX_PAR_HEURE;
-                    const height = Math.max(22, (endMin - startMin) / 60 * PX_PAR_HEURE - 3);
-                    return (
-                      <div key={`ev-${ev.id}-${ds}`}
-                        onPointerDown={e => e.stopPropagation()}
-                        onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/bloc/${ev.id}`); }}
-                        style={{ position: "absolute", top, left: 3, right: 3, height, background: "#f5f5f5", borderLeft: "3px solid #aaa", borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", zIndex: 4, opacity: 0.9 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#888", lineHeight: 1.3 }}>{isStartDay ? formatHeure(ev.date_heure) : "→"}</div>
-                        {height > 26 && <div style={{ fontSize: 11, fontWeight: 600, color: "#555", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titre}</div>}
-                        {height > 44 && ev.recurrence && <div style={{ fontSize: 9, color: "#aaa" }}>↻ hebdo</div>}
-                      </div>
-                    );
-                  });
-                })()}
+                {dayEvts.map(({ ev, startMin, endMin }) => {
+                  const isStartDay = ds === ev.date_heure.slice(0, 10);
+                  const top = (startMin - grilleDebut) / 60 * PX_PAR_HEURE;
+                  const height = Math.max(14, (endMin - startMin) / 60 * PX_PAR_HEURE - 3);
+                  const { col, numCols } = rdvLayout[`ev-${ev.id}`] || { col: 0, numCols: 1 };
+                  return (
+                    <div key={`ev-${ev.id}-${ds}`}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/bloc/${ev.id}`); }}
+                      style={{ position: "absolute", top, left: numCols === 1 ? 3 : `calc(${(col / numCols) * 100}% + 3px)`, right: numCols === 1 ? 3 : `calc(${((numCols - col - 1) / numCols) * 100}% + 2px)`, height, background: "#f5f5f5", borderLeft: "3px solid #aaa", borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", zIndex: 4, opacity: 0.9 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#888", lineHeight: 1.3 }}>{isStartDay ? formatHeure(ev.date_heure) : "→"}</div>
+                      {height > 26 && <div style={{ fontSize: 11, fontWeight: 600, color: "#555", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titre}</div>}
+                      {height > 44 && ev.recurrence && <div style={{ fontSize: 9, color: "#aaa" }}>↻ hebdo</div>}
+                    </div>
+                  );
+                })}
 
                 {/* RDVs */}
                 {dayRdvs.map(rdv => {
@@ -879,12 +928,13 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                   const duree = rdv.duree_minutes || rdv.rendez_vous_prestations.reduce((s, rp) => s + (rp.prestations?.duree_minutes || 0), 0) || 30;
                   const prestaNoms = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
                   const top = (rdvMin - grilleDebut) / 60 * PX_PAR_HEURE;
-                  const height = Math.max(22, duree / 60 * PX_PAR_HEURE - 3);
+                  const height = Math.max(14, duree / 60 * PX_PAR_HEURE - 3);
                   const isBeingDragged = rdvDrag?.rdv.id === rdv.id;
+                  const { col, numCols } = rdvLayout[rdv.id] || { col: 0, numCols: 1 };
                   return (
                     <div key={rdv.id}
                       onPointerDown={e => onRdvPointerDown(e, rdv, i, duree)}
-                      style={{ position: "absolute", top, left: 3, right: 18, height, background: `${couleur}18`, borderLeft: `3px solid ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "grab", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", zIndex: 6, opacity: isBeingDragged ? 0.3 : 1, transition: isBeingDragged ? "none" : "opacity 0.15s" }}>
+                      style={{ position: "absolute", top, left: numCols === 1 ? 3 : `calc(${(col / numCols) * 100}% + 3px)`, right: numCols === 1 ? 18 : `calc(${((numCols - col - 1) / numCols) * 100}% + 2px)`, height, background: `${couleur}18`, borderLeft: `3px solid ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "grab", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", zIndex: 6, opacity: isBeingDragged ? 0.3 : 1, transition: isBeingDragged ? "none" : "opacity 0.15s" }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: couleur, lineHeight: 1.3 }}>
                         {formatHeure(rdv.date_heure)} <span style={{ color: "#888", fontWeight: 400 }}>· {formatDuree(duree)}</span>
                       </div>
@@ -904,7 +954,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
 
                 {/* Ghost RDV en cours de drag */}
                 {rdvDrag && rdvDrag.currentColIdx === i && (
-                  <div style={{ position: "absolute", top: (rdvDrag.currentMin - grilleDebut) / 60 * PX_PAR_HEURE, left: 3, right: 18, height: Math.max(22, rdvDrag.duree / 60 * PX_PAR_HEURE - 3), background: `${couleur}30`, border: `2px dashed ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", zIndex: 9, pointerEvents: "none" }}>
+                  <div style={{ position: "absolute", top: (rdvDrag.currentMin - grilleDebut) / 60 * PX_PAR_HEURE, left: 3, right: 18, height: Math.max(14, rdvDrag.duree / 60 * PX_PAR_HEURE - 3), background: `${couleur}30`, border: `2px dashed ${couleur}`, borderRadius: "0 5px 5px 0", padding: "3px 6px", zIndex: 9, pointerEvents: "none" }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: couleur }}>{minToTime(rdvDrag.currentMin)}</div>
                     <div style={{ fontSize: 11, fontWeight: 600, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {rdvDrag.rdv.clients ? `${rdvDrag.rdv.clients.prenom} ${rdvDrag.rdv.clients.nom}` : "—"}

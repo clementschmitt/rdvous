@@ -34,6 +34,7 @@ export default function ListeAttentePage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [prestNames, setPrestNames] = useState<Record<string, string>>({});
   const [prestTarifs, setPrestTarifs] = useState<Record<string, number>>({});
+  const [prestDurees, setPrestDurees] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [filtreActif, setFiltreActif] = useState(true);
   const [planningEntry, setPlanningEntry] = useState<Entry | null>(null);
@@ -48,13 +49,15 @@ export default function ListeAttentePage() {
     const supabase = createSupabase();
     const [{ data: la }, { data: prest }] = await Promise.all([
       supabase.from("liste_attente").select("*").eq("salon_id", salon.id).order("date_souhaitee", { ascending: true }).order("created_at", { ascending: true }),
-      supabase.from("prestations").select("id, nom, tarif").eq("salon_id", salon.id),
+      supabase.from("prestations").select("id, nom, tarif, duree_minutes").eq("salon_id", salon.id),
     ]);
     const names: Record<string, string> = {};
     const tarifs: Record<string, number> = {};
-    (prest || []).forEach((p: { id: string; nom: string; tarif: number }) => { names[p.id] = p.nom; tarifs[p.id] = p.tarif; });
+    const durees: Record<string, number> = {};
+    (prest || []).forEach((p: { id: string; nom: string; tarif: number; duree_minutes: number }) => { names[p.id] = p.nom; tarifs[p.id] = p.tarif; durees[p.id] = p.duree_minutes; });
     setPrestNames(names);
     setPrestTarifs(tarifs);
+    setPrestDurees(durees);
     setEntries((la || []) as Entry[]);
     setLoading(false);
   }
@@ -84,13 +87,34 @@ export default function ListeAttentePage() {
       clientId = newClient.id;
     }
 
-    // Créer le RDV
-    const { data: rdv, error: rdvErr } = await supabase.from("rendez_vous").insert({ salon_id: salon.id, client_id: clientId, date_heure: `${planDate}T${planHeure}:00`, statut: "planifie" }).select("id").single();
-    if (rdvErr || !rdv) { setPlanError("Erreur lors de la création du rendez-vous."); setSavingPlan(false); return; }
+    // Créer le RDV — via create_rdv_safe pour bloquer les créneaux déjà occupés
+    const duree = planningEntry.prestation_ids.reduce((s, pid) => s + (prestDurees[pid] || 0), 0) || 60;
+    const { data: rdvId, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
+      p_salon_id: salon.id,
+      p_client_id: clientId,
+      p_date_heure: `${planDate}T${planHeure}:00`,
+      p_duree_minutes: duree,
+      p_statut: "planifie",
+      p_cancel_token: crypto.randomUUID(),
+      p_adresse_domicile: null,
+      p_notes: null,
+      p_tarif: null,
+      p_montant_cagnotte_utilise: null,
+      p_source: "salon",
+    });
+    if (rdvErr || !rdvId) {
+      setPlanError(
+        rdvErr?.message?.includes("CONFLIT_CRENEAU")
+          ? "Ce créneau chevauche un rendez-vous existant. Choisissez une autre heure."
+          : "Erreur lors de la création du rendez-vous."
+      );
+      setSavingPlan(false);
+      return;
+    }
 
     // Lier les prestations
     if (planningEntry.prestation_ids.length > 0) {
-      await supabase.from("rendez_vous_prestations").insert(planningEntry.prestation_ids.map(pid => ({ rendez_vous_id: rdv.id, prestation_id: pid })));
+      await supabase.from("rendez_vous_prestations").insert(planningEntry.prestation_ids.map(pid => ({ rendez_vous_id: rdvId as string, prestation_id: pid })));
     }
 
     // Marquer comme converti
