@@ -101,6 +101,7 @@ export default function ParametresPage() {
   });
 
   const [slug, setSlug] = useState("");
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugMsg, setSlugMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [visibleRecherche, setVisibleRecherche] = useState(true);
@@ -160,12 +161,13 @@ export default function ParametresPage() {
     setConges(((cRes.data || []) as { id: string; date_debut: string; date_fin: string; libelle: string }[]).map(c => ({ id: c.id, date_debut: c.date_debut, date_fin: c.date_fin, libelle: c.libelle || "" })));
     setExceptions(((eRes.data || []) as { id: string; date: string; ferme: boolean; plages: Plage[] }[]));
 
-    const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement, visible_recherche").eq("id", salon!.id).single();
+    const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement, visible_recherche, stripe_subscription_id").eq("id", salon!.id).single();
     if (salonData) {
       setSlug(salonData.slug || "");
       setPhotos(salonData.photos || []);
       setDeplacement(salonData.deplacement || "non");
       setVisibleRecherche(salonData.visible_recherche ?? true);
+      setSubscriptionId(salonData.stripe_subscription_id || null);
     }
   }
 
@@ -1358,6 +1360,9 @@ export default function ParametresPage() {
                 { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "150 SMS/mois inclus", "Stats avancées", "Gestion des finances", "Support prioritaire"], locked: [] },
               ] as const).map(p => {
                 const isCurrent = plan === p.key;
+                // Plan posé à la main (compte offert, pilote) : aucun abonnement Stripe derrière.
+                // On propose alors de l'activer plutôt que de le gérer.
+                const aActiver = isCurrent && plan !== "free" && !subscriptionId;
                 const isUpgradable = (p.key === "pro" && plan === "free") || (p.key === "business" && (plan === "free" || plan === "pro"));
                 const price = billingInterval === "yearly" ? p.yearly : p.monthly;
                 return (
@@ -1369,14 +1374,14 @@ export default function ParametresPage() {
                       {p.features.map(f => <div key={f} style={{ fontSize: 12, color: "#555", display: "flex", gap: 6 }}><span style={{ color: "#22c55e" }}>✓</span>{f}</div>)}
                       {p.locked.map(f => <div key={f} style={{ fontSize: 12, color: "#bbb", display: "flex", gap: 6 }}><span>✕</span>{f}</div>)}
                     </div>
-                    {isCurrent && plan !== "free" && (
+                    {isCurrent && plan !== "free" && !aActiver && (
                       <button onClick={openPortal} disabled={billingLoading} style={{ width: "100%", padding: "8px", background: "#f5f5f5", color: "#555", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>
                         {billingLoading ? "…" : "Gérer"}
                       </button>
                     )}
-                    {isUpgradable && (
+                    {(isUpgradable || aActiver) && (
                       <button onClick={() => startCheckout(p.key as "pro" | "business")} disabled={billingLoading} style={{ width: "100%", padding: "8px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, cursor: "pointer", fontWeight: 700 }}>
-                        {billingLoading ? "…" : `Passer en ${p.label}`}
+                        {billingLoading ? "…" : aActiver ? "Activer l'abonnement" : `Passer en ${p.label}`}
                       </button>
                     )}
                   </div>

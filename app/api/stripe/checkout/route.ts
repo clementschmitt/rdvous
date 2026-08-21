@@ -27,13 +27,17 @@ export async function POST(req: NextRequest) {
 
   const { data: salon } = await admin
     .from("salons")
-    .select("id, nom, stripe_customer_id, plan")
+    .select("id, nom, stripe_customer_id, stripe_subscription_id, plan")
     .eq("id", salonId)
     .single();
 
   if (!salon) return NextResponse.json({ error: "Salon introuvable" }, { status: 404 });
   const targetPlan = body.plan || "pro"; // "pro" ou "business"
-  if (salon.plan === targetPlan) return NextResponse.json({ error: "Déjà sur ce plan" }, { status: 400 });
+  // On refuse uniquement si un abonnement Stripe couvre déjà ce plan.
+  // Un plan posé à la main (compte offert, pilote) doit rester activable.
+  if (salon.plan === targetPlan && salon.stripe_subscription_id) {
+    return NextResponse.json({ error: "Déjà sur ce plan" }, { status: 400 });
+  }
 
   let customerId = salon.stripe_customer_id;
   if (!customerId) {
