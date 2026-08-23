@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
 
 export default function AvisPage() {
   const { token } = useParams<{ token: string }>();
@@ -17,17 +16,14 @@ export default function AvisPage() {
 
   useEffect(() => {
     (async () => {
-      const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-      const { data } = await admin
-        .from("avis")
-        .select("note, salons(nom)")
-        .eq("token", token)
-        .single();
+      // Lecture via une route serveur : la clé anon n'a pas accès à la table `avis`
+      // (politique RLS adossée à salon_users).
+      const res = await fetch(`/api/avis?token=${encodeURIComponent(token)}`);
       setLoading(false);
-      if (!data) { setInvalide(true); return; }
-      const s = data.salons as unknown as { nom: string } | null;
-      setSalonNom(s?.nom || "votre salon");
-      if (data.note !== null) setDeja(true);
+      if (!res.ok) { setInvalide(true); return; }
+      const data = await res.json();
+      setSalonNom(data.salon_nom || "votre salon");
+      if (data.deja_note) setDeja(true);
     })();
   }, [token]);
 
