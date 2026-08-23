@@ -11,19 +11,36 @@ export async function GET(req: NextRequest) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const now = new Date();
-  const il_y_a_1h = new Date(now.getTime() - 1 * 3600 * 1000).toISOString();
-  const il_y_a_2h = new Date(now.getTime() - 2 * 3600 * 1000).toISOString();
+  // Le cron ne tourne qu'une fois par jour (plan Vercel Hobby). La fenêtre doit donc
+  // couvrir toute la journée écoulée, et non l'heure précédente comme à l'origine.
+  // 48h de recul laissent de quoi rattraper une exécution manquée sans jamais
+  // remonter à des rendez-vous trop anciens pour qu'une demande d'avis ait du sens.
+  //
+  // ?heures=N permet un rattrapage ponctuel sur une période plus longue, par exemple
+  // après une panne. Plafonné à 30 jours pour ne jamais réveiller de vieux rendez-vous.
+  const heuresParam = parseInt(req.nextUrl.searchParams.get("heures") || "48");
+  const heures = Math.min(Math.max(Number.isFinite(heuresParam) ? heuresParam : 48, 1), 720);
 
-  // RDVs passés entre 1h et 2h, non annulés, sans demande d'avis envoyée
-  const { data: rdvs } = await admin
+  const au_plus_tard = new Date(now.getTime() - 1 * 3600 * 1000).toISOString();
+  const au_plus_tot = new Date(now.getTime() - heures * 3600 * 1000).toISOString();
+
+  // ?salon_id=... restreint le passage à un seul salon, pour tester sans toucher aux autres.
+  const salonFiltre = req.nextUrl.searchParams.get("salon_id");
+
+  // RDVs terminés depuis au moins 1h, sans demande d'avis déjà envoyée
+  let requete = admin
     .from("rendez_vous")
     .select("id, salon_id, date_heure, clients(prenom, email), salons(nom), avis_demande_le")
-    .lt("date_heure", il_y_a_1h)
-    .gt("date_heure", il_y_a_2h)
+    .lt("date_heure", au_plus_tard)
+    .gt("date_heure", au_plus_tot)
     .eq("statut", "effectue")
     .is("avis_demande_le", null);
 
-  if (!rdvs || rdvs.length === 0) return NextResponse.json({ ok: true, sent: 0 });
+  if (salonFiltre) requete = requete.eq("salon_id", salonFiltre);
+
+  const { data: rdvs } = await requete.order("date_heure", { ascending: true }).limit(200);
+
+  if (!rdvs || rdvs.length === 0) return NextResponse.json({ ok: true, sent: 0, heures, candidats: 0 });
 
   let sent = 0;
 
@@ -36,7 +53,7 @@ export async function GET(req: NextRequest) {
     const { data: avis, error } = await admin
       .from("avis")
       .insert({ salon_id: rdv.salon_id, rdv_id: rdv.id })
-      .select("token")
+      .select("id, token")
       .single();
 
     if (error || !avis) { console.error("Avis insert error:", error); continue; }
@@ -66,10 +83,10 @@ export async function GET(req: NextRequest) {
       sent++;
     } catch (e) {
       console.error("Avis email failed:", e);
-      // Supprimer l'avis créé si l'email échoue pour pouvoir réessayer
-      await admin.from("avis").delete().eq("id", avis.token);
+      // Supprimer l'avis créé si l'email échoue, pour pouvoir réessayer au prochain passage
+      await admin.from("avis").delete().eq("id", avis.id);
     }
   }
 
-  return NextResponse.json({ ok: true, sent });
+  return NextResponse.json({ ok: true, sent, heures, candidats: rdvs.length });
 }
