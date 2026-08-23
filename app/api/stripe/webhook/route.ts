@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
+import { quotaSms } from "@/lib/plan";
 import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
@@ -28,7 +29,8 @@ export async function POST(req: NextRequest) {
         const sub = await stripe.subscriptions.retrieve(subId);
         const priceId = sub.items.data[0]?.price.id;
         const plan = [process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY, process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY].includes(priceId) ? "business" : "pro";
-        await admin.from("salons").update({ plan, stripe_subscription_id: subId }).eq("id", salonId);
+        // Nouvel abonnement : on pose le quota SMS du plan
+        await admin.from("salons").update({ plan, stripe_subscription_id: subId, sms_credits: quotaSms(plan) }).eq("id", salonId);
       }
     }
   }
@@ -40,7 +42,13 @@ export async function POST(req: NextRequest) {
       if (sub.status === "active") {
         const priceId = sub.items.data[0]?.price.id;
         const plan = [process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY, process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY].includes(priceId) ? "business" : "pro";
-        await admin.from("salons").update({ plan }).eq("id", salonId);
+        // Cet événement se déclenche pour bien d'autres raisons qu'un changement de plan
+        // (moyen de paiement, métadonnées…). On ne retouche aux crédits que si le plan change,
+        // sinon on remettrait le quota à zéro d'usage à chaque notification.
+        const { data: actuel } = await admin.from("salons").select("plan").eq("id", salonId).single();
+        const maj: Record<string, unknown> = { plan };
+        if (actuel?.plan !== plan) maj.sms_credits = quotaSms(plan);
+        await admin.from("salons").update(maj).eq("id", salonId);
       } else {
         await admin.from("salons").update({ plan: "free" }).eq("id", salonId);
       }
@@ -59,10 +67,11 @@ export async function POST(req: NextRequest) {
     const invoice = event.data.object as Stripe.Invoice & { subscription?: string | null };
     const sub = invoice.subscription;
     if (sub && invoice.billing_reason === "subscription_cycle") {
-      const { data: salon } = await admin.from("salons").select("id, sms_credits").eq("stripe_subscription_id", sub as string).single();
+      // Renouvellement mensuel : les crédits sont REMIS au quota du plan, sans report
+      // du mois précédent. Un reliquat non consommé est perdu.
+      const { data: salon } = await admin.from("salons").select("id, plan").eq("stripe_subscription_id", sub as string).single();
       if (salon) {
-        const newCredits = Math.min((salon.sms_credits ?? 0) + 50, 150);
-        await admin.from("salons").update({ sms_credits: newCredits }).eq("id", salon.id);
+        await admin.from("salons").update({ sms_credits: quotaSms(salon.plan) }).eq("id", salon.id);
       }
     }
   }

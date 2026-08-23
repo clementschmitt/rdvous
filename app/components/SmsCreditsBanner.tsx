@@ -8,7 +8,8 @@ export default function SmsCreditsBanner() {
   const [loading, setLoading] = useState(false);
 
   if (!salon || salon.plan === "free") return null;
-  const credits = salon.sms_credits ?? 0;
+  // Total réellement envoyable : forfait du mois + packs achetés
+  const credits = (salon.sms_credits ?? 0) + (salon.sms_credits_achetes ?? 0);
   if (credits > 10) return null;
 
   const isZero = credits === 0;

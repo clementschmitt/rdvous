@@ -4,7 +4,7 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { type Metier } from "@/lib/metiers";
 
-export type Salon = { id: string; nom: string; metier: Metier; plan: string; sms_credits: number };
+export type Salon = { id: string; nom: string; metier: Metier; plan: string; sms_credits: number; sms_credits_achetes: number };
 
 const SalonContext = createContext<Salon | null>(null);
 
@@ -26,7 +26,7 @@ export function SalonProvider({ children }: { children: ReactNode }) {
 
       const { data: su } = await supabase.from("salon_users").select("salon_id").eq("user_id", user.id).single();
       if (!su) { router.push(user.user_metadata?.user_type === "client" ? "/mon-compte" : "/onboarding"); return; }
-      const { data: s } = await supabase.from("salons").select("id, nom, metier, plan, sms_credits").eq("id", su.salon_id).single();
+      const { data: s } = await supabase.from("salons").select("id, nom, metier, plan, sms_credits, sms_credits_achetes").eq("id", su.salon_id).single();
       if (s) setSalon(s as Salon);
     })();
   }, [router]);

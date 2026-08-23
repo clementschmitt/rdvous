@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
-import { PLAN_LABELS, PLAN_PRICES, type Plan } from "@/lib/plan";
+import { PLAN_LABELS, PLAN_PRICES, quotaSms, type Plan } from "@/lib/plan";
 import { formatPrix } from "@/lib/prix";
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter,
@@ -632,6 +632,9 @@ export default function ParametresPage() {
   const m = METIERS[salon.metier];
   const plan = (salon.plan || "free") as Plan;
   const isFree = plan === "free";
+  const smsForfait = salon.sms_credits ?? 0;
+  const smsAchetes = salon.sms_credits_achetes ?? 0;
+  const smsTotal = smsForfait + smsAchetes;
 
   return (
     <div className="params-wrap" style={{ padding: 32, maxWidth: 1200, margin: "0 auto", overflowX: "hidden" }}>
@@ -1113,10 +1116,13 @@ export default function ParametresPage() {
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600 }}>Crédits SMS disponibles</div>
-                      <div style={{ fontSize: 22, fontWeight: 700, color: (salon?.sms_credits ?? 0) === 0 ? "#dc2626" : (salon?.sms_credits ?? 0) <= 10 ? "#ea580c" : "#1a1a1a", marginTop: 2 }}>{salon?.sms_credits ?? 0}</div>
+                      <div style={{ fontSize: 22, fontWeight: 700, color: smsTotal === 0 ? "#dc2626" : smsTotal <= 10 ? "#ea580c" : "#1a1a1a", marginTop: 2 }}>{smsTotal}</div>
+                      <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                        {smsForfait} inclus ce mois · {smsAchetes} achetés
+                      </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#555", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, padding: "8px 12px" }}>50 SMS offerts chaque mois avec votre abonnement · maximum 150 SMS cumulés (3 mois).<br/>Au besoin, rechargez ci-dessous :</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#555", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, padding: "8px 12px" }}>{quotaSms(plan)} SMS inclus chaque mois avec votre abonnement, remis à neuf à chaque échéance et non reportables d&apos;un mois sur l&apos;autre.<br/>Les SMS achetés à l&apos;unité, eux, n&apos;expirent jamais et sont utilisés une fois le forfait du mois épuisé.<br/>Au besoin, rechargez ci-dessous :</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {([{ pack: 50, price: "5€" }, { pack: 100, price: "8€" }, { pack: 200, price: "14€" }, { pack: 500, price: "30€" }] as { pack: number; price: string }[]).map(({ pack, price }) => (
                       <button key={pack} onClick={async () => {
