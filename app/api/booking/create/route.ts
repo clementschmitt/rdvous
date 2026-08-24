@@ -163,23 +163,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Alerte interne
-    sendEmail({
-      to: "clement.flance@gmail.com",
-      toName: "rdvous",
-      subject: `🔔 Nouveau RDV — ${salonData?.nom || salon_id} · ${prenom} ${nom}`,
-      html: `<div style="font-family:sans-serif;padding:24px;color:#222">
-        <div style="background:#f0fdf4;border-radius:8px;padding:16px;margin-bottom:16px;border-left:4px solid #22c55e">
-          <strong>${dateStr} à ${heureStr}</strong><br/>
-          <span style="color:#666">${salonData?.nom || salon_id}</span>
-        </div>
-        <p><strong>Client :</strong> ${prenom} ${nom}</p>
-        <p><strong>Email :</strong> ${email || "—"}</p>
-        <p><strong>Tél :</strong> ${telephone || "—"}</p>
-        <p><strong>Prestations :</strong> ${prestationsData.map(p => p.nom).join(", ") || "—"}</p>
-      </div>`,
-      fromName: "rdvous monitoring",
-    }).catch(e => console.error("Alerte interne failed:", e));
+    // L'alerte interne par réservation a été retirée : elle représentait un email
+    // par RDV réservé à l'exploitant, soit un quart du volume total et une charge
+    // qui croît linéairement avec le nombre de salons. La page /admin/live donne
+    // déjà cette information en temps réel.
   } catch (e) {
     console.error("Confirmation email failed:", e);
   }
