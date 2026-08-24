@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // RDVs terminés depuis au moins 1h, sans demande d'avis déjà envoyée
   let requete = admin
     .from("rendez_vous")
-    .select("id, salon_id, date_heure, clients(prenom, email), salons(nom), avis_demande_le")
+    .select("id, salon_id, client_id, date_heure, clients(prenom, email), salons(nom), avis_demande_le")
     .lt("date_heure", au_plus_tard)
     .gt("date_heure", au_plus_tot)
     .eq("statut", "effectue")
@@ -42,12 +42,47 @@ export async function GET(req: NextRequest) {
 
   if (!rdvs || rdvs.length === 0) return NextResponse.json({ ok: true, sent: 0, heures, candidats: 0 });
 
+  // ── Qui ne doit PAS être sollicité ────────────────────────────────────────
+  // Les clientes reviennent toutes les 3 à 4 semaines. Sans filtre, elles
+  // recevraient une demande d'avis à chaque passage, à vie. Deux règles :
+  //   1. celle qui a déjà déposé un avis n'est plus jamais resollicitée
+  //   2. celle qui n'a pas répondu n'est resollicitée qu'au bout de 60 jours
+  const JOURS_AVANT_RELANCE = 60;
+
+  const clientIds = [...new Set(rdvs.map(r => r.client_id).filter(Boolean))] as string[];
+  const salonIds = [...new Set(rdvs.map(r => r.salon_id))] as string[];
+
+  const [{ data: avisNotes }, { data: sollicitesRecemment }] = await Promise.all([
+    admin
+      .from("avis")
+      .select("rendez_vous(client_id)")
+      .not("note", "is", null)
+      .in("salon_id", salonIds),
+    admin
+      .from("rendez_vous")
+      .select("client_id")
+      .in("client_id", clientIds)
+      .gt("avis_demande_le", new Date(now.getTime() - JOURS_AVANT_RELANCE * 86400 * 1000).toISOString()),
+  ]);
+
+  const aDejaNote = new Set(
+    ((avisNotes || []) as unknown as { rendez_vous: { client_id: string } | null }[])
+      .map(a => a.rendez_vous?.client_id)
+      .filter(Boolean) as string[]
+  );
+  const dejaSollicite = new Set(((sollicitesRecemment || []) as { client_id: string | null }[]).map(r => r.client_id).filter(Boolean) as string[]);
+
   let sent = 0;
+  let ignoresDejaNote = 0;
+  let ignoresRecents = 0;
 
   for (const rdv of rdvs) {
     const client = rdv.clients as unknown as { prenom: string; email: string | null } | null;
     const salon = rdv.salons as unknown as { nom: string } | null;
     if (!client?.email) continue;
+
+    if (rdv.client_id && aDejaNote.has(rdv.client_id)) { ignoresDejaNote++; continue; }
+    if (rdv.client_id && dejaSollicite.has(rdv.client_id)) { ignoresRecents++; continue; }
 
     // Créer l'avis (en attente de note)
     const { data: avis, error } = await admin
@@ -80,6 +115,8 @@ export async function GET(req: NextRequest) {
       });
 
       await admin.from("rendez_vous").update({ avis_demande_le: now.toISOString() }).eq("id", rdv.id);
+      // Une seule demande par cliente et par passage, même si elle a plusieurs RDV dans la fenêtre
+      if (rdv.client_id) dejaSollicite.add(rdv.client_id);
       sent++;
     } catch (e) {
       console.error("Avis email failed:", e);
@@ -88,5 +125,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, sent, heures, candidats: rdvs.length });
+  return NextResponse.json({
+    ok: true,
+    sent,
+    heures,
+    candidats: rdvs.length,
+    ignores_deja_note: ignoresDejaNote,
+    ignores_sollicites_recemment: ignoresRecents,
+  });
 }
