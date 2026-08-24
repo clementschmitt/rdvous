@@ -131,15 +131,23 @@ export async function POST(req: NextRequest) {
         const texteSms = smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr, contenu: settings?.sms_message_confirmation });
         const { segments } = analyserSms(texteSms);
 
-        const { data: canSend, error: rpcError } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id, p_amount: segments });
-        if (rpcError) { console.error("SMS: decrement_sms_credits error:", rpcError); }
-        else if (!canSend) { console.warn("SMS: crédits insuffisants pour", segments, "segment(s) —", salon_id); }
-        else {
+        // Solde vérifié sans être consommé, débité seulement après un envoi réussi.
+        const { data: solde } = await admin
+          .from("salons")
+          .select("sms_credits, sms_credits_achetes")
+          .eq("id", salon_id)
+          .single();
+        const disponible = (solde?.sms_credits ?? 0) + (solde?.sms_credits_achetes ?? 0);
+
+        if (disponible < segments) {
+          console.warn("SMS: crédits insuffisants pour", segments, "segment(s) —", salon_id);
+        } else {
           await sendSMS({
             to: telephone,
             content: texteSms,
             sender: settings?.sms_expediteur || salonData?.nom || undefined,
           });
+          await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id, p_amount: segments });
         }
       } catch (smsErr) {
         console.error("SMS confirmation failed:", smsErr);

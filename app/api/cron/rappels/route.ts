@@ -77,14 +77,24 @@ export async function GET(req: NextRequest) {
       const texteSms = smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel });
       const { segments } = analyserSms(texteSms);
 
-      const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id, p_amount: segments });
-      if (canSend) {
+      // Le solde est vérifié sans être consommé, puis débité seulement après un
+      // envoi réussi. Décompter avant l'envoi faisait perdre des crédits au salon
+      // à chaque refus de l'opérateur, typiquement quand notre propre solde est à sec.
+      const { data: solde } = await admin
+        .from("salons")
+        .select("sms_credits, sms_credits_achetes")
+        .eq("id", rdv.salon_id)
+        .single();
+      const disponible = (solde?.sms_credits ?? 0) + (solde?.sms_credits_achetes ?? 0);
+
+      if (disponible >= segments) {
         try {
           await sendSMS({
             to: client.telephone,
             content: texteSms,
             sender: salonCfg?.sms_expediteur || salon?.nom || undefined,
           });
+          await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id, p_amount: segments });
           smsEnvoyes += segments;
         } catch (e) {
           console.error("SMS de rappel échoué, SMS coupés pour ce passage:", e);
