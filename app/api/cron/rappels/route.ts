@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateRappel } from "@/lib/email";
-import { sendSMS, smsRappel } from "@/lib/sms";
+import { sendSMS, smsRappel, analyserSms } from "@/lib/sms";
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -72,15 +72,20 @@ export async function GET(req: NextRequest) {
     // RDV créé aujourd'hui = confirmation déjà envoyée le jour même → pas de rappel SMS (doublon + crédit gaspillé).
     const creeAujourdhui = typeof rdv.created_at === "string" && rdv.created_at.slice(0, 10) === aujourdhuiStr;
     if (smsEnabled && client.telephone && !creeAujourdhui && !smsIndisponible) {
-      const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id });
+      // Le contenu est construit avant le décompte : on débite autant de crédits
+      // que le message consomme réellement de segments chez l'opérateur.
+      const texteSms = smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel });
+      const { segments } = analyserSms(texteSms);
+
+      const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id, p_amount: segments });
       if (canSend) {
         try {
           await sendSMS({
             to: client.telephone,
-            content: smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel }),
+            content: texteSms,
             sender: salonCfg?.sms_expediteur || salon?.nom || undefined,
           });
-          smsEnvoyes++;
+          smsEnvoyes += segments;
         } catch (e) {
           console.error("SMS de rappel échoué, SMS coupés pour ce passage:", e);
           smsIndisponible = true;

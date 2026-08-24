@@ -5,6 +5,7 @@ import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
 import { PLAN_LABELS, PLAN_PRICES, quotaSms, type Plan } from "@/lib/plan";
+import { analyserSms } from "@/lib/sms";
 import { formatPrix } from "@/lib/prix";
 import {
   DndContext, DragOverlay, PointerSensor, TouchSensor, useSensor, useSensors, closestCenter,
@@ -1103,13 +1104,19 @@ export default function ParametresPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f0" }}>
                   <Toggle label="SMS de confirmation" description="Envoyé au client dès qu'un RDV est créé" value={settings.sms_confirmation_active} onChange={v => setSettings(s => ({ ...s, sms_confirmation_active: v }))} couleur={m.couleur} />
                   {settings.sms_confirmation_active && (
-                    <ChampTextarea label="Contenu" value={settings.sms_message_confirmation} onChange={v => setSettings(s => ({ ...s, sms_message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                    <>
+                      <ChampTextarea label="Contenu" value={settings.sms_message_confirmation} onChange={v => setSettings(s => ({ ...s, sms_message_confirmation: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                      <CompteurSms contenu={settings.sms_message_confirmation} />
+                    </>
                   )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "12px 14px", background: "#fafafa", borderRadius: 10, border: "1px solid #f0f0f0" }}>
                   <Toggle label="SMS de rappel" description="Envoyé la veille du RDV" value={settings.sms_rappel_active} onChange={v => setSettings(s => ({ ...s, sms_rappel_active: v }))} couleur={m.couleur} />
                   {settings.sms_rappel_active && (
-                    <ChampTextarea label="Contenu" value={settings.sms_message_rappel} onChange={v => setSettings(s => ({ ...s, sms_message_rappel: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                    <>
+                      <ChampTextarea label="Contenu" value={settings.sms_message_rappel} onChange={v => setSettings(s => ({ ...s, sms_message_rappel: v }))} hint="{prenom}, {date}, {heure}, {salon}" />
+                      <CompteurSms contenu={settings.sms_message_rappel} />
+                    </>
                   )}
                 </div>
                 <div style={{ background: "#f9f9f9", borderRadius: 10, padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1454,6 +1461,44 @@ function ChampTextarea({ label, value, onChange, hint }: { label: string; value:
         {hint && <span style={{ fontSize: 11, color: "#bbb" }}>Variables : {hint}</span>}
       </div>
       <textarea value={value} onChange={e => onChange(e.target.value)} rows={3} style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box", resize: "vertical" }} />
+    </div>
+  );
+}
+
+/**
+ * Compteur de segments SMS. Un opérateur facture par tranche de 160 caractères,
+ * donc un message trop long coûte plusieurs crédits. Les variables étant
+ * remplacées à l'envoi par des valeurs plus longues, l'estimation les simule
+ * pour ne pas annoncer un coût inférieur à la réalité.
+ */
+function CompteurSms({ contenu }: { contenu: string }) {
+  // Valeurs volontairement longues : mieux vaut annoncer un coût légèrement
+  // surestimé qu'une mauvaise surprise sur une cliente au prénom composé.
+  const exemple = (contenu || "")
+    .replace(/\{prenom\}/g, "Marie-Christine")
+    .replace(/\{date\}/g, "mercredi 25 septembre")
+    .replace(/\{heure\}/g, "14:30")
+    .replace(/\{salon\}/g, "Studio dore");
+
+  const { longueur, segments, modifie } = analyserSms(exemple);
+  if (segments === 0) return null;
+
+  const trop = segments > 1;
+  const restant = trop ? segments * 153 - longueur : 160 - longueur;
+
+  return (
+    <div style={{ marginTop: 6, fontSize: 11, lineHeight: 1.6, color: trop ? "#b45309" : "#888" }}>
+      <span style={{ fontWeight: 700 }}>
+        environ {longueur} caractères · {segments} crédit{segments > 1 ? "s" : ""} par envoi
+      </span>
+      {trop
+        ? ` — au-delà de 160 caractères, chaque tranche entamée est facturée. Retirez ${longueur - 160} caractères pour revenir à 1 crédit.`
+        : ` — il vous reste ${restant} caractères avant de passer à 2 crédits.`}
+      {modifie && (
+        <div style={{ color: "#aaa", marginTop: 2 }}>
+          Les accents et emojis sont retirés automatiquement à l&apos;envoi : ils diviseraient par deux la place disponible.
+        </div>
+      )}
     </div>
   );
 }

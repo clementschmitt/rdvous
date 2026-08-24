@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateConfirmation, templateNouveauRdv } from "@/lib/email";
-import { sendSMS, smsConfirmation } from "@/lib/sms";
+import { sendSMS, smsConfirmation, analyserSms } from "@/lib/sms";
 import { bookingLimiter, getIP } from "@/lib/ratelimit";
 import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 
@@ -126,13 +126,18 @@ export async function POST(req: NextRequest) {
     // SMS de confirmation au client
     if (settings?.sms_active && settings?.sms_confirmation_active !== false && telephone) {
       try {
-        const { data: canSend, error: rpcError } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id });
+        // Le contenu est construit avant le décompte : on débite autant de crédits
+        // que le message consomme réellement de segments chez l'opérateur.
+        const texteSms = smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr, contenu: settings?.sms_message_confirmation });
+        const { segments } = analyserSms(texteSms);
+
+        const { data: canSend, error: rpcError } = await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id, p_amount: segments });
         if (rpcError) { console.error("SMS: decrement_sms_credits error:", rpcError); }
-        else if (!canSend) { console.warn("SMS: pas de crédits disponibles pour", salon_id); }
+        else if (!canSend) { console.warn("SMS: crédits insuffisants pour", segments, "segment(s) —", salon_id); }
         else {
           await sendSMS({
             to: telephone,
-            content: smsConfirmation({ prenom: clientData?.prenom || prenom, salonNom: salonData?.nom || "", dateStr, heureStr, contenu: settings?.sms_message_confirmation }),
+            content: texteSms,
             sender: settings?.sms_expediteur || salonData?.nom || undefined,
           });
         }
