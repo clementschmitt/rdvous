@@ -27,6 +27,14 @@ export async function GET(req: NextRequest) {
     .lte("date_heure", `${demainStr}T23:59:59`);
 
   let sent = 0;
+  let emailsEnvoyes = 0;
+  let smsEnvoyes = 0;
+  let echecs = 0;
+  // Passe à true dès qu'un envoi SMS échoue : c'est presque toujours un solde
+  // Brevo épuisé, et réessayer consommerait un crédit du salon à chaque RDV
+  // suivant pour rien.
+  let smsIndisponible = false;
+
   for (const rdv of rdvs || []) {
     const salonCfg = (salonSettings || []).find(s => s.salon_id === rdv.salon_id);
     const client = rdv.clients as unknown as { prenom: string; email: string | null; telephone: string | null } | null;
@@ -43,30 +51,45 @@ export async function GET(req: NextRequest) {
     const dateStr = new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
     const heureStr = rdv.date_heure.slice(11, 16);
 
+    // Un échec sur un rendez-vous ne doit jamais empêcher les suivants d'être traités.
     if (emailEnabled && client.email) {
-      await sendEmail({
-        to: client.email,
-        toName: client.prenom,
-        subject: salonCfg?.email_rappel_objet || `Rappel : votre rendez-vous demain — ${salon?.nom || "rdvous"}`,
-        html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: salonCfg?.message_rappel_rdv || undefined }),
-        fromName: salonCfg?.email_expediteur_nom || salon?.nom || "rdvous",
-        replyTo: salonCfg?.email_expediteur || undefined,
-      });
+      try {
+        await sendEmail({
+          to: client.email,
+          toName: client.prenom,
+          subject: salonCfg?.email_rappel_objet || `Rappel : votre rendez-vous demain — ${salon?.nom || "rdvous"}`,
+          html: templateRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: salonCfg?.message_rappel_rdv || undefined }),
+          fromName: salonCfg?.email_expediteur_nom || salon?.nom || "rdvous",
+          replyTo: salonCfg?.email_expediteur || undefined,
+        });
+        emailsEnvoyes++;
+      } catch (e) {
+        console.error("Email de rappel échoué pour le RDV", rdv.id, e);
+        echecs++;
+      }
     }
+
     // RDV créé aujourd'hui = confirmation déjà envoyée le jour même → pas de rappel SMS (doublon + crédit gaspillé).
     const creeAujourdhui = typeof rdv.created_at === "string" && rdv.created_at.slice(0, 10) === aujourdhuiStr;
-    if (smsEnabled && client.telephone && !creeAujourdhui) {
+    if (smsEnabled && client.telephone && !creeAujourdhui && !smsIndisponible) {
       const { data: canSend } = await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id });
       if (canSend) {
-        await sendSMS({
-          to: client.telephone,
-          content: smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel }),
-          sender: salonCfg?.sms_expediteur || salon?.nom || undefined,
-        });
+        try {
+          await sendSMS({
+            to: client.telephone,
+            content: smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel }),
+            sender: salonCfg?.sms_expediteur || salon?.nom || undefined,
+          });
+          smsEnvoyes++;
+        } catch (e) {
+          console.error("SMS de rappel échoué, SMS coupés pour ce passage:", e);
+          smsIndisponible = true;
+          echecs++;
+        }
       }
     }
     sent++;
   }
 
-  return NextResponse.json({ ok: true, sent });
+  return NextResponse.json({ ok: true, sent, emails: emailsEnvoyes, sms: smsEnvoyes, echecs, sms_interrompus: smsIndisponible });
 }
