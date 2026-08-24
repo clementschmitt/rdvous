@@ -42,6 +42,30 @@ export function quotaSms(plan: string | null | undefined): number {
   return getPlanLimits((plan || "free") as Plan).sms_par_mois;
 }
 
+/**
+ * Packs de crédits SMS achetables à l'unité. Source unique, utilisée par la page
+ * de paramètres pour l'affichage et par la route Stripe pour le montant facturé.
+ *
+ * On parle de crédits et non de SMS : un message dépassant 160 caractères
+ * consomme plusieurs segments, donc plusieurs crédits. Un crédit vaut environ
+ * 0,054 € TTC chez l'opérateur, et le prix décroît avec le volume tout en
+ * restant rentable après commissions et cotisations.
+ */
+export const PACKS_SMS = [
+  { credits: 50, prixCentimes: 800 },
+  { credits: 100, prixCentimes: 1400 },
+  { credits: 250, prixCentimes: 3200 },
+  { credits: 500, prixCentimes: 6000 },
+] as const;
+
+export function packSms(credits: number) {
+  return PACKS_SMS.find(p => p.credits === credits) ?? null;
+}
+
+export function prixPack(prixCentimes: number): string {
+  return `${(prixCentimes / 100).toFixed(0)} €`;
+}
+
 export const PLAN_LABELS: Record<Plan, string> = {
   free: "Gratuit",
   pro: "Pro",

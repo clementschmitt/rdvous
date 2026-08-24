@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
-import { PLAN_LABELS, PLAN_PRICES, quotaSms, type Plan } from "@/lib/plan";
+import { PLAN_LABELS, PLAN_PRICES, quotaSms, PACKS_SMS, prixPack, type Plan } from "@/lib/plan";
 import { analyserSms } from "@/lib/sms";
 import { formatPrix } from "@/lib/prix";
 import {
@@ -1129,17 +1129,17 @@ export default function ParametresPage() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#555", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, padding: "8px 12px" }}>{quotaSms(plan)} SMS inclus chaque mois avec votre abonnement, remis à neuf à chaque échéance et non reportables d&apos;un mois sur l&apos;autre.<br/>Les SMS achetés à l&apos;unité, eux, n&apos;expirent jamais et sont utilisés une fois le forfait du mois épuisé.<br/>Au besoin, rechargez ci-dessous :</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#555", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, padding: "8px 12px" }}>{quotaSms(plan)} crédits inclus chaque mois avec votre abonnement, remis à neuf à chaque échéance et non reportables d&apos;un mois sur l&apos;autre.<br/>Un message jusqu&apos;à 160 caractères coûte 1 crédit ; au-delà, chaque tranche entamée en coûte un de plus.<br/>Les crédits achetés à l&apos;unité n&apos;expirent jamais et prennent le relais une fois le forfait du mois épuisé.<br/>Au besoin, rechargez ci-dessous :</div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {([{ pack: 50, price: "5€" }, { pack: 100, price: "8€" }, { pack: 200, price: "14€" }, { pack: 500, price: "30€" }] as { pack: number; price: string }[]).map(({ pack, price }) => (
-                      <button key={pack} onClick={async () => {
+                    {PACKS_SMS.map(({ credits, prixCentimes }) => (
+                      <button key={credits} onClick={async () => {
                         const supabase = createSupabase();
                         const { data: { session: sess } } = await supabase.auth.getSession();
-                        const res = await fetch("/api/stripe/sms-credits", { method: "POST", headers: { authorization: `Bearer ${sess?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ salon_id: salon!.id, pack }) });
+                        const res = await fetch("/api/stripe/sms-credits", { method: "POST", headers: { authorization: `Bearer ${sess?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ salon_id: salon!.id, pack: credits }) });
                         const { url } = await res.json();
                         if (url) window.location.href = url;
                       }} style={{ padding: "8px 14px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                        {pack} SMS — {price}
+                        {credits} crédits — {prixPack(prixCentimes)}
                       </button>
                     ))}
                   </div>
