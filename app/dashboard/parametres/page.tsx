@@ -1136,8 +1136,10 @@ export default function ParametresPage() {
                         const supabase = createSupabase();
                         const { data: { session: sess } } = await supabase.auth.getSession();
                         const res = await fetch("/api/stripe/sms-credits", { method: "POST", headers: { authorization: `Bearer ${sess?.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ salon_id: salon!.id, pack: credits }) });
-                        const { url } = await res.json();
-                        if (url) window.location.href = url;
+                        const data = await res.json().catch(() => ({}));
+                        if (res.ok && data.url) { window.location.href = data.url; return; }
+                        // Sans ça, un refus du serveur ne produisait rien à l'écran.
+                        alert(data.error || "Impossible d'ouvrir le paiement. Réessayez dans un instant.");
                       }} style={{ padding: "8px 14px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
                         {credits} crédits — {prixPack(prixCentimes)}
                       </button>

@@ -51,11 +51,15 @@ export function quotaSms(plan: string | null | undefined): number {
  * 0,054 € TTC chez l'opérateur, et le prix décroît avec le volume tout en
  * restant rentable après commissions et cotisations.
  */
+// `priceId` référence un tarif fixe créé dans Stripe. On évite ainsi de générer
+// un produit jetable à chaque achat, ce que faisait l'ancien `price_data` et qui
+// finissait par encombrer le catalogue. `prixCentimes` ne sert plus qu'à
+// l'affichage : le montant facturé fait foi côté Stripe.
 export const PACKS_SMS = [
-  { credits: 50, prixCentimes: 800 },
-  { credits: 100, prixCentimes: 1400 },
-  { credits: 250, prixCentimes: 3200 },
-  { credits: 500, prixCentimes: 6000 },
+  { credits: 50, prixCentimes: 800, priceId: "price_1U8KUiGVwWW2OxV0njwj5yiG" },
+  { credits: 100, prixCentimes: 1400, priceId: "price_1U8KUjGVwWW2OxV0rhPfmSmU" },
+  { credits: 250, prixCentimes: 3200, priceId: "price_1U8KUkGVwWW2OxV08xmziywr" },
+  { credits: 500, prixCentimes: 6000, priceId: "price_1U8KUlGVwWW2OxV08eoyXSuf" },
 ] as const;
 
 export function packSms(credits: number) {
