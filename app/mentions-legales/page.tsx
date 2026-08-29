@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Mentions légales — rdvous",
+  title: "Mentions légales, rdvous",
 };
 
 export default function MentionsLegalesPage() {
@@ -37,7 +37,7 @@ export default function MentionsLegalesPage() {
         </Section>
 
         <Section titre="Directeur de la publication">
-          <p>Clément Schmitt — <a href="mailto:contact@rdvous.fr" style={{ color: "#8a6a3a" }}>contact@rdvous.fr</a></p>
+          <p>Clément Schmitt, <a href="mailto:contact@rdvous.fr" style={{ color: "#8a6a3a" }}>contact@rdvous.fr</a></p>
         </Section>
 
         <Section titre="Hébergement">
@@ -45,7 +45,7 @@ export default function MentionsLegalesPage() {
             Le site rdvous.fr est hébergé par :<br />
             <strong>Vercel Inc.</strong><br />
             440 N Barranca Ave #4133<br />
-            Covina, CA 91723 — États-Unis<br />
+            Covina, CA 91723, États-Unis<br />
             <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" style={{ color: "#8a6a3a" }}>vercel.com</a>
           </p>
         </Section>
@@ -62,7 +62,7 @@ export default function MentionsLegalesPage() {
             rdvous.fr collecte et traite des données personnelles dans le cadre de la fourniture de son service de gestion de rendez-vous.
           </p>
           <p>
-            Conformément au Règlement Général sur la Protection des Données (RGPD — UE 2016/679), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données personnelles.
+            Conformément au Règlement Général sur la Protection des Données (RGPD, UE 2016/679), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données personnelles.
           </p>
           <p>
             Pour exercer ces droits ou pour toute question relative à vos données :{" "}

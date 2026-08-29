@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to: artisanEmail,
         toName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
-        subject: `Annulation — ${client?.prenom || ""} ${client?.nom || ""} · ${dateStr} à ${heureStr}`,
+        subject: `Annulation, ${client?.prenom || ""} ${client?.nom || ""} · ${dateStr} à ${heureStr}`,
         html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
           <div style="background:#fef2f2;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #ef4444">
             <div style="font-size:16px;font-weight:700;color:#dc2626">Rendez-vous annulé</div>
@@ -84,20 +84,20 @@ export async function POST(req: NextRequest) {
     if (waiting && waiting.length > 0) {
       const salonNom = salon?.nom || "votre salon";
 
-      // Notifier uniquement la professionnelle — elle gère sa liste d'attente manuellement
+      // Notifier uniquement la professionnelle, elle gère sa liste d'attente manuellement
       if (artisanEmail) {
         const lignes = waiting.map((w, i) => {
           const plage = w.heure_debut || w.heure_fin
             ? ` (${w.heure_debut && w.heure_fin ? `${w.heure_debut}–${w.heure_fin}` : w.heure_debut ? `dès ${w.heure_debut}` : `avant ${w.heure_fin}`})`
             : "";
-          return `<li style="margin-bottom:6px">#${i + 1} — <strong>${w.prenom}</strong> · <a href="tel:${w.telephone}">${w.telephone}</a>${plage}</li>`;
+          return `<li style="margin-bottom:6px">#${i + 1}, <strong>${w.prenom}</strong> · <a href="tel:${w.telephone}">${w.telephone}</a>${plage}</li>`;
         }).join("");
 
         try {
           await sendEmail({
             to: artisanEmail,
             toName: settings?.email_expediteur_nom || salonNom,
-            subject: `Liste d'attente — ${waiting.length} personne${waiting.length > 1 ? "s" : ""} à rappeler pour le ${dateStr}`,
+            subject: `Liste d'attente, ${waiting.length} personne${waiting.length > 1 ? "s" : ""} à rappeler pour le ${dateStr}`,
             html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
               <div style="background:#ecfdf5;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #10b981">
                 <div style="font-size:16px;font-weight:700;color:#059669">Un créneau s'est libéré</div>
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
         } catch (e) { console.error("Waitlist artisan email failed:", e); }
       }
 
-      // Marquer comme "notifié" — la pro a été prévenue, à elle de contacter les clientes
+      // Marquer comme "notifié", la pro a été prévenue, à elle de contacter les clients
       await admin
         .from("liste_attente")
         .update({ statut: "notifie", notifie_le: new Date().toISOString() })

@@ -26,8 +26,13 @@ function LoginContent() {
       return;
     }
     const next = searchParams.get("next");
+    // La destination se déduit des données avant les métadonnées : un compte peut
+    // porter un user_type erroné, seul le rattachement à un salon prouve qu'on a
+    // affaire à un professionnel. Sans ce garde-fou, un client se retrouvait
+    // aiguillé vers la création d'un espace pro.
+    const { data: su } = await supabase.from("salon_users").select("salon_id").eq("user_id", data.user!.id).maybeSingle();
     const userType = data.user?.user_metadata?.user_type;
-    router.push(next || (userType === "client" ? "/mon-compte" : "/dashboard"));
+    router.push(next || (su ? "/dashboard" : userType === "artisan" ? "/onboarding" : "/mon-compte"));
   }
 
   return (

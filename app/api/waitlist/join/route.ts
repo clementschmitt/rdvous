@@ -46,16 +46,16 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Email de confirmation d'inscription à la cliente
+  // Email de confirmation d'inscription au client
   try {
     const { data: salon } = await admin.from("salons").select("nom").eq("id", salon_id).single();
-    const { data: settings } = await admin.from("app_settings").select("email_expediteur, email_expediteur_nom").eq("salon_id", salon_id).single();
+    const { data: settings } = await admin.from("app_settings").select("email_expediteur, email_expediteur_nom, email_reception").eq("salon_id", salon_id).single();
     const dateStr = new Date(date + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
     await sendEmail({
       to: email,
       toName: prenom,
-      subject: `Vous êtes sur la liste d'attente — ${salon?.nom || "rdvous"}`,
+      subject: `Vous êtes sur la liste d'attente, ${salon?.nom || "rdvous"}`,
       html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
         <p style="font-size:15px">Bonjour ${prenom},</p>
         <p style="font-size:14px;line-height:1.6">Vous êtes bien inscrit·e sur la liste d'attente de <strong>${salon?.nom || ""}</strong> pour le <strong>${dateStr}</strong>.</p>
@@ -65,8 +65,47 @@ export async function POST(req: NextRequest) {
       fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
       replyTo: settings?.email_expediteur || undefined,
     });
+
+    // Notification au salon : sans elle, personne ne sait qu'un client attend.
+    // Même résolution de destinataire que pour les notifications de réservation.
+    let artisanEmail = settings?.email_reception?.trim() || settings?.email_expediteur?.trim() || null;
+    if (!artisanEmail) {
+      const { data: su } = await admin.from("salon_users").select("user_id").eq("salon_id", salon_id).limit(1).single();
+      if (su?.user_id) {
+        const { data: { user: authUser } } = await admin.auth.admin.getUserById(su.user_id);
+        artisanEmail = authUser?.email || null;
+      }
+    }
+
+    if (artisanEmail) {
+      const { data: prestas } = ids.length
+        ? await admin.from("prestations").select("nom").in("id", ids)
+        : { data: [] as { nom: string }[] };
+      const prestaNoms = (prestas || []).map(p => p.nom).join(", ") || "Non précisées";
+      const creneau = heure_debut && heure_fin ? `entre ${heure_debut} et ${heure_fin}` : "toute la journée";
+
+      await sendEmail({
+        to: artisanEmail,
+        toName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
+        subject: `Liste d'attente, ${prenom} ${nom} pour le ${dateStr}`,
+        html: `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
+          <div style="background:#fff7ed;border-left:4px solid #ea580c;border-radius:8px;padding:16px;margin-bottom:20px">
+            <strong>${dateStr}</strong>, ${creneau}<br/>
+            <span style="color:#666">${prestaNoms}</span>
+          </div>
+          <p style="font-size:14px;margin:0 0 6px"><strong>${prenom} ${nom}</strong></p>
+          <p style="font-size:14px;margin:0 0 6px">${telephone}</p>
+          <p style="font-size:14px;margin:0 0 20px">${email}</p>
+          <p style="font-size:14px;line-height:1.6">Ce client sera prévenu si un créneau se libère. Vous pouvez le planifier directement depuis votre liste d'attente.</p>
+          <div style="margin-top:24px">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/attente" style="display:inline-block;padding:12px 24px;background:#1a1a1a;color:#fff;text-decoration:none;border-radius:8px;font-size:14px;font-weight:700">Ouvrir la liste d'attente</a>
+          </div>
+        </div>`,
+        fromName: "rdvous",
+      });
+    }
   } catch (e) {
-    console.error("Waitlist confirmation email failed:", e);
+    console.error("Waitlist emails failed:", e);
   }
 
   return NextResponse.json({ ok: true });

@@ -346,7 +346,7 @@ export default function ClientDetailPage() {
         </div>
         <div style={{ background: "#f9f9f9", border: "1px solid #e0e0e0", borderRadius: 10, padding: "16px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontSize: 12, color: "#999" }}>Fidélité — {progression} / {settings.nb_visites_fidelite} visites</div>
+            <div style={{ fontSize: 12, color: "#999" }}>Fidélité, {progression} / {settings.nb_visites_fidelite} visites</div>
             {!fidOpen && (
               <button onClick={() => { setFidOpen(true); setFidDelta(""); setFidError(""); }} style={{ fontSize: 11, fontWeight: 600, color: m.couleur, background: "none", border: `1px solid ${m.couleur}`, borderRadius: 6, padding: "3px 10px", cursor: "pointer" }}>
                 Ajuster
@@ -535,7 +535,7 @@ export default function ClientDetailPage() {
                   autoFocus
                   value={mergeSearch}
                   onChange={e => handleMergeSearch(e.target.value)}
-                  placeholder="Rechercher une cliente par nom ou téléphone..."
+                  placeholder="Rechercher un client par nom ou téléphone..."
                   style={{ width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, boxSizing: "border-box", marginBottom: 10 }}
                 />
                 {mergeResults.length > 0 && (

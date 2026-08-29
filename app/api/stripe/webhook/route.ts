@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
-import { quotaSms } from "@/lib/plan";
+import { quotaSms, PRIX_BUSINESS_CONNUS } from "@/lib/plan";
 import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
         const subId = session.subscription as string;
         const sub = await stripe.subscriptions.retrieve(subId);
         const priceId = sub.items.data[0]?.price.id;
-        const plan = [process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY, process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY].includes(priceId) ? "business" : "pro";
+        const plan = PRIX_BUSINESS_CONNUS.includes(priceId ?? "") ? "business" : "pro";
         // Nouvel abonnement : on pose le quota SMS du plan
         await admin.from("salons").update({ plan, stripe_subscription_id: subId, sms_credits: quotaSms(plan) }).eq("id", salonId);
       }
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     if (salonId) {
       if (sub.status === "active") {
         const priceId = sub.items.data[0]?.price.id;
-        const plan = [process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY, process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY].includes(priceId) ? "business" : "pro";
+        const plan = PRIX_BUSINESS_CONNUS.includes(priceId ?? "") ? "business" : "pro";
         // Cet événement se déclenche pour bien d'autres raisons qu'un changement de plan
         // (moyen de paiement, métadonnées…). On ne retouche aux crédits que si le plan change,
         // sinon on remettrait le quota à zéro d'usage à chaque notification.

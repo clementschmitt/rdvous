@@ -17,7 +17,7 @@ type RdvRow = {
 };
 
 type StatPrestation = { nom: string; nb: number; heures: number; nbAVenir: number; heuresAVenir: number };
-type TopCliente = { prenom: string; nom: string; nb: number; ca: number };
+type TopClient = { prenom: string; nom: string; nb: number; ca: number };
 
 function getRange(periode: Periode): { debut: string; fin: string; label: string } {
   const now = new Date();
@@ -55,7 +55,7 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
   const [evoRows, setEvoRows] = useState<RdvRow[]>([]);
   const [nbAnnules, setNbAnnules] = useState(0);
-  const [topClientes, setTopClientes] = useState<TopCliente[]>([]);
+  const [topClients, setTopClients] = useState<TopClient[]>([]);
   const [previsionnelPeriode, setPrevisionnelPeriode] = useState(false);
   const [previsionnelGlobal, setPrevisionnelGlobal] = useState(false);
 
@@ -89,7 +89,7 @@ export default function StatsPage() {
       supabase.from("rendez_vous").select("id", { count: "exact", head: true })
         .eq("salon_id", salon.id).eq("statut", "annule")
         .gte("date_heure", `${debut}T00:00:00`).lte("date_heure", `${fin}T23:59:59`),
-      // Top clientes
+      // Top clients
       supabase.from("rendez_vous")
         .select("clients(prenom, nom), rendez_vous_prestations(prestations(tarif, sur_devis))")
         .eq("salon_id", salon.id).neq("statut", "annule"),
@@ -98,8 +98,8 @@ export default function StatsPage() {
     setRdvs((rdvRes.data || []) as unknown as RdvRow[]);
     setNbAnnules(annulesRes.count || 0);
 
-    // Top clientes
-    const clientMap: Record<string, TopCliente> = {};
+    // Top clients
+    const clientMap: Record<string, TopClient> = {};
     for (const r of (topRes.data || []) as unknown as { clients: { prenom: string; nom: string } | null; rendez_vous_prestations: { prestations: { tarif: number; sur_devis: boolean } | null }[] }[]) {
       if (!r.clients) continue;
       const key = `${r.clients.prenom} ${r.clients.nom}`;
@@ -109,7 +109,7 @@ export default function StatsPage() {
         if (!rp.prestations?.sur_devis) clientMap[key].ca += rp.prestations?.tarif || 0;
       }
     }
-    setTopClientes(Object.values(clientMap).sort((a, b) => b.ca - a.ca).slice(0, 10));
+    setTopClients(Object.values(clientMap).sort((a, b) => b.ca - a.ca).slice(0, 10));
 
     setEvoRows((evoRes.data || []) as unknown as RdvRow[]);
     setLoading(false);
@@ -130,7 +130,7 @@ export default function StatsPage() {
           <span style={{ fontSize: 16 }}>🔒</span>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a" }}>Fonctionnalités Business</div>
-            <div style={{ fontSize: 12, color: "#999" }}>Taux d'annulation · Top clientes · Graphiques évolution & répartition</div>
+            <div style={{ fontSize: 12, color: "#999" }}>Taux d'annulation · Top clients · Graphiques évolution & répartition</div>
           </div>
           <a href="/dashboard/parametres" style={{ marginLeft: "auto", padding: "7px 16px", background: m.couleur, color: "#fff", borderRadius: 8, fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
             Passer à Business : 49€/mois
@@ -159,11 +159,11 @@ export default function StatsPage() {
   const sumMin = (list: RdvRow[]) => list.reduce((s, r) => s + r.rendez_vous_prestations.reduce((ss, rp) => ss + (rp.prestations?.duree_minutes || 0), 0), 0);
   const fmtH = (min: number) => `${Math.floor(min / 60)}h${min % 60 > 0 ? min % 60 : ""}`;
 
-  // Réalisé (effectués) — toujours affiché
+  // Réalisé (effectués), toujours affiché
   const rdvsRealises = rdvs.filter(r => r.statut === "effectue");
   const caRealise = sumCA(rdvsRealises);
   const minRealise = sumMin(rdvsRealises);
-  // À venir (planifiés futurs) — affiché à côté quand la coche est active
+  // À venir (planifiés futurs), affiché à côté quand la coche est active
   const rdvsAVenir = rdvs.filter(estAVenir);
   const caAVenir = sumCA(rdvsAVenir);
   const minAVenir = sumMin(rdvsAVenir);
@@ -172,7 +172,7 @@ export default function StatsPage() {
   const totalHeures = Math.floor(minRealise / 60);
   const totalMinutesReste = minRealise % 60;
 
-  // Activité par prestation — réalisé, et à venir
+  // Activité par prestation, réalisé, et à venir
   const prestationMap: Record<string, StatPrestation> = {};
   const cumulPresta = (list: RdvRow[], avenir: boolean) => {
     for (const r of list) {
@@ -189,7 +189,7 @@ export default function StatsPage() {
   cumulPresta(rdvsAVenir, true);
   const statsPrestation = Object.values(prestationMap).sort((a, b) => (b.nb + b.nbAVenir) - (a.nb + a.nbAVenir));
 
-  // Évolution mensuelle — CA réalisé et CA à venir par mois
+  // Évolution mensuelle, CA réalisé et CA à venir par mois
   const evoMap: Record<string, { ca: number; nb: number; caAVenir: number; nbAVenir: number }> = {};
   for (const r of evoRows) {
     const key = r.date_heure.slice(0, 7);
@@ -231,7 +231,7 @@ export default function StatsPage() {
       `}</style>
       {isBusiness && <div className="stats-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Statistiques</h1>
-        {/* Boutons — desktop */}
+        {/* Boutons, desktop */}
         <div className="stats-periodes" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {PERIODES.map(p => (
             <button key={p.key} onClick={() => setPeriode(p.key)}
@@ -240,7 +240,7 @@ export default function StatsPage() {
             </button>
           ))}
         </div>
-        {/* Select — mobile */}
+        {/* Select, mobile */}
         <select className="stats-select" value={periode} onChange={e => setPeriode(e.target.value as Periode)}
           style={{ display: "none", width: "100%", padding: "10px 14px", border: `1px solid #e0e0e0`, borderRadius: 8, fontSize: 14, fontWeight: 600, background: "#fff", color: "#1a1a1a", cursor: "pointer" }}>
           {PERIODES.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
@@ -330,7 +330,7 @@ export default function StatsPage() {
                   </tfoot>
                 </table>
 
-                {/* Camembert — Business uniquement */}
+                {/* Camembert, Business uniquement */}
                 {statsPrestation.filter(p => p.nb > 0).length > 0 && (
                   isBusiness ? (
                     <div>
@@ -359,7 +359,7 @@ export default function StatsPage() {
             </div>
           )}
 
-          {/* Taux d'annulation — sur la période */}
+          {/* Taux d'annulation, sur la période */}
           <LockedSection>
             <div style={{ ...cardStyle, marginBottom: 24 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
@@ -425,14 +425,14 @@ export default function StatsPage() {
             </div>
           )}
 
-          {/* Stats avancées Business — un seul bloc verrouillé */}
+          {/* Stats avancées Business, un seul bloc verrouillé */}
           <LockedSection>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-              {topClientes.length > 0 && (
+              {topClients.length > 0 && (
                 <div style={{ ...cardStyle }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>Top clientes — classement par CA généré</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>Top clients, classement par CA généré</div>
                   <div style={{ fontSize: 11, color: "#bbb" }}>Depuis le début</div>
                 </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -441,8 +441,8 @@ export default function StatsPage() {
                       <th style={{ textAlign: "right", padding: "6px 12px", color: "#aaa", fontWeight: 600, fontSize: 11 }}>VISITES</th>
                       <th style={{ textAlign: "right", padding: "6px 0", color: "#aaa", fontWeight: 600, fontSize: 11 }}>CA TOTAL</th>
                     </tr></thead>
-                    <tbody>{topClientes.map((c, i) => (
-                      <tr key={i} style={{ borderBottom: i < topClientes.length - 1 ? "1px solid #f5f5f5" : "none" }}>
+                    <tbody>{topClients.map((c, i) => (
+                      <tr key={i} style={{ borderBottom: i < topClients.length - 1 ? "1px solid #f5f5f5" : "none" }}>
                         <td style={{ padding: "10px 0", fontWeight: 500 }}>{c.prenom} {c.nom}</td>
                         <td style={{ padding: "10px 12px", textAlign: "right", color: "#666" }}>{c.nb}</td>
                         <td style={{ padding: "10px 0", textAlign: "right", fontWeight: 700, color: m.couleur }}>{c.ca}€</td>
@@ -455,7 +455,7 @@ export default function StatsPage() {
               {/* Graphique évolution mensuelle */}
               {evolution.length > 0 && (
                 <div style={{ ...cardStyle }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Évolution du CA — 12 derniers mois</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Évolution du CA, 12 derniers mois</div>
                   <ResponsiveContainer width="100%" height={220}>
                     <BarChart data={evolution.map(e => {
                       const [year, month] = e.mois.split("-");

@@ -179,17 +179,17 @@ export default function DashboardPage() {
           <span style={{ fontSize: 20 }}>🔔</span>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#065f46" }}>
-              Un créneau s'est libéré aujourd'hui — {attenteAlerte.count} personne{attenteAlerte.count > 1 ? "s" : ""} en liste d'attente {attenteAlerte.count > 1 ? "ont été prévenues" : "a été prévenue"}.
+              Un créneau s'est libéré aujourd'hui, {attenteAlerte.count} personne{attenteAlerte.count > 1 ? "s" : ""} en liste d'attente {attenteAlerte.count > 1 ? "ont été prévenues" : "a été prévenue"}.
             </div>
             <div style={{ fontSize: 12, color: "#059669", marginTop: 2 }}>Voir la liste d'attente →</div>
           </div>
         </Link>
       )}
 
-      {/* Grille unifiée 3 colonnes — tuiles row1, planning+sidebar row2 */}
+      {/* Grille unifiée 3 colonnes, tuiles row1, planning+sidebar row2 */}
       <div className="dash-main-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 320px", gap: "16px" }}>
 
-        {/* Tuile 1 — Semaine */}
+        {/* Tuile 1, Semaine */}
         {(() => {
           const total = rdvsWeekEffectue + rdvsWeekConfirmed;
           const pct = total > 0 ? Math.round(rdvsWeekEffectue / total * 100) : 0;
@@ -210,7 +210,7 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* Tuile 2 — CA semaine */}
+        {/* Tuile 2, CA semaine */}
         {(() => {
           const pct = caWeekPrev > 0 ? Math.round((caWeek - caWeekPrev) / caWeekPrev * 100) : null;
           const hausse = pct !== null && pct >= 0;
@@ -226,7 +226,7 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* Tuile 3 — CA mois (col 3, alignée avec sidebar) */}
+        {/* Tuile 3, CA mois (col 3, alignée avec sidebar) */}
         {(() => {
           const pct = caMonthPrev > 0 ? Math.round((caMonth - caMonthPrev) / caMonthPrev * 100) : null;
           const hausse = pct !== null && pct >= 0;
@@ -242,7 +242,7 @@ export default function DashboardPage() {
           );
         })()}
 
-        {/* Planning du jour — span 2 colonnes */}
+        {/* Planning du jour, span 2 colonnes */}
         <div style={{ gridColumn: "span 2", backgroundColor: T.white, border: `1px solid ${m.couleurClaire}`, borderRadius: T.radius, padding: "28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
             <p style={{ ...ls, fontSize: "10px", color: m.couleurMuted, margin: 0 }}>Planning du jour</p>
@@ -287,7 +287,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Sidebar — col 3 */}
+        {/* Sidebar, col 3 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
           {/* Relances */}

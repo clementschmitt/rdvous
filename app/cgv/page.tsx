@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "CGV — rdvous",
+  title: "CGV, rdvous",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -67,15 +67,15 @@ export default function CGVPage() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginBottom: "16px" }}>
             <div style={{ border: "1px solid #e8e2da", borderRadius: "8px", padding: "16px 20px" }}>
-              <p style={{ fontWeight: 600, marginBottom: "6px" }}>Free — 0 €/mois</p>
+              <p style={{ fontWeight: 600, marginBottom: "6px" }}>Free, 0 €/mois</p>
               <p style={{ lineHeight: "1.7", color: "#4a3f35" }}>1 agenda, jusqu'à 50 rendez-vous par mois.</p>
             </div>
             <div style={{ border: "1px solid #e8e2da", borderRadius: "8px", padding: "16px 20px" }}>
-              <p style={{ fontWeight: 600, marginBottom: "6px" }}>Solo — 29 € HT/mois</p>
+              <p style={{ fontWeight: 600, marginBottom: "6px" }}>Solo, 29 € HT/mois</p>
               <p style={{ lineHeight: "1.7", color: "#4a3f35" }}>Agendas illimités, rendez-vous illimités, rappels SMS inclus.</p>
             </div>
             <div style={{ border: "1px solid #e8e2da", borderRadius: "8px", padding: "16px 20px" }}>
-              <p style={{ fontWeight: 600, marginBottom: "6px" }}>Pro — 49 € HT/mois</p>
+              <p style={{ fontWeight: 600, marginBottom: "6px" }}>Pro, 49 € HT/mois</p>
               <p style={{ lineHeight: "1.7", color: "#4a3f35" }}>Tout ce qui est inclus dans Solo, plus les statistiques avancées et le support prioritaire.</p>
             </div>
           </div>

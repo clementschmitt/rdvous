@@ -36,7 +36,7 @@ function ConfirmContent() {
     }
 
     // Cas 2 : access_token dans le fragment (template {{ .ConfirmationURL }})
-    // Le client Supabase traite automatiquement le fragment — on écoute l'event
+    // Le client Supabase traite automatiquement le fragment, on écoute l'event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) redirect(session);
     });

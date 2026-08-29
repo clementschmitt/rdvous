@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (!salon_id || !packChoisi) return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
 
   // Le propriétaire du salon, ou l'exploitant en mode override admin, qui n'est
-  // rattaché à aucun salon dans salon_users mais doit pouvoir dépanner ses clientes.
+  // rattaché à aucun salon dans salon_users mais doit pouvoir dépanner ses clients.
   const estAdmin = !!process.env.ADMIN_EMAIL && user.email === process.env.ADMIN_EMAIL;
   if (!estAdmin) {
     const { data: su } = await admin.from("salon_users").select("salon_id").eq("user_id", user.id).eq("salon_id", salon_id).maybeSingle();
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   let customerId = salon.stripe_customer_id;
   if (!customerId) {
-    // L'email du salon prime : en mode override c'est celui de la cliente qu'il
+    // L'email du salon prime : en mode override c'est celui du client qu'il
     // faut rattacher au client Stripe, pas celui de l'exploitant.
     const customer = await stripe.customers.create({ email: salon.email || user.email, name: salon.nom, metadata: { salon_id } });
     customerId = customer.id;

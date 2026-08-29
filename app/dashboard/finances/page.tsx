@@ -359,7 +359,7 @@ export default function FinancesPage() {
         <div style={{ fontSize: 48, marginBottom: 20 }}>💰</div>
         <h2 style={{ fontFamily: T.heading, fontSize: 32, marginBottom: 12 }}>Suivi financier</h2>
         <p style={{ color: T.muted, lineHeight: 1.7, marginBottom: 28 }}>
-          Suivez vos recettes et dépenses chaque mois, estimez votre URSSAF et pilotez votre bilan net — sans tableur.
+          Suivez vos recettes et dépenses chaque mois, estimez votre URSSAF et pilotez votre bilan net, sans tableur.
         </p>
         <a href="/api/stripe/checkout?plan=business" style={{ background: m.couleur, color: T.white, padding: "12px 28px", borderRadius: T.radius, display: "inline-block", fontSize: 13, textDecoration: "none" }}>
           Passer à Business : 49€/mois
@@ -500,7 +500,7 @@ export default function FinancesPage() {
               <div style={{ width: `${progression}%`, height: "100%", background: progression >= 100 ? "#16a34a" : m.couleur, borderRadius: 99, transition: "width 0.4s" }} />
             </div>
             <div style={{ fontSize: 11, color: T.muted, marginTop: 6, textAlign: "right" }}>
-              {Math.round(progression)}% — {euro(Math.max(objectif - caTotal, 0))} restant
+              {Math.round(progression)}%, {euro(Math.max(objectif - caTotal, 0))} restant
             </div>
           </>
         )}
@@ -547,7 +547,7 @@ export default function FinancesPage() {
       <div className="fin-section">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h2 style={{ fontFamily: T.heading, fontSize: 20, margin: 0 }}>Charges fixes</h2>
-          <span style={{ fontSize: 12, color: T.muted }}>Récurrentes chaque mois — {euro(totalDepensesFixes)} actives</span>
+          <span style={{ fontSize: 12, color: T.muted }}>Récurrentes chaque mois, {euro(totalDepensesFixes)} actives</span>
         </div>
         <div className="fin-add" style={{ marginBottom: 16 }}>
           <input type="text" placeholder="Nom (ex : Loyer, Logiciel…)" value={newFixe.nom} onChange={e => setNewFixe(p => ({ ...p, nom: e.target.value }))} style={{ flex: 1, minWidth: 160 }} />
@@ -557,7 +557,7 @@ export default function FinancesPage() {
           </button>
         </div>
         {depensesFixes.length === 0 ? (
-          <div style={{ color: T.muted, fontSize: 13 }}>Aucune charge fixe. Ajoutez vos charges récurrentes — elles s'appliquent automatiquement chaque mois.</div>
+          <div style={{ color: T.muted, fontSize: 13 }}>Aucune charge fixe. Ajoutez vos charges récurrentes, elles s'appliquent automatiquement chaque mois.</div>
         ) : (
           <table className="fin-table">
             <thead>

@@ -84,7 +84,7 @@ export default function BookingWidget({
 
   // Mode menu : pas d'étapes, toutes les prestations groupées en sélection libre (type Planity)
   const isMenu = modeReservation === "menu";
-  // Catégories dans le stepper = unique + multiple (dans l'ordre) — désactivé en mode menu
+  // Catégories dans le stepper = unique + multiple (dans l'ordre), désactivé en mode menu
   const stepCategories = isMenu ? [] : categories.filter(c => c.selection_type === "unique" || c.selection_type === "multiple");
   const libreCategories = categories.filter(c => c.selection_type === "libre");
   const hasSteps = stepCategories.length > 0;
@@ -202,7 +202,7 @@ export default function BookingWidget({
     if (!/^[a-zA-Z0-9_%+\-]([a-zA-Z0-9._%+\-]*[a-zA-Z0-9_%+\-])?@[a-zA-Z0-9][a-zA-Z0-9.\-]*\.[a-zA-Z]{2,}$/.test(email) || email.includes("..")) { setError("Adresse email invalide."); return; }
     if (!telephone.trim()) { setError("Téléphone requis."); return; }
     if (!choix) { setError("Veuillez choisir un créneau."); return; }
-    if (wantsDomicile && (adresseDomicile.trim().length < 15 || !/\b\d{5}[\s,]+[a-zA-ZÀ-ÿ]/.test(adresseDomicile))) { setError("Adresse incomplète — indiquez la rue, le code postal et la ville (ex: 12 rue des Lilas, 75011 Paris)."); return; }
+    if (wantsDomicile && (adresseDomicile.trim().length < 15 || !/\b\d{5}[\s,]+[a-zA-ZÀ-ÿ]/.test(adresseDomicile))) { setError("Adresse incomplète, indiquez la rue, le code postal et la ville (ex: 12 rue des Lilas, 75011 Paris)."); return; }
     setError(""); setSubmitting(true);
     const res = await fetch("/api/booking/create", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -395,7 +395,7 @@ export default function BookingWidget({
       )}
       {deplacement === "uniquement" && <div style={{ padding: "8px 12px", background: couleur + "12", borderRadius: 8, fontSize: 12, color: couleur, fontWeight: 600, marginBottom: 4 }}>🚗 RDV à domicile uniquement</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Honeypot — invisible pour les humains, rempli par les bots */}
+        {/* Honeypot, invisible pour les humains, rempli par les bots */}
         <div style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, pointerEvents: "none" }} aria-hidden>
           <input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} name="_b3acon" />
         </div>
@@ -453,7 +453,7 @@ export default function BookingWidget({
     if (items.length === 0) return null;
     return (
       <div style={{ border: "1px solid #ebebeb", borderRadius: 10, overflow: "hidden" }}>
-        <div style={{ padding: "9px 14px", background: "#f9f9f9", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}{optionnel ? " — optionnel" : ""}</div>
+        <div style={{ padding: "9px 14px", background: "#f9f9f9", fontSize: 10, fontWeight: 700, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.07em" }}>{label}{optionnel ? ", optionnel" : ""}</div>
         <div style={{ padding: "8px 10px 10px", display: "flex", flexDirection: "column", gap: 4 }}>
           {items.map(p => <PrestationRow key={p.id} p={p} onClick={() => toggleLibre(p)} isSelected={selected.some(s => s.id === p.id)} />)}
         </div>
@@ -468,7 +468,7 @@ export default function BookingWidget({
         <button onClick={() => { setWeekOffset(w => Math.max(0, w - 1)); setSelectedDay(null); }} disabled={weekOffset === 0}
           style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 6, padding: "4px 10px", cursor: weekOffset === 0 ? "not-allowed" : "pointer", color: weekOffset === 0 ? "#ccc" : "#555", fontSize: 16 }}>‹</button>
         <span style={{ fontSize: 12, fontWeight: 600, color: "#666" }}>
-          {monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} — {addDays(monday, 6).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
+          {monday.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}, {addDays(monday, 6).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}
         </span>
         <button onClick={() => { if (!atMaxWeek) { setWeekOffset(w => w + 1); setSelectedDay(null); } }} disabled={atMaxWeek}
           style={{ background: "none", border: "1px solid #e0e0e0", borderRadius: 6, padding: "4px 10px", cursor: atMaxWeek ? "not-allowed" : "pointer", color: atMaxWeek ? "#ccc" : "#555", fontSize: 16 }}>›</button>
@@ -504,7 +504,7 @@ export default function BookingWidget({
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {(blockedMap[selectedDay] || []).map(s => (
-                  <div key={`blocked-${s}`} title="Ce créneau n'est plus disponible à la réservation en ligne — contactez-nous"
+                  <div key={`blocked-${s}`} title="Ce créneau n'est plus disponible à la réservation en ligne, contactez-nous"
                     style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1.5px solid #e0e0e0", borderRadius: 7, background: "#f5f5f5", color: "#bbb", cursor: "not-allowed", userSelect: "none" }}>
                     {s}
                   </div>
@@ -521,7 +521,7 @@ export default function BookingWidget({
               </div>
               {(blockedMap[selectedDay] || []).length > 0 && (
                 <div style={{ fontSize: 11, color: "#bbb", marginTop: 6, width: "100%" }}>
-                  Les créneaux grisés ne sont plus disponibles à la réservation en ligne — contactez-nous directement.
+                  Les créneaux grisés ne sont plus disponibles à la réservation en ligne, contactez-nous directement.
                 </div>
               )}
             </div>
@@ -681,7 +681,7 @@ export default function BookingWidget({
             }} style={{ width: "100%", padding: "10px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, background: "#fff", cursor: "pointer" }}>
               <option value="" disabled>{selected.length === 0 ? "Choisissez une prestation…" : "Ajouter une prestation…"}</option>
               {prestations.filter(p => !selected.find(s => s.id === p.id)).map(p => (
-                <option key={p.id} value={p.id}>{p.nom} — {formatDuree(p.duree_minutes)} · {formatPrix(p.tarif, p.sur_devis)}</option>
+                <option key={p.id} value={p.id}>{p.nom}, {formatDuree(p.duree_minutes)} · {formatPrix(p.tarif, p.sur_devis)}</option>
               ))}
             </select>
           </div>

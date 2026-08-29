@@ -57,7 +57,7 @@ function calendarData(rdv: Rdv) {
   const startTime = `${String(startH).padStart(2, "0")}${String(startM).padStart(2, "0")}00`;
   const endTime = `${endH}${endM}00`;
   const prestations = rdv.rendez_vous_prestations.map(rp => rp.prestations?.nom).filter(Boolean).join(", ");
-  const title = `${prestations || "Rendez-vous"} — ${rdv.salons?.nom || ""}`;
+  const title = `${prestations || "Rendez-vous"}, ${rdv.salons?.nom || ""}`;
   return { dateStr, startTime, endTime, title };
 }
 
@@ -171,7 +171,9 @@ export default function MonComptePage() {
       const supabase = createSupabase();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      if (user.user_metadata?.user_type === "artisan") { router.push("/dashboard"); return; }
+      // On ne renvoie vers le dashboard que si le compte gère réellement un salon.
+      const { data: suPro } = await supabase.from("salon_users").select("salon_id").eq("user_id", user.id).maybeSingle();
+      if (suPro) { router.push("/dashboard"); return; }
 
       setEmail(user.email || null);
       const { data: { session } } = await supabase.auth.getSession();
@@ -489,7 +491,7 @@ export default function MonComptePage() {
         </div>
       </div>
 
-      {/* Top tabs — mobile uniquement */}
+      {/* Top tabs, mobile uniquement */}
       {isMobile && (
         <div style={{ background: "#fff", borderBottom: "1px solid #f0f0f0", display: "flex" }}>
           {(["rdvs", "favoris", "galerie"] as const).map((tab, i) => {
@@ -512,7 +514,7 @@ export default function MonComptePage() {
         {/* Grid 2 colonnes */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 340px", gap: isMobile ? 20 : 28, alignItems: "start" }}>
 
-          {/* Colonne gauche — RDVs */}
+          {/* Colonne gauche, RDVs */}
           <div style={{ order: isMobile ? 2 : 1, display: isMobile && activeTab !== "rdvs" ? "none" : undefined, minWidth: 0, overflow: "hidden" }}>
             {/* Prochain rendez-vous */}
             {hero && (() => {
@@ -657,7 +659,7 @@ export default function MonComptePage() {
             )}
           </div>
 
-          {/* Colonne droite — Sidebar */}
+          {/* Colonne droite, Sidebar */}
           <div style={{ display: isMobile && activeTab === "rdvs" ? "none" : "flex", flexDirection: "column", gap: 20, order: isMobile ? 1 : 2, minWidth: 0 }}>
 
             {/* Favoris */}

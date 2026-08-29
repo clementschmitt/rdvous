@@ -188,7 +188,7 @@ function NouveauRDVContent() {
     let rdvId: string | null = null;
 
     if (forcerConflit) {
-      // Insert direct — bypass la vérification de conflit de créneau
+      // Insert direct, bypass la vérification de conflit de créneau
       const { data: inserted, error: insertErr } = await supabase
         .from("rendez_vous")
         .insert({
@@ -249,7 +249,7 @@ function NouveauRDVContent() {
       await supabase.from("cagnotte_mouvements").insert({ salon_id: salon!.id, client_id: clientId, montant: -cagnotteAUtiliser, type: "utilisation", reference_id: rdv.id });
     }
 
-    // Fire-and-forget — ne bloque pas la navigation
+    // Fire-and-forget, ne bloque pas la navigation
     fetch("/api/email/confirmation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -397,7 +397,7 @@ function NouveauRDVContent() {
               {renderPrestaList(visiblePrestas)}
               {selectedPrests.length > 0 && (
                 <div style={{ fontSize: 13, color: "#666", marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                  Total : <b>{dureeTotal} min</b> —{" "}
+                  Total : <b>{dureeTotal} min</b>,{" "}
                   {hasTagDiscount ? (
                     <>
                       <span style={{ textDecoration: "line-through", color: "#bbb" }}>{tarifTotal} €</span>

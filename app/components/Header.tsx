@@ -88,7 +88,7 @@ export default function Header() {
         </div>
       </div>
 
-      {/* Navigation bas — mobile uniquement */}
+      {/* Navigation bas, mobile uniquement */}
       <nav className="hdr-bottom-nav" style={{ display: "none", position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200, background: T.white, borderTop: `2px solid ${m.couleurClaire}` }}>
         {links.map(l => {
           const active = isActive(l.href);

@@ -51,8 +51,8 @@ export default function UpgradeBanner() {
       `}</style>
       <div className="upgrade-banner" style={{ padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <span className="upgrade-desc" style={{ opacity: 0.85 }}>
-          <span className="upgrade-desc-long">✨ Plan Gratuit — limité à 30 RDV/mois · Fidélité et cagnotte non disponibles</span>
-          <span className="upgrade-desc-short">✨ Plan Gratuit — 30 RDV/mois</span>
+          <span className="upgrade-desc-long">✨ Plan Gratuit, limité à 30 RDV/mois · Fidélité et cagnotte non disponibles</span>
+          <span className="upgrade-desc-short">✨ Plan Gratuit, 30 RDV/mois</span>
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           <button disabled={loading} className="upgrade-btn"

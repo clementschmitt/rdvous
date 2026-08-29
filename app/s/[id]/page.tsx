@@ -123,7 +123,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
         .slot-btn:hover { opacity: 0.85; }
       `}</style>
 
-      {/* Header — transparent over hero, solid white on scroll */}
+      {/* Header, transparent over hero, solid white on scroll */}
       <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} />
       <AppNavConditional showTopBar />
 
@@ -171,7 +171,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
           {/* Colonne gauche */}
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* Infos contact — masquées sur mobile (la barre latérale remontée affiche déjà le contact) */}
+            {/* Infos contact, masquées sur mobile (la barre latérale remontée affiche déjà le contact) */}
             {(salon.adresse || salon.ville || salon.telephone) && (
               <div id="vitrine-contact-top" className="vitrine-contact-bar" style={{ background: "#fff", borderRadius: 12, padding: "14px 18px", border: "1px solid #ebebeb", display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
                 {(salon.adresse || salon.ville) && mapsUrl && (
@@ -251,7 +251,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
           {/* Sidebar */}
           <div className="vitrine-sidebar" style={{ width: 300, flexShrink: 0, position: "sticky", top: 68, display: "flex", flexDirection: "column", gap: 10 }}>
 
-            {/* Avis rdvous — widget interactif */}
+            {/* Avis rdvous, widget interactif */}
             {avis.length > 0 && avisMoyenne && (
               <AvisWidget avis={avis} avisMoyenne={avisMoyenne} />
             )}

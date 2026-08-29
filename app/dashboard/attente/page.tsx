@@ -87,7 +87,7 @@ export default function ListeAttentePage() {
       clientId = newClient.id;
     }
 
-    // Créer le RDV — via create_rdv_safe pour bloquer les créneaux déjà occupés
+    // Créer le RDV, via create_rdv_safe pour bloquer les créneaux déjà occupés
     const duree = planningEntry.prestation_ids.reduce((s, pid) => s + (prestDurees[pid] || 0), 0) || 60;
     const { data: rdvId, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
       p_salon_id: salon.id,
@@ -156,7 +156,7 @@ export default function ListeAttentePage() {
       </div>
       <h1 style={{ margin: "0 0 6px", fontFamily: T.heading, fontSize: 30, fontWeight: 600, color: T.text, letterSpacing: "-0.3px" }}>Liste d'attente</h1>
       <p style={{ margin: "0 0 24px", fontSize: 14, color: T.muted, lineHeight: 1.5, maxWidth: 600 }}>
-        Quand un rendez-vous s'annule, vous recevez un email avec la liste des clientes en attente ce jour-là. À vous de les contacter directement.
+        Quand un rendez-vous s'annule, vous recevez un email avec la liste des clients en attente ce jour-là. À vous de les contacter directement.
       </p>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>

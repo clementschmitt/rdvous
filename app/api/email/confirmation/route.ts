@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: client.email,
       toName: client.prenom,
-      subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salon?.nom || "rdvous"}`,
+      subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous, ${salon?.nom || "rdvous"}`,
       html: templateConfirmation({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, prestations, contenu: settings?.message_confirmation || undefined }),
       fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
       replyTo: settings?.email_expediteur || undefined,

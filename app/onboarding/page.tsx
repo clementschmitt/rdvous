@@ -52,7 +52,7 @@ export default function OnboardingPage() {
       <div style={{ width: "100%", maxWidth: 500, padding: "0 24px" }}>
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <h1 style={{ fontFamily: T.heading, fontSize: 38, fontWeight: 600, color: T.text, letterSpacing: "-0.5px", marginBottom: 8 }}>rdvous</h1>
-          <p style={{ fontSize: 13, color: T.muted }}>Étape {step}/2 — {step === 1 ? "Votre métier" : "Votre établissement"}</p>
+          <p style={{ fontSize: 13, color: T.muted }}>Étape {step}/2, {step === 1 ? "Votre métier" : "Votre établissement"}</p>
         </div>
 
         <div style={{ background: T.white, borderRadius: T.radius, padding: 36, boxShadow: T.shadowMd, border: `1px solid ${T.border}` }}>
@@ -98,8 +98,8 @@ export default function OnboardingPage() {
                 <label style={labelStyle}>Déplacements à domicile</label>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {([
-                    { value: "non", label: "Non — je reçois uniquement en salon" },
-                    { value: "possible", label: "Oui, en option — salon et domicile" },
+                    { value: "non", label: "Non, je reçois uniquement en salon" },
+                    { value: "possible", label: "Oui, en option, salon et domicile" },
                     { value: "uniquement", label: "Oui, uniquement à domicile" },
                   ] as { value: "non" | "possible" | "uniquement"; label: string }[]).map(opt => (
                     <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, color: T.text, padding: "10px 12px", border: `1.5px solid ${deplacement === opt.value ? (metier ? METIERS[metier].couleur : T.text) : T.border}`, borderRadius: T.radiusSm, background: deplacement === opt.value ? (metier ? `${METIERS[metier].couleur}10` : "#f5f5f5") : T.white }}>

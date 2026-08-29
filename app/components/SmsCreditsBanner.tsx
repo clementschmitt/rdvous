@@ -31,7 +31,7 @@ export default function SmsCreditsBanner() {
   return (
     <div style={{ background: isZero ? "#fef2f2" : "#fff7ed", borderBottom: `1px solid ${isZero ? "#fca5a5" : "#fed7aa"}`, padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, fontSize: 13 }}>
       <span style={{ color: isZero ? "#dc2626" : "#c2410c", fontWeight: 600 }}>
-        {isZero ? "SMS désactivés — crédits épuisés" : `Il vous reste ${credits} crédits SMS — rechargez bientôt`}
+        {isZero ? "SMS désactivés, crédits épuisés" : `Il vous reste ${credits} crédits SMS, rechargez bientôt`}
       </span>
       <button onClick={recharge} disabled={loading}
         style={{ padding: "6px 14px", background: isZero ? "#dc2626" : "#ea580c", color: "#fff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>

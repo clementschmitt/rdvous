@@ -34,7 +34,7 @@ function SignupContent() {
     if (error) { setError(error.message); setLoading(false); return; }
     const planIntent = searchParams.get("plan");
     if (!isClient && (planIntent === "pro" || planIntent === "business")) sessionStorage.setItem("upgrade_intent", planIntent);
-    // Toujours afficher la page "vérifiez votre email" — si confirmation désactivée, l'utilisateur sera déjà connecté et verra juste ce message brièvement
+    // Toujours afficher la page "vérifiez votre email", si confirmation désactivée, l'utilisateur sera déjà connecté et verra juste ce message brièvement
     setEmailSent(true);
     setLoading(false);
   }

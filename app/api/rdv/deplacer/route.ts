@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to: client.email,
         toName: client.prenom,
-        subject: `Votre rendez-vous a été déplacé — ${salon?.nom || ""}`,
+        subject: `Votre rendez-vous a été déplacé, ${salon?.nom || ""}`,
         html: templateDeplacement({
           prenom: client.prenom,
           salonNom: salon?.nom || "",

@@ -25,7 +25,9 @@ export function SalonProvider({ children }: { children: ReactNode }) {
       }
 
       const { data: su } = await supabase.from("salon_users").select("salon_id").eq("user_id", user.id).single();
-      if (!su) { router.push(user.user_metadata?.user_type === "client" ? "/mon-compte" : "/onboarding"); return; }
+      // Sans salon rattaché, seul un compte explicitement professionnel part vers
+      // la création de salon. Tout le reste retourne à l'espace client.
+      if (!su) { router.push(user.user_metadata?.user_type === "artisan" ? "/onboarding" : "/mon-compte"); return; }
       const { data: s } = await supabase.from("salons").select("id, nom, metier, plan, sms_credits, sms_credits_achetes").eq("id", su.salon_id).single();
       if (s) setSalon(s as Salon);
     })();

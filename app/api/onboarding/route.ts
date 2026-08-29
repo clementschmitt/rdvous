@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: "contact@rdvous.fr",
       toName: "rdvous",
-      subject: `Nouveau compte — ${nom} (${metier})`,
+      subject: `Nouveau compte, ${nom} (${metier})`,
       html: `<div style="font-family:sans-serif;padding:24px;color:#222">
         <h2 style="margin:0 0 16px">Nouveau salon inscrit</h2>
         <p><strong>Nom :</strong> ${nom}</p>

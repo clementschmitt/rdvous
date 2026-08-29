@@ -78,6 +78,46 @@ export const PLAN_LABELS: Record<Plan, string> = {
 
 export const PLAN_PRICES: Record<Plan, string> = {
   free: "0€",
-  pro: "29€/mois",
-  business: "49€/mois",
+  pro: "39€/mois",
+  business: "59€/mois",
 };
+
+/**
+ * Tarifs Stripe des abonnements. Les identifiants vivent ici plutôt que dans des
+ * variables d'environnement : ce ne sont pas des secrets, et les garder avec le
+ * reste de la grille évite qu'affichage et facturation divergent.
+ */
+export const PRIX_STRIPE = {
+  pro:      { mensuel: "price_1U9YpcGVwWW2OxV02tt6gPfc", annuel: "price_1U9YpdGVwWW2OxV0Ze8noZF3" },
+  business: { mensuel: "price_1U9YpdGVwWW2OxV0JwvP1xRB", annuel: "price_1U9YpeGVwWW2OxV0c2II8eOX" },
+} as const;
+
+/**
+ * Tous les tarifs Business ayant existé, anciens compris. Le webhook s'en sert
+ * pour retrouver le plan d'un abonnement : sans les anciens identifiants, les
+ * clients souscrits avant un changement de grille basculeraient en Pro au
+ * premier événement Stripe. Ne jamais retirer une entrée de cette liste.
+ */
+export const PRIX_BUSINESS_CONNUS: string[] = [
+  PRIX_STRIPE.business.mensuel,
+  PRIX_STRIPE.business.annuel,
+  "price_1TknvpGVwWW2OxV0Dto5kYam", // 49 €/mois, grille d'origine (abonnement de Coralie)
+  "price_1TknwRGVwWW2OxV0jet78vYJ", // 490 €/an, grille d'origine
+];
+
+/**
+ * Offre de lancement : 10 € de remise par mois pendant 12 mois, ou 100 € sur la
+ * première année. Le client passe automatiquement au tarif plein ensuite, sans
+ * intervention. Coupons créés dans Stripe.
+ */
+export const OFFRE_LANCEMENT = {
+  // Ouverte à toute souscription faite en 2026. La remise court ensuite douze
+  // mois à compter de la souscription, pas jusqu'à cette date.
+  fin: "2026-12-31T23:59:59+01:00",
+  couponMensuel: "LANCEMENT_MENSUEL",
+  couponAnnuel: "LANCEMENT_ANNUEL",
+};
+
+export function offreLancementActive(maintenant: Date = new Date()): boolean {
+  return maintenant.getTime() <= new Date(OFFRE_LANCEMENT.fin).getTime();
+}

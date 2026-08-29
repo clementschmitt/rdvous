@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to: client.email,
         toName: `${client.prenom} ${client.nom}`,
-        subject: `Rendez-vous annulé — ${dateStr} à ${heureStr}`,
+        subject: `Rendez-vous annulé, ${dateStr} à ${heureStr}`,
         html: templateAnnulation({ prenom: client.prenom, salonNom, dateStr, heureStr, prestations }),
         fromName: salonNom,
       });

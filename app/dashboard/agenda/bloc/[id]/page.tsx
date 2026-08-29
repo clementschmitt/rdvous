@@ -49,7 +49,7 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
       const startTimeStr = data.date_heure.slice(11, 16);
       setDate(startDateStr);
       setHeure(startTimeStr);
-      // Calcul fin purement arithmétique — pas de conversion timezone
+      // Calcul fin purement arithmétique, pas de conversion timezone
       const [sh, sm] = startTimeStr.split(":").map(Number);
       const endTotalMin = sh * 60 + sm + data.duree_minutes;
       const extraDays = Math.floor(endTotalMin / 1440);

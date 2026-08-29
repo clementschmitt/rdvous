@@ -17,13 +17,16 @@ const C = {
 };
 
 /* ── data ── */
+// Formulés à la première personne, avec les mots des professionnelles elles-mêmes.
+// Aucune référence à un concurrent : la douleur est énoncée comme une réalité du
+// métier, pas comme le défaut d'un autre logiciel.
 const PAIN_POINTS = [
-  { icon: "📅", pb: "Un agenda surchargé",       sol: "Planning clair, réservations automatisées, zéro double-booking." },
-  { icon: "💸", pb: "Des outils trop chers",      sol: "29€/mois. Pas de commission. Pas de frais cachés." },
-  { icon: "🔕", pb: "Les annulations de dernière minute", sol: "Rappels SMS & email automatiques pour réduire les no-shows." },
-  { icon: "🌐", pb: "Invisible en ligne",          sol: "Un profil local référencé, visible dès votre inscription." },
-  { icon: "🗂️", pb: "Des fiches clients éparpillées", sol: "Tout centralisé : historique, notes, cagnotte, mesures." },
-  { icon: "⏰", pb: "Des heures perdues en gestion", sol: "Automatisations intelligentes pour vous libérer du temps." },
+  { icon: "💰", pb: "Je ne sais pas ce que je gagne vraiment", sol: "Votre chiffre d'affaires par prestation et par mois, en clair." },
+  { icon: "⏱️", pb: "Mes heures affichées ne sont pas les miennes", sol: "Seules vos heures de prestation sont comptées. Vos pauses et vos rendez-vous personnels ne faussent plus le total." },
+  { icon: "📓", pb: "Mon suivi client tient dans un carnet", sol: "Historique, notes, préférences et photos, accessibles depuis votre téléphone." },
+  { icon: "🕐", pb: "Mon agenda est plein, alors je perds le client", sol: "Liste d'attente automatique. Il laisse ses disponibilités, vous le recontactez au premier créneau libéré." },
+  { icon: "📅", pb: "J'ouvre mon agenda à la main chaque mois", sol: "Ouverture programmée, à la date et à l'heure que vous choisissez." },
+  { icon: "🔕", pb: "Les oublis me coûtent des créneaux", sol: "Confirmation à la réservation et rappel la veille, par email et par SMS." },
 ];
 
 const METIERS_LIST = [
@@ -38,13 +41,13 @@ const METIERS_LIST = [
 const FEATURES = [
   { icon: "📆", titre: "Agenda intelligent",         desc: "Vue semaine et mois. Créez un RDV en 10 secondes." },
   { icon: "🔗", titre: "Réservation en ligne",        desc: "Vos clients réservent directement depuis votre profil RDVOUS." },
-  { icon: "✉️", titre: "Emails & SMS auto",            desc: "Confirmation et rappel 24h avant par email et SMS. 50 SMS/mois inclus dans l'offre Pro." },
+  { icon: "✉️", titre: "Emails & SMS auto",            desc: "Confirmation et rappel 24h avant par email et SMS. 50 SMS/mois inclus dans l'offre Pro, 150 dans l'offre Business." },
   { icon: "👥", titre: "Fiches clients",               desc: "Historique complet, notes, mesures, cagnotte par client." },
   { icon: "⭐", titre: "Programme fidélité",           desc: "Récompensez vos fidèles automatiquement selon vos règles." },
   { icon: "🤝", titre: "Parrainage intégré",           desc: "Vos clients vous recommandent, les deux sont récompensés." },
-  { icon: "📍", titre: "Visibilité locale",             desc: "Profil public référencé sur rdvous.fr, visible par vos clients." },
+  { icon: "📍", titre: "Votre page de réservation",     desc: "Une page à votre nom, à partager sur Instagram ou par SMS. Vos clients réservent en deux clics." },
   { icon: "🎨", titre: "Adapté à votre métier",        desc: "Champs, outils et logique spécifiques à votre activité." },
-  { icon: "📊", titre: "Statistiques",                  desc: "CA, fréquentation, fidélité — suivez votre activité en un coup d'œil." },
+  { icon: "📊", titre: "Statistiques",                  desc: "CA, fréquentation, fidélité, suivez votre activité en un coup d'œil." },
   { icon: "💬", titre: "Notes de rendez-vous",          desc: "Consignez les observations à chaque passage client." },
   { icon: "💰", titre: "Gestion cagnotte",              desc: "Les clients déduisent leur cagnotte directement au rendez-vous." },
   { icon: "🔒", titre: "Données sécurisées",            desc: "Hébergées en Europe, isolées par salon, jamais revendues." },
@@ -64,32 +67,35 @@ const PLANS = [
     cta: "Commencer gratuitement", ctaBg: "#fff", ctaColor: C.dark, ctaBorder: C.border,
   },
   {
-    nom: "Pro", prix: "29€", duree: "/mois", badge: "Prix de lancement",
-    badgeColor: C.gold, highlight: true,
+    nom: "Pro", prix: "29€", duree: "/mois", prixNormal: "39€", remise: "−10€/mois", badge: "Offre de lancement",
+    badgeColor: C.sage, highlight: false,
     desc: "L'essentiel pour gérer votre activité au quotidien.",
     items: [
       "Tout le plan Gratuit inclus",
       "Rendez-vous illimités",
       "Prise de RDV en ligne",
-      "SMS confirmation & rappels — 50/mois",
+      "50 SMS/mois (confirmation et rappel de rendez-vous)",
       "Fidélité & parrainage",
       "Statistiques basiques",
       "Support inclus",
     ],
-    cta: "Commencer", ctaBg: C.dark, ctaColor: "#fff", ctaBorder: "transparent",
+    cta: "Commencer", ctaBg: "#fff", ctaColor: C.dark, ctaBorder: C.border,
   },
   {
-    nom: "Business", prix: "49€", duree: "/mois", badge: "Pour développer",
-    badgeColor: "#7c3aed", highlight: false,
+    // Carte mise en avant : c'est l'offre qui porte le pilotage, donc l'argument
+    // de vente et la marge. C'est elle que l'œil doit choisir.
+    nom: "Business", prix: "49€", duree: "/mois", prixNormal: "59€", remise: "−10€/mois", badge: "Le plus complet",
+    badgeColor: C.gold, highlight: true,
     desc: "Pour piloter et développer votre activité avec des données avancées.",
     items: [
       "Tout le plan Pro inclus",
-      "150 SMS/mois",
-      "Statistiques avancées (projection CA, top clientes, taux d'annulation)",
+      "150 SMS/mois (confirmation et rappel de rendez-vous)",
+      "Statistiques avancées (projection CA, top clients, taux d'annulation)",
+      "Gestion des finances (recettes, dépenses, charges fixes)",
       "Rapport mensuel automatique par email",
       "Support prioritaire",
     ],
-    cta: "Commencer", ctaBg: "#7c3aed", ctaColor: "#fff", ctaBorder: "transparent",
+    cta: "Commencer", ctaBg: C.gold, ctaColor: C.dark, ctaBorder: "transparent",
   },
   {
     nom: "Équipe", prix: "Sur devis", duree: "", badge: "Multi-praticiens",
@@ -100,20 +106,21 @@ const PLANS = [
       "Plusieurs praticiens",
       "Agenda individuel par praticien",
       "Statistiques par praticien",
-      "Support dédié",
+      "Support prioritaire",
     ],
     cta: "Nous contacter", ctaBg: "#fff", ctaColor: C.muted, ctaBorder: C.border,
   },
 ];
 
-const TEMOIGNAGES = [
-  { prenom: "Marie-Sophie", metier: "Onglérie, Lyon", note: 5, texte: "J'ai arrêté de perdre du temps avec mon carnet papier. Les rappels automatiques ont divisé mes annulations par trois. Je ne reviendrai pas en arrière." },
-  { prenom: "Karim", metier: "Barber, Paris 10e", note: 5, texte: "29€ par mois et j'ai l'impression d'avoir une assistante. Le système de fidélité a vraiment fidélisé mes clients réguliers." },
-  { prenom: "Élise", metier: "Institut de beauté, Bordeaux", note: 5, texte: "Ce qui m'a convaincu c'est que l'outil comprend mon métier. Les fiches capsules pour mes clientes gel, ça change tout." },
-];
+// N'ajouter ici que des témoignages RÉELS, avec l'accord écrit de la personne.
+// Un faux avis est une pratique commerciale trompeuse (art. L121-2 du code de la
+// consommation) et se retourne contre vous à la première prospect qui demande à
+// parler à la personne citée. Section masquée tant que le tableau est vide.
+const TEMOIGNAGES: { prenom: string; metier: string; note: number; texte: string }[] = [];
 
 const FAQ_ITEMS = [
   { q: "Puis-je arrêter quand je veux ?", r: "Oui, sans engagement. Vous résiliez en un clic depuis votre espace, sans frais ni pénalité." },
+  { q: "Que devient mon tarif après les 12 mois ?", r: "Si vous souscrivez durant l'année 2026, votre tarif de lancement est bloqué pendant douze mois à compter de votre inscription. À partir du treizième, l'abonnement passe au tarif normal, 39€ pour le plan Pro et 59€ pour le plan Business. Vous restez libre de résilier à tout moment." },
   { q: "Est-ce compliqué à mettre en place ?", r: "Non. L'inscription prend moins de 5 minutes. Vos prestations, votre profil et votre agenda sont configurables immédiatement, sans formation." },
   { q: "Puis-je gérer plusieurs collaborateurs ?", r: "Oui, avec l'offre Équipe. Chaque collaborateur a son propre agenda, visible et gérable depuis le même espace." },
   { q: "Y a-t-il une commission sur les réservations ?", r: "Aucune commission. Vous payez uniquement l'abonnement mensuel. Chaque euro encaissé est à vous." },
@@ -205,8 +212,6 @@ export default function ProPage() {
     <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip", paddingTop:56, boxSizing:"border-box" }}>
       <style>{`
         .pro-hamburger { display: none; }
-        .pro-bounce { animation: proBounce 1.6s ease-in-out infinite; }
-        @keyframes proBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(8px); } }
         @media (max-width: 640px) {
           .pro-nav { padding: 0 16px !important; }
           .pro-nav-links { display: none !important; }
@@ -246,11 +251,11 @@ export default function ProPage() {
             Pensé pour les artisans du bien-être
           </div>
           <h1 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(38px,5vw,60px)", fontWeight:500, lineHeight:1.1, margin:"0 0 22px", color:C.text }}>
-            Développez votre activité.<br />
-            <span style={{ color:C.gold, fontStyle:"italic" }}>Pas vos contraintes.</span>
+            Votre agenda est plein.<br />
+            <span style={{ color:C.gold, fontStyle:"italic" }}>Savez-vous ce qu&apos;il vous rapporte ?</span>
           </h1>
           <p style={{ fontSize:17, color:C.muted, lineHeight:1.75, maxWidth:480, margin:"0 0 40px" }}>
-            RDVOUS aide les professionnels indépendants à gérer leurs rendez-vous, fidéliser leurs clients et gagner en visibilité locale — sans commissions abusives ni frais cachés.
+            RDVOUS gère vos rendez-vous en ligne et vous donne enfin les chiffres qui manquent : votre chiffre d&apos;affaires par prestation, vos heures réellement travaillées, et l&apos;historique complet de chaque client.
           </p>
           <div className="pro-hero-actions" style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
             <Link href="/signup?pro=1" style={{ padding:"14px 32px", background:C.dark, color:"#fff", borderRadius:12, fontSize:14, fontWeight:700, textDecoration:"none" }}>
@@ -358,24 +363,37 @@ export default function ProPage() {
             <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,42px)", fontWeight:500, margin:"0 0 14px", color:C.text }}>
               Simple, transparent, honnête.
             </h2>
-            <p style={{ fontSize:15, color:C.muted }}>Sans commissions abusives. Sans frais cachés.</p>
+            <p style={{ fontSize:15, color:C.muted, margin:"0 0 24px" }}>Sans commissions abusives. Sans frais cachés.</p>
+            <div style={{ display:"inline-flex", flexDirection:"column", alignItems:"center", gap:4, background:`${C.gold}14`, border:`1px solid ${C.gold}55`, borderRadius:14, padding:"14px 26px" }}>
+              <div style={{ fontSize:13, fontWeight:800, color:C.gold, letterSpacing:"0.06em", textTransform:"uppercase" }}>
+                ⚡ Offre de lancement
+              </div>
+              <div style={{ fontSize:14, color:C.muted, lineHeight:1.6, maxWidth:440 }}>
+                Pour toute souscription faite durant l'année 2026, votre tarif reste bloqué douze mois. Aucune augmentation avant votre deuxième année.
+              </div>
+            </div>
           </div>
           <div className="pro-grid-plans" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:20 }}>
             {PLANS.map(p => (
               <div key={p.nom} style={{ background: p.highlight ? C.dark : "#fff", borderRadius:20, padding:"32px 28px", border: p.highlight ? "none" : `1px solid ${C.border}`, position:"relative", boxShadow: p.highlight ? "0 20px 60px rgba(26,22,20,0.25)" : "none", opacity: (p as any).comingSoon ? 0.85 : 1 }}>
                 {p.badge && (
-                  <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:p.badgeColor!, color: p.highlight ? C.dark : "#fff", padding:"4px 16px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
+                  <div style={{ position:"absolute", top:-12, left:"50%", transform:"translateX(-50%)", background:p.badgeColor!, color: p.badgeColor === C.gold ? C.dark : "#fff", padding:"4px 16px", borderRadius:20, fontSize:11, fontWeight:700, whiteSpace:"nowrap" }}>
                     {p.badge}
                   </div>
                 )}
                 <div style={{ fontSize:11, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", color: p.highlight ? "rgba(255,255,255,0.5)" : C.light, marginBottom:12 }}>{p.nom}</div>
+                {(p as any).remise && (
+                  <div style={{ position:"absolute", top:16, right:16, background: p.highlight ? "rgba(255,255,255,0.14)" : C.dark, color: "#fff", border: p.highlight ? "1px solid rgba(255,255,255,0.25)" : "none", borderRadius:8, padding:"5px 10px", fontSize:12, fontWeight:800, letterSpacing:"0.02em", whiteSpace:"nowrap" }}>
+                    {(p as any).remise}
+                  </div>
+                )}
                 <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:6 }}>
                   <span style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:44, fontWeight:600, color: p.highlight ? "#fff" : (p as any).comingSoon ? C.light : C.text, lineHeight:1 }}>{p.prix}</span>
                   {p.duree && <span style={{ fontSize:14, color: p.highlight ? "rgba(255,255,255,0.5)" : C.light }}>{p.duree}</span>}
                 </div>
-                {p.highlight && (
-                  <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:`${C.gold}22`, border:`1px solid ${C.gold}50`, borderRadius:8, padding:"4px 10px", fontSize:11, fontWeight:700, color:C.gold, marginBottom:12 }}>
-                    ⚡ Prix de lancement
+                {(p as any).prixNormal && (
+                  <div style={{ fontSize:12, color: p.highlight ? "rgba(255,255,255,0.5)" : C.light, marginBottom:12, lineHeight:1.5 }}>
+                    pendant 12 mois, puis {(p as any).prixNormal}/mois
                   </div>
                 )}
                 <div style={{ fontSize:13, color: p.highlight ? "rgba(255,255,255,0.55)" : C.muted, marginBottom:28, lineHeight:1.5 }}>{p.desc}</div>
@@ -395,56 +413,6 @@ export default function ProPage() {
             ))}
           </div>
 
-          {/* Accroche vers les agents IA */}
-          <a href="#agents" style={{ display:"block", textAlign:"center", marginTop:64, textDecoration:"none" }}>
-            <p style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(22px,3vw,32px)", fontWeight:500, color:C.text, margin:"0 0 12px" }}>
-              Et si vous alliez plus loin avec votre <span style={{ color:C.gold, fontStyle:"italic" }}>propre agent intelligent</span> ?
-            </p>
-            <span className="pro-bounce" style={{ display:"inline-block", fontSize:32, color:C.gold, lineHeight:1 }}>↓</span>
-          </a>
-        </div>
-      </section>
-
-      {/* ── AGENTS IA ── */}
-      <section id="agents" className="pro-section" style={{ background:C.dark, padding:"90px 60px", position:"relative", overflow:"hidden" }}>
-        <div aria-hidden style={{ position:"absolute", top:-80, right:-80, width:320, height:320, borderRadius:"50%", background:`${C.gold}0d` }} />
-        <div aria-hidden style={{ position:"absolute", bottom:-60, left:-60, width:240, height:240, borderRadius:"50%", background:`${C.sage}0a` }} />
-        <div style={{ maxWidth:1100, margin:"0 auto", position:"relative", zIndex:2 }}>
-          <div style={{ textAlign:"center", marginBottom:52 }}>
-            <div style={{ display:"inline-flex", alignItems:"center", gap:8, background:`${C.gold}1f`, border:`1px solid ${C.gold}55`, borderRadius:24, padding:"6px 16px", fontSize:12, fontWeight:700, color:C.gold, letterSpacing:"0.07em", textTransform:"uppercase", marginBottom:24 }}>
-              <span style={{ width:6, height:6, borderRadius:"50%", background:C.gold, display:"inline-block" }} />
-              Agents IA sur mesure
-            </div>
-            <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,44px)", fontWeight:500, margin:"0 0 16px", color:"#fff" }}>
-              Et si une partie du travail<br />se faisait <span style={{ color:C.gold, fontStyle:"italic" }}>sans vous</span> ?
-            </h2>
-            <p style={{ fontSize:16, color:"rgba(255,255,255,0.55)", maxWidth:560, margin:"0 auto", lineHeight:1.7 }}>
-              Pendant que vous êtes en prestation, des agents intelligents répondent à vos clients et prennent les rendez-vous à votre place. Conçus pour votre métier.
-            </p>
-          </div>
-
-          <div className="pro-grid-3" style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:18, marginBottom:48 }}>
-            {[
-              { icon:"📞", titre:"Réceptionniste vocal", desc:"Installé sur votre boîte vocale. Quand vous ne pouvez pas décrocher, il répond, renseigne vos clients et prend les rendez-vous. Comme un répondeur qui travaille vraiment pour vous." },
-              { icon:"💬", titre:"Réceptionniste sur votre page", desc:"Sur votre page publique rdvous. Il répond aux questions de vos clients 24h/24, les guide vers la bonne prestation et réserve directement le créneau." },
-              { icon:"✨", titre:"Un agent sur mesure", desc:"Relance des clients, suivi des avis, remplissage des créneaux libérés. Décrivez votre besoin, on conçoit l'agent adapté à votre activité." },
-            ].map(a => (
-              <div key={a.titre} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:18, padding:"28px 24px" }}>
-                <div style={{ fontSize:30, marginBottom:14 }}>{a.icon}</div>
-                <div style={{ fontSize:16, fontWeight:700, color:"#fff", marginBottom:10 }}>{a.titre}</div>
-                <div style={{ fontSize:14, color:"rgba(255,255,255,0.55)", lineHeight:1.7 }}>{a.desc}</div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ textAlign:"center" }}>
-            <a href="mailto:support@rdvous.fr?subject=Agents%20IA%20sur%20mesure" style={{ display:"inline-block", padding:"15px 40px", background:C.gold, color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
-              Contactez-nous pour en discuter
-            </a>
-            <p style={{ fontSize:13, color:"rgba(255,255,255,0.4)", margin:"16px 0 0" }}>
-              On échange 20 minutes pour cadrer vos besoins. Sans engagement.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -480,7 +448,8 @@ export default function ProPage() {
         </div>
       </section>
 
-      {/* ── TÉMOIGNAGES ── */}
+      {/* ── TÉMOIGNAGES ── masqués tant qu'aucun avis réel n'est disponible */}
+      {TEMOIGNAGES.length > 0 && (
       <section className="pro-section" style={{ padding:"80px 60px" }}>
         <div style={{ maxWidth:1000, margin:"0 auto" }}>
           <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,40px)", fontWeight:500, textAlign:"center", margin:"0 0 52px", color:C.text }}>
@@ -502,6 +471,7 @@ export default function ProPage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── FAQ ── */}
       <section className="pro-section" style={{ background:C.warm, padding:"80px 60px" }}>
@@ -523,7 +493,7 @@ export default function ProPage() {
               Prêt à simplifier<br />votre quotidien ?
             </h2>
             <p style={{ fontSize:15, color:"rgba(255,255,255,0.5)", margin:"0 0 36px" }}>
-              Démarrez gratuitement. Passez en illimité à 29€/mois — prix de lancement.
+              Démarrez gratuitement. Passez en illimité à 29€/mois au lieu de 39€, tarif garanti 12 mois pour toute souscription en 2026.
             </p>
             <Link href="/signup?pro=1" style={{ display:"inline-block", padding:"15px 40px", background:"#fff", color:C.dark, borderRadius:12, fontSize:15, fontWeight:700, textDecoration:"none" }}>
               Commencer gratuitement

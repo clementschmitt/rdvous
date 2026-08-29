@@ -126,7 +126,7 @@ export default function RecherchePage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#1a1a1a", marginBottom: 2 }}>{salon.nom}</div>
                     <div style={{ fontSize: 13, color: "#999" }}>
-                      {m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}{salon.adresse ? ` — ${salon.adresse}` : ""}
+                      {m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}{salon.adresse ? `, ${salon.adresse}` : ""}
                     </div>
                     {salon.description && <div style={{ fontSize: 12, color: "#bbb", marginTop: 4, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>{salon.description}</div>}
                   </div>

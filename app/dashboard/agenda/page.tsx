@@ -180,7 +180,7 @@ export default function AgendaPage() {
         </div>
       </div>
 
-      {/* Vue JOUR — mobile */}
+      {/* Vue JOUR, mobile */}
       {vueMobile === "jour" && (
         <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 10 }}>
           {jourRdvs.length === 0 ? (
@@ -205,7 +205,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* Vue SEMAINE — mobile : liste verticale des 7 jours */}
+      {/* Vue SEMAINE, mobile : liste verticale des 7 jours */}
       {vueMobile === "semaine" && (
         <div className="agenda-mobile" style={{ display: "none", flexDirection: "column", gap: 18 }}>
           {weekDays.map(day => {
@@ -243,7 +243,7 @@ export default function AgendaPage() {
         </div>
       )}
 
-      {/* Vue MOIS — mobile : grille compacte, numéro + nombre de RDV */}
+      {/* Vue MOIS, mobile : grille compacte, numéro + nombre de RDV */}
       {vueMobile === "mois" && (() => {
         const firstDay = new Date(moisCourant.getFullYear(), moisCourant.getMonth(), 1);
         const offset = (firstDay.getDay() + 6) % 7;
@@ -314,7 +314,7 @@ export default function AgendaPage() {
       {/* Vues desktop */}
       <div className="agenda-desktop">
 
-      {/* Vue semaine — timeline */}
+      {/* Vue semaine, timeline */}
       {vue === "semaine" && (
         <VueSemaineTimeline
           salonId={salon.id}

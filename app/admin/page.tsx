@@ -81,7 +81,7 @@ export default function AdminPage() {
     });
     const json = await res.json();
     if (res.ok) {
-      setInviteMsg("✓ Compte créé — l'utilisateur peut se connecter immédiatement.");
+      setInviteMsg("✓ Compte créé, l'utilisateur peut se connecter immédiatement.");
       setInvite({ email: "", password: "", salon_id: "" });
     } else {
       setInviteMsg(`Erreur : ${json.error}`);
@@ -164,7 +164,7 @@ export default function AdminPage() {
         <div style={{ marginBottom: 32, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <h1 style={{ fontFamily: T.heading, fontSize: 32, fontWeight: 300, color: T.text, margin: "0 0 6px" }}>Administration</h1>
-            <p style={{ ...T.ls, fontSize: "10px", color: T.muted }}>Accès réservé — {ADMIN_EMAIL}</p>
+            <p style={{ ...T.ls, fontSize: "10px", color: T.muted }}>Accès réservé, {ADMIN_EMAIL}</p>
           </div>
           <a href="/admin/live" style={{ display: "flex", alignItems: "center", gap: 7, background: "#22c55e", color: "#fff", borderRadius: 20, padding: "8px 18px", textDecoration: "none", fontSize: 13, fontWeight: 600 }}>
             <span style={{ fontSize: 9, width: 8, height: 8, borderRadius: "50%", background: "#fff", display: "inline-block", boxShadow: "0 0 0 3px rgba(255,255,255,0.4)", animation: "pulse 1.5s infinite" }} />
@@ -194,7 +194,7 @@ export default function AdminPage() {
                 </div>
               </div>
               {/* Graphe 14 jours */}
-              <div style={{ ...T.ls, fontSize: 10, color: T.faint, marginBottom: 8 }}>Inscriptions — 14 derniers jours</div>
+              <div style={{ ...T.ls, fontSize: 10, color: T.faint, marginBottom: 8 }}>Inscriptions, 14 derniers jours</div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 60 }}>
                 {days.map(([day, v]) => {
                   const total = v.pro + v.client;
@@ -203,7 +203,7 @@ export default function AdminPage() {
                   const hClient = h - hPro;
                   const label = new Date(day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
                   return (
-                    <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }} title={`${label} — ${v.pro} pro, ${v.client} client`}>
+                    <div key={day} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }} title={`${label}, ${v.pro} pro, ${v.client} client`}>
                       <div style={{ width: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", height: 52 }}>
                         {hPro > 0 && <div style={{ width: "100%", height: hPro, background: "#7C3D8F", borderRadius: hClient === 0 ? "3px 3px 0 0" : "0" }} />}
                         {hClient > 0 && <div style={{ width: "100%", height: hClient, background: "#2563eb", borderRadius: hPro === 0 ? "3px 3px 0 0" : "0" }} />}
@@ -225,7 +225,7 @@ export default function AdminPage() {
         {currentOverride && (
           <div style={{ background: "#fff8e6", border: "1px solid #f0d080", borderRadius: T.radius, padding: "12px 20px", marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span style={{ fontSize: 13, color: "#8a6200" }}>
-              Mode override actif — salon : <b>{salons.find(s => s.id === currentOverride)?.nom || currentOverride}</b>
+              Mode override actif, salon : <b>{salons.find(s => s.id === currentOverride)?.nom || currentOverride}</b>
             </span>
             <button onClick={sortir} style={{ ...T.ls, fontSize: "9px", background: "#8a6200", color: "#fff", border: "none", borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer" }}>
               Désactiver
@@ -284,7 +284,7 @@ export default function AdminPage() {
 
           {impPreview && (
             <div style={{ marginTop: 16 }}>
-              <div style={{ fontSize: 12, color: T.muted, marginBottom: 10 }}>{impPreview.length} catégories détectées — décoche celles à ne pas importer.</div>
+              <div style={{ fontSize: 12, color: T.muted, marginBottom: 10 }}>{impPreview.length} catégories détectées, décoche celles à ne pas importer.</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
                 {impPreview.map((cat, i) => (
                   <div key={i} style={{ border: `1px solid ${T.border}`, borderRadius: T.radiusSm, padding: "10px 14px", opacity: impExclude.has(i) ? 0.45 : 1 }}>
@@ -358,7 +358,7 @@ export default function AdminPage() {
                 <div className="admin-row-actions">
                   <button
                     onClick={() => toggleVisibilite(s)}
-                    title={s.visible_recherche ? "Visible dans la recherche — cliquer pour masquer" : "Masqué de la recherche — cliquer pour rendre visible"}
+                    title={s.visible_recherche ? "Visible dans la recherche, cliquer pour masquer" : "Masqué de la recherche, cliquer pour rendre visible"}
                     style={{ ...T.ls, fontSize: "9px", border: `1px solid ${s.visible_recherche ? "#16a34a" : T.border}`, background: s.visible_recherche ? "#f0fdf4" : T.bg, color: s.visible_recherche ? "#16a34a" : T.muted, borderRadius: T.radiusSm, padding: "5px 12px", cursor: "pointer", flexShrink: 0 }}>
                     {s.visible_recherche ? "● Visible" : "○ Masqué"}
                   </button>

@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "rdvous — Réservez près de chez vous",
+    name: "rdvous, Réservez près de chez vous",
     short_name: "rdvous",
     description: "Réservez en ligne chez vos professionnels du bien-être préférés",
     start_url: "/",

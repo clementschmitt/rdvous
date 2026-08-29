@@ -19,7 +19,9 @@ export default function ParametresPage() {
       const supabase = createSupabase();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
-      if (user.user_metadata?.user_type === "artisan") { router.push("/dashboard"); return; }
+      // On ne renvoie vers le dashboard que si le compte gère réellement un salon.
+      const { data: suPro } = await supabase.from("salon_users").select("salon_id").eq("user_id", user.id).maybeSingle();
+      if (suPro) { router.push("/dashboard"); return; }
       setEmail(user.email || "");
       setReady(true);
     })();

@@ -456,7 +456,7 @@ export default function RDVDetailPage() {
                 const hasDiscount = tarifTags < tarifBase;
                 return (
                   <div style={{ fontSize: 13, color: "#666", display: "flex", alignItems: "center", gap: 8 }}>
-                    Total : <b>{duree}min</b> —
+                    Total : <b>{duree}min</b>,
                     {hasDiscount ? (
                       <>
                         <span style={{ textDecoration: "line-through", color: "#bbb" }}>{tarifBase}€</span>
@@ -477,18 +477,18 @@ export default function RDVDetailPage() {
                   <span>{rp.prestations.nom}</span>
                   {tagTarifMap[rp.prestation_id] !== undefined ? (
                     <span style={{ color: "#666" }}>
-                      {rp.prestations.duree_minutes}min —{" "}
+                      {rp.prestations.duree_minutes}min,{" "}
                       <span style={{ textDecoration: "line-through", color: "#bbb", marginRight: 4 }}>{rp.prestations.tarif}€</span>
                       <span style={{ color: "#27ae60", fontWeight: 700 }}>{tagTarifMap[rp.prestation_id]}€</span>
                     </span>
                   ) : (
-                    <span style={{ color: "#666" }}>{rp.prestations.duree_minutes}min — {rp.prestations.tarif}€</span>
+                    <span style={{ color: "#666" }}>{rp.prestations.duree_minutes}min, {rp.prestations.tarif}€</span>
                   )}
                 </div>
               ))}
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontWeight: 700, fontSize: 14 }}>
                 <span>Total</span>
-                <span>{dureeTotal}min — {(() => {
+                <span>{dureeTotal}min, {(() => {
                   const tarif = rdv.tarif ?? tarifTotal;
                   const hasTagDiscount = rdv.tarif !== null && rdv.tarif < tarifTotal;
                   if (rdv.montant_cagnotte_utilise > 0) {

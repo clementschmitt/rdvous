@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Politique de confidentialité — rdvous",
+  title: "Politique de confidentialité, rdvous",
 };
 
 export default function ConfidentialitePage() {
@@ -50,7 +50,7 @@ export default function ConfidentialitePage() {
 
         <Section titre="Base légale">
           <p>
-            Les traitements de données réalisés par rdvous reposent sur l'exécution du contrat auquel l'utilisateur est partie (art. 6.1.b du RGPD — Règlement UE 2016/679).
+            Les traitements de données réalisés par rdvous reposent sur l'exécution du contrat auquel l'utilisateur est partie (art. 6.1.b du RGPD, Règlement UE 2016/679).
           </p>
           <p>
             En créant un compte et en utilisant le service, l'utilisateur accepte que ses données soient traitées dans le cadre de la relation contractuelle établie avec rdvous.
@@ -69,16 +69,16 @@ export default function ConfidentialitePage() {
         <Section titre="Sous-traitants et transferts hors UE">
           <p>rdvous fait appel aux sous-traitants suivants pour assurer le fonctionnement du service :</p>
           <p>
-            <strong>Supabase Inc.</strong> (États-Unis) — base de données et authentification. Les données sont stockées sur une infrastructure AWS localisée en Europe (région EU).
+            <strong>Supabase Inc.</strong> (États-Unis), base de données et authentification. Les données sont stockées sur une infrastructure AWS localisée en Europe (région EU).
           </p>
           <p>
-            <strong>Brevo SAS</strong> (France, Paris) — envoi d'emails transactionnels (confirmations de rendez-vous, rappels, réinitialisation de mot de passe).
+            <strong>Brevo SAS</strong> (France, Paris), envoi d'emails transactionnels (confirmations de rendez-vous, rappels, réinitialisation de mot de passe).
           </p>
           <p>
-            <strong>Stripe Inc.</strong> (États-Unis / Irlande) — traitement sécurisé des paiements. Les coordonnées bancaires ne transitent jamais par les serveurs de rdvous.
+            <strong>Stripe Inc.</strong> (États-Unis / Irlande), traitement sécurisé des paiements. Les coordonnées bancaires ne transitent jamais par les serveurs de rdvous.
           </p>
           <p>
-            <strong>Vercel Inc.</strong> (États-Unis) — hébergement de l'application. Des serveurs localisés en Europe sont disponibles et utilisés prioritairement.
+            <strong>Vercel Inc.</strong> (États-Unis), hébergement de l'application. Des serveurs localisés en Europe sont disponibles et utilisés prioritairement.
           </p>
           <p>
             Les transferts vers des entités établies hors de l'Union européenne s'effectuent dans le cadre de garanties appropriées (clauses contractuelles types de la Commission européenne).

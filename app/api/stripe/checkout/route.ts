@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
+import { PRIX_STRIPE, OFFRE_LANCEMENT, offreLancementActive } from "@/lib/plan";
 
 export async function POST(req: NextRequest) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -50,14 +51,22 @@ export async function POST(req: NextRequest) {
     await admin.from("salons").update({ stripe_customer_id: customerId }).eq("id", salon.id);
   }
 
-  const priceId = targetPlan === "business"
-    ? (interval === "yearly" ? process.env.STRIPE_PRICE_ID_BUSINESS_YEARLY! : process.env.STRIPE_PRICE_ID_BUSINESS_MONTHLY!)
-    : (interval === "yearly" ? process.env.STRIPE_PRICE_ID_PRO_YEARLY! : process.env.STRIPE_PRICE_ID_PRO_MONTHLY!);
+  const annuel = interval === "yearly";
+  const tarifs = targetPlan === "business" ? PRIX_STRIPE.business : PRIX_STRIPE.pro;
+  const priceId = annuel ? tarifs.annuel : tarifs.mensuel;
+
+  // Offre de lancement : la remise est portée par un coupon Stripe, donc elle
+  // s'arrête d'elle-même au bout de 12 mois et le client bascule au tarif plein
+  // sans qu'on ait à intervenir.
+  const remise = offreLancementActive()
+    ? [{ coupon: annuel ? OFFRE_LANCEMENT.couponAnnuel : OFFRE_LANCEMENT.couponMensuel }]
+    : undefined;
 
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
+    discounts: remise,
     success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/parametres?upgraded=1`,
     cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/parametres?cancelled=1`,
     metadata: { salon_id: salon.id },

@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
-import { PLAN_LABELS, PLAN_PRICES, quotaSms, PACKS_SMS, prixPack, type Plan } from "@/lib/plan";
+import { PLAN_LABELS, PLAN_PRICES, quotaSms, PACKS_SMS, prixPack, offreLancementActive, type Plan } from "@/lib/plan";
 import { analyserSms } from "@/lib/sms";
 import { formatPrix } from "@/lib/prix";
 import {
@@ -590,7 +590,7 @@ export default function ParametresPage() {
   }
 
   async function deleteTag(id: string) {
-    if (!confirm("Supprimer ce tag ? Il sera retiré de toutes les fiches clientes.")) return;
+    if (!confirm("Supprimer ce tag ? Il sera retiré de toutes les fiches clients.")) return;
     const supabase = createSupabase();
     await supabase.from("client_tags").delete().eq("id", id);
     loadTags();
@@ -633,6 +633,7 @@ export default function ParametresPage() {
   const m = METIERS[salon.metier];
   const plan = (salon.plan || "free") as Plan;
   const isFree = plan === "free";
+  const lancementActif = offreLancementActive();
   const smsForfait = salon.sms_credits ?? 0;
   const smsAchetes = salon.sms_credits_achetes ?? 0;
   const smsTotal = smsForfait + smsAchetes;
@@ -654,7 +655,7 @@ export default function ParametresPage() {
 
       <h1 style={{ margin: "0 0 20px", fontSize: 22, fontWeight: 700 }}>Paramètres</h1>
 
-      {/* Onglets — desktop */}
+      {/* Onglets, desktop */}
       <div className="params-tabs" style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
         {TABS.map(t => (
           <button key={t.key} className="params-tab" onClick={() => changeTab(t.key)}
@@ -663,7 +664,7 @@ export default function ParametresPage() {
           </button>
         ))}
       </div>
-      {/* Onglets — mobile select */}
+      {/* Onglets, mobile select */}
       <select className="params-select" value={tab} onChange={e => changeTab(e.target.value as Tab)}
         style={{ display: "none", width: "100%", padding: "10px 14px", marginBottom: 20, border: `1px solid ${m.couleurClaire}`, borderRadius: 8, fontSize: 14, fontWeight: 600, background: "#fff", color: "#1a1a1a", cursor: "pointer" }}>
         {TABS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
@@ -688,7 +689,7 @@ export default function ParametresPage() {
               <label style={labelStyle}>Mode de réservation</label>
               <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                 {([
-                  { v: "menu", titre: "Menu", desc: "Toutes les prestations affichées, la cliente choisit librement (recommandé)" },
+                  { v: "menu", titre: "Menu", desc: "Toutes les prestations affichées, le client choisit librement (recommandé)" },
                   { v: "guide", titre: "Parcours guidé", desc: "Sélection étape par étape, catégorie par catégorie" },
                 ] as const).map(opt => (
                   <button key={opt.v} type="button" onClick={() => setSettings(s => ({ ...s, mode_reservation: opt.v }))}
@@ -705,7 +706,7 @@ export default function ParametresPage() {
 
         <Section titre="Plage horaire de l'agenda">
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>Définit les heures affichées sur la grille de l'agenda. Indépendant de vos disponibilités de réservation — utile pour noter des activités personnelles en dehors des heures de salon.</div>
+            <div style={{ fontSize: 12, color: "#888", lineHeight: 1.5 }}>Définit les heures affichées sur la grille de l'agenda. Indépendant de vos disponibilités de réservation, utile pour noter des activités personnelles en dehors des heures de salon.</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
                 <label style={labelStyle}>Début de journée</label>
@@ -753,7 +754,7 @@ export default function ParametresPage() {
           <SaveButton sectionKey="google_business" saving={saving} saved={saved} onSave={saveSection} couleur={m.couleur} />
         </Section>
 
-        {/* Catégories & Prestations — arborescence */}
+        {/* Catégories & Prestations, arborescence */}
         <Section titre="Catégories & prestations" style={{ marginTop: 16 }}>
           <DndContext
             sensors={sensors}
@@ -872,11 +873,11 @@ export default function ParametresPage() {
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
                 <input type="checkbox" checked={newPresta.sur_devis} onChange={e => setNewPresta(p => ({ ...p, sur_devis: e.target.checked }))} style={{ accentColor: m.couleur }} />
-                Prix variable — laisse un tarif pour afficher « à partir de X € », ou 0 pour « sur devis »
+                Prix variable, laisse un tarif pour afficher « à partir de X € », ou 0 pour « sur devis »
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#555", cursor: "pointer" }}>
                 <input type="checkbox" checked={newPresta.reservable} onChange={e => setNewPresta(p => ({ ...p, reservable: e.target.checked }))} style={{ accentColor: m.couleur }} />
-                Réservable en ligne — décoche pour l'afficher sur la vitrine sans permettre la réservation (sur demande)
+                Réservable en ligne, décoche pour l'afficher sur la vitrine sans permettre la réservation (sur demande)
               </label>
             </div>
           </div>
@@ -961,7 +962,7 @@ export default function ParametresPage() {
               onChange={v => setSettings(s => ({ ...s, delai_min_reservation_heures: Math.max(0, parseInt(v) || 0) }))}
             />
             <div style={{ fontSize: 12, color: "#aaa", marginTop: -6 }}>
-              Ex : 24 = vos clientes ne peuvent pas réserver moins de 24h à l'avance. 0 = pas de délai.
+              Ex : 24 = vos clients ne peuvent pas réserver moins de 24h à l'avance. 0 = pas de délai.
             </div>
             <div style={{ marginTop: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#555", marginBottom: 10 }}>Ouverture des réservations</div>
@@ -988,8 +989,8 @@ export default function ParametresPage() {
                     </div>
                     <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>
                       {settings.planning_horizon_jours === 0
-                        ? "Les clientes peuvent réserver n'importe quelle date future."
-                        : `Les clientes voient les ${settings.planning_horizon_jours} prochains jours à partir d'aujourd'hui.`}
+                        ? "Les clients peuvent réserver n'importe quelle date future."
+                        : `Les clients voient les ${settings.planning_horizon_jours} prochains jours à partir d'aujourd'hui.`}
                     </div>
                     {settings.planning_ouverture_mode === "horizon" && (
                       <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid #f0f0f0" }}>
@@ -1089,10 +1090,10 @@ export default function ParametresPage() {
               <div style={{ background: "#fafafa", border: "1px solid #e0e0e0", borderRadius: 8, padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#555" }}>SMS non disponibles en plan Gratuit</div>
-                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Passez en plan Pro pour envoyer des SMS de confirmation et rappels — 50 SMS/mois inclus.</div>
+                  <div style={{ fontSize: 12, color: "#aaa", marginTop: 2 }}>Passez en plan Pro pour envoyer des SMS de confirmation et rappels, 50 SMS/mois inclus.</div>
                 </div>
                 <button onClick={triggerCheckout} style={{ padding: "7px 14px", background: "#1a1a1a", color: "#fff", border: "none", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
-                  Passer à 29€/mois
+                  Passer à {lancementActif ? "29" : "39"}€/mois
                 </button>
               </div>
             ) : (
@@ -1141,7 +1142,7 @@ export default function ParametresPage() {
                         // Sans ça, un refus du serveur ne produisait rien à l'écran.
                         alert(data.error || "Impossible d'ouvrir le paiement. Réessayez dans un instant.");
                       }} style={{ padding: "8px 14px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                        {credits} crédits — {prixPack(prixCentimes)}
+                        {credits} crédits, {prixPack(prixCentimes)}
                       </button>
                     ))}
                   </div>
@@ -1318,8 +1319,8 @@ export default function ParametresPage() {
               <label style={labelStyle}>Déplacements à domicile</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {([
-                  { value: "non", label: "Non — salon uniquement" },
-                  { value: "possible", label: "Oui, en option — salon et domicile" },
+                  { value: "non", label: "Non, salon uniquement" },
+                  { value: "possible", label: "Oui, en option, salon et domicile" },
                   { value: "uniquement", label: "Oui, uniquement à domicile" },
                 ] as { value: "non" | "possible" | "uniquement"; label: string }[]).map(opt => (
                   <label key={opt.value} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13, padding: "10px 12px", border: `1.5px solid ${deplacement === opt.value ? m.couleur : "#e0e0e0"}`, borderRadius: 8, background: deplacement === opt.value ? m.couleur + "10" : "#fff" }}>
@@ -1357,6 +1358,15 @@ export default function ParametresPage() {
           </Section>
 
           <div id="section-abonnement"><Section titre="Abonnement" style={{ marginTop: 16 }}>
+            {lancementActif && isFree && (
+              <div style={{ background: "#fff8e6", border: "1px solid #f0d080", borderRadius: 10, padding: "12px 16px", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 18, lineHeight: 1 }}>⚡</span>
+                <div style={{ fontSize: 12.5, color: "#8a6200", lineHeight: 1.55 }}>
+                  <strong>Offre de lancement.</strong> Toute souscription faite en 2026 bloque votre tarif pendant douze mois. Aucune augmentation avant votre deuxième année.
+                </div>
+              </div>
+            )}
+
             {/* Toggle mensuel / annuel */}
             <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
               <div style={{ display: "flex", background: "#f0f0f0", borderRadius: 8, padding: 3, gap: 3 }}>
@@ -1370,21 +1380,40 @@ export default function ParametresPage() {
             {/* Cartes plans */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
               {([
-                { key: "free", label: "Gratuit", monthly: "0€", yearly: "0€", features: ["30 RDV/mois", "Page vitrine", "Rappels email"], locked: ["Fidélité & cagnotte", "Export clients", "SMS"] },
-                { key: "pro", label: "Pro", monthly: "29€/mois", yearly: "290€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "50 SMS/mois inclus"], locked: [] },
-                { key: "business", label: "Business", monthly: "49€/mois", yearly: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "150 SMS/mois inclus", "Stats avancées", "Gestion des finances", "Support prioritaire"], locked: [] },
+                { key: "free", label: "Gratuit", monthly: "0€", yearly: "0€", lancementMensuel: "", lancementAnnuel: "", features: ["30 RDV/mois", "Page vitrine", "Rappels email"], locked: ["Fidélité & cagnotte", "Export clients", "SMS"] },
+                { key: "pro", label: "Pro", monthly: "39€/mois", yearly: "390€/an", lancementMensuel: "29€/mois", lancementAnnuel: "290€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "50 SMS/mois inclus"], locked: [] },
+                { key: "business", label: "Business", monthly: "59€/mois", yearly: "590€/an", lancementMensuel: "49€/mois", lancementAnnuel: "490€/an", features: ["RDV illimités", "Page vitrine", "Rappels email", "Fidélité & cagnotte", "150 SMS/mois inclus", "Stats avancées", "Gestion des finances", "Support prioritaire"], locked: [] },
               ] as const).map(p => {
                 const isCurrent = plan === p.key;
                 // Plan posé à la main (compte offert, pilote) : aucun abonnement Stripe derrière.
                 // On propose alors de l'activer plutôt que de le gérer.
                 const aActiver = isCurrent && plan !== "free" && !subscriptionId;
                 const isUpgradable = (p.key === "pro" && plan === "free") || (p.key === "business" && (plan === "free" || plan === "pro"));
-                const price = billingInterval === "yearly" ? p.yearly : p.monthly;
+                const annuel = billingInterval === "yearly";
+
+                // Tant que l'offre court, on affiche le prix réellement débité, pas le
+                // tarif plein : sinon le montant du paiement Stripe ne correspondrait
+                // pas à ce qui est annoncé ici.
+                const lancement = lancementActif ? (annuel ? p.lancementAnnuel : p.lancementMensuel) : "";
+                const plein = annuel ? p.yearly : p.monthly;
+                const price = lancement || plein;
                 return (
                   <div key={p.key} style={{ border: isCurrent ? `2px solid ${m.couleur}` : "1px solid #e0e0e0", borderRadius: 12, padding: 16, background: isCurrent ? m.couleur + "08" : "#fff", position: "relative", display: "flex", flexDirection: "column" }}>
                     {isCurrent && <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: m.couleur, color: "#fff", fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>Plan actuel</div>}
+                    {/* Pastille de remise sur les plans réellement souscriptibles : l'afficher
+                        sur le plan en cours laisserait croire à une baisse à venir. */}
+                    {lancement && (isUpgradable || aActiver) && (
+                      <div style={{ position: "absolute", top: 10, right: 10, background: "#1a1a1a", color: "#fff", fontSize: 10.5, fontWeight: 800, padding: "3px 8px", borderRadius: 6, whiteSpace: "nowrap" }}>
+                        {annuel ? "−100€" : "−10€/mois"}
+                      </div>
+                    )}
                     <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1a1a", marginBottom: 4 }}>{p.label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: isCurrent ? m.couleur : "#1a1a1a", marginBottom: 12 }}>{price}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: isCurrent ? m.couleur : "#1a1a1a", marginBottom: lancement ? 2 : 12 }}>{price}</div>
+                    {lancement && (
+                      <div style={{ fontSize: 11, color: "#999", marginBottom: 12, lineHeight: 1.4 }}>
+                        {annuel ? `la 1re année, puis ${plein}` : `pendant 12 mois, puis ${plein}`}
+                      </div>
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 14, flexGrow: 1 }}>
                       {p.features.map(f => <div key={f} style={{ fontSize: 12, color: "#555", display: "flex", gap: 6 }}><span style={{ color: "#22c55e" }}>✓</span>{f}</div>)}
                       {p.locked.map(f => <div key={f} style={{ fontSize: 12, color: "#bbb", display: "flex", gap: 6 }}><span>✕</span>{f}</div>)}
@@ -1407,7 +1436,7 @@ export default function ParametresPage() {
 
           <Section titre="Sécurité" style={{ marginTop: 16 }}>
             {pwdSent ? (
-              <div style={{ fontSize: 13, color: "#27ae60", fontWeight: 500 }}>📬 Email envoyé — vérifiez votre boite mail et cliquez sur le lien.</div>
+              <div style={{ fontSize: 13, color: "#27ae60", fontWeight: 500 }}>📬 Email envoyé, vérifiez votre boite mail et cliquez sur le lien.</div>
             ) : (
               <>
                 <div style={{ fontSize: 13, color: "#666", marginBottom: 12 }}>Vous recevrez un lien par email pour définir un nouveau mot de passe.</div>
@@ -1475,7 +1504,7 @@ function ChampTextarea({ label, value, onChange, hint }: { label: string; value:
  */
 function CompteurSms({ contenu }: { contenu: string }) {
   // Valeurs volontairement longues : mieux vaut annoncer un coût légèrement
-  // surestimé qu'une mauvaise surprise sur une cliente au prénom composé.
+  // surestimé qu'une mauvaise surprise sur un client au prénom composé.
   const exemple = (contenu || "")
     .replace(/\{prenom\}/g, "Marie-Christine")
     .replace(/\{date\}/g, "mercredi 25 septembre")
@@ -1494,8 +1523,8 @@ function CompteurSms({ contenu }: { contenu: string }) {
         environ {longueur} caractères · {segments} crédit{segments > 1 ? "s" : ""} par envoi
       </span>
       {trop
-        ? ` — au-delà de 160 caractères, chaque tranche entamée est facturée. Retirez ${longueur - 160} caractères pour revenir à 1 crédit.`
-        : ` — il vous reste ${restant} caractères avant de passer à 2 crédits.`}
+        ? `, au-delà de 160 caractères, chaque tranche entamée est facturée. Retirez ${longueur - 160} caractères pour revenir à 1 crédit.`
+        : `, il vous reste ${restant} caractères avant de passer à 2 crédits.`}
       {modifie && (
         <div style={{ color: "#aaa", marginTop: 2 }}>
           Les accents et emojis sont retirés automatiquement à l&apos;envoi : ils diviseraient par deux la place disponible.

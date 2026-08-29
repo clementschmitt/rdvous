@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "CGU — rdvous",
+  title: "CGU, rdvous",
 };
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {

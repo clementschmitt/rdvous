@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-  // Trouver ou créer le client — upsert atomique sur (salon_id, email) pour éviter les doublons en race condition
+  // Trouver ou créer le client, upsert atomique sur (salon_id, email) pour éviter les doublons en race condition
   let clientId: string;
   const { data: upserted, error: upsertErr } = await admin
     .from("clients")
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   const dureeMinutes = (prestationData || []).reduce((s, p) => s + (p.duree_minutes || 0), 0) || 60;
 
   // Revalidation serveur : ne jamais accepter un créneau sur un jour fermé ou en congé
-  // (le blocage côté créneaux ne suffit pas — un état périmé ou un appel direct peut le contourner)
+  // (le blocage côté créneaux ne suffit pas, un état périmé ou un appel direct peut le contourner)
   const [{ data: dayExceptions }, { data: dayConges }] = await Promise.all([
     admin.from("disponibilites_exceptions").select("ferme").eq("salon_id", salon_id).eq("date", date),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ce jour n'est pas disponible à la réservation." }, { status: 409 });
   }
 
-  // Créer le RDV de façon atomique (pg_advisory_lock — élimine la race condition)
+  // Créer le RDV de façon atomique (pg_advisory_lock, élimine la race condition)
   const cancelToken = crypto.randomUUID();
   const { data: rdvId, error } = await admin.rpc("create_rdv_safe", {
     p_salon_id: salon_id,
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to: clientData.email,
         toName: clientData.prenom,
-        subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous — ${salonData?.nom || "rdvous"}`,
+        subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous, ${salonData?.nom || "rdvous"}`,
         html: templateConfirmation({ prenom: clientData.prenom, salonNom: salonData?.nom || "", dateStr, heureStr, prestations: prestationsData, contenu: settings?.message_confirmation || undefined, cancelToken }),
         fromName: settings?.email_expediteur_nom || salonData?.nom || "rdvous",
         replyTo: settings?.email_expediteur || undefined,
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         const disponible = (solde?.sms_credits ?? 0) + (solde?.sms_credits_achetes ?? 0);
 
         if (disponible < segments) {
-          console.warn("SMS: crédits insuffisants pour", segments, "segment(s) —", salon_id);
+          console.warn("SMS: crédits insuffisants pour", segments, "segment(s) pour", salon_id);
         } else {
           await sendSMS({
             to: telephone,
@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       await sendEmail({
         to: artisanEmail,
         toName: settings?.email_expediteur_nom || salonData?.nom || "rdvous",
-        subject: `Nouveau RDV — ${clientData?.prenom || ""} ${nom} · ${dateStr} à ${heureStr}`,
+        subject: `Nouveau RDV, ${clientData?.prenom || ""} ${nom} · ${dateStr} à ${heureStr}`,
         html: templateNouveauRdv({ clientPrenom: prenom, clientNom: nom, clientTel: telephone, clientEmail: email || "", dateStr, heureStr, prestations: prestationsData, adresseDomicile: adresse_domicile }),
         fromName: "rdvous",
       });

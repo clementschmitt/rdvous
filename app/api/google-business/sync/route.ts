@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   if (gData.status !== "OK") {
     const messages: Record<string, string> = {
-      NOT_FOUND: "Place ID introuvable — vérifiez l'identifiant.",
+      NOT_FOUND: "Place ID introuvable, vérifiez l'identifiant.",
       REQUEST_DENIED: "Clé API invalide ou Places API non activée.",
       INVALID_REQUEST: "Place ID invalide.",
     };

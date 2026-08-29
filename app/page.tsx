@@ -9,18 +9,6 @@ type Salon = { id: string; nom: string; metier: string; ville: string | null; ad
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
 
-const CATEGORIES = [
-  { label: "Instituts",      emoji: "✨", gradient: "linear-gradient(145deg,#f5c8b8,#e8a090,#d47a78)", filtre: null },
-  { label: "Massage",        emoji: "🙌", gradient: "linear-gradient(145deg,#b8d4c0,#90b898,#6a9070)", filtre: null },
-  { label: "Coiffure",       emoji: "✂️", gradient: "linear-gradient(145deg,#f0d8a0,#d8b870,#c09050)", filtre: "coiffure" },
-  { label: "Barber",         emoji: "🪒", gradient: "linear-gradient(145deg,#aab8c8,#7890a8,#506882)", filtre: null },
-  { label: "Onglerie",       emoji: "💅", gradient: "linear-gradient(145deg,#f0c0c8,#d89098,#c07078)", filtre: "manucure" },
-  { label: "Spa & détente",  emoji: "🛁", gradient: "linear-gradient(145deg,#e8d4b8,#d0b890,#b89060)", filtre: null },
-  { label: "Soins du corps", emoji: "🌿", gradient: "linear-gradient(145deg,#c8d8c0,#a8c0a0,#88a080)", filtre: null },
-  { label: "Bien-être",      emoji: "🧘", gradient: "linear-gradient(145deg,#c8c0d8,#a8a0c0,#888098)", filtre: null },
-  { label: "Vos animaux aussi 🐾", emoji: "🐶", gradient: "linear-gradient(145deg,#c8e0c8,#90b890,#5a8a5a)", filtre: "toilettage" },
-];
-
 const MOCK_ETABLISSEMENTS = [
   { nom: "Institut Lumière",    metier: "Soins visage",  ville: "Paris 11e",    note: 4.9, avis: 124, gradient: "linear-gradient(145deg,#f5c8b8,#e8a090)" },
   { nom: "Salon Atelier",       metier: "Coiffure",      ville: "Lyon 2e",      note: 4.8, avis:  87, gradient: "linear-gradient(145deg,#f0d8a0,#d8b870)" },
@@ -96,14 +84,12 @@ export default function HomePage() {
           .rdv-search-btn { margin: 0 !important; border-radius: 0 0 10px 10px !important; padding: 13px 28px !important; }
           .rdv-ville-row { position: relative !important; padding-right: 50px !important; padding-bottom: 14px !important; }
           .rdv-geo-btn { position: absolute !important; right: 8px !important; top: 50% !important; transform: translateY(-50%) !important; }
-          .rdv-cat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
           .rdv-etab-grid { grid-template-columns: 1fr !important; }
           .rdv-why-grid { grid-template-columns: 1fr !important; }
           .rdv-cta-pro-inner { flex-direction: column !important; padding: 32px 24px !important; align-items: flex-start !important; }
           .rdv-footer { padding-left: 20px !important; padding-right: 20px !important; }
         }
         @media (min-width: 641px) and (max-width: 960px) {
-          .rdv-cat-grid { grid-template-columns: repeat(3, 1fr) !important; }
           .rdv-etab-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
       `}</style>
@@ -216,33 +202,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── CATÉGORIES ── */}
-      <section className="rdv-section" style={{ padding:"80px 40px" }}>
-        <div style={{ maxWidth:1100, margin:"0 auto" }}>
-          <div style={{ textAlign:"center", marginBottom:48 }}>
-            <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(30px,4vw,44px)", fontWeight:500, margin:"0 0 12px", color:"#1a1614" }}>
-              Explorer par catégorie
-            </h2>
-            <p style={{ fontSize:15, color:"#8a7a6a", margin:0 }}>Des professionnels pour chaque besoin.</p>
-          </div>
-          <div className="rdv-cat-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:16 }}>
-            {CATEGORIES.map(cat => (
-              <div key={cat.label}
-                style={{ background:cat.gradient, borderRadius:20, padding:"28px 20px 24px", cursor:"pointer", transition:"transform 0.2s, box-shadow 0.2s", overflow:"hidden", position:"relative" }}
-                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform="translateY(-4px)"; (e.currentTarget as HTMLDivElement).style.boxShadow="0 16px 40px rgba(100,80,60,0.18)"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform="none"; (e.currentTarget as HTMLDivElement).style.boxShadow="none"; }}>
-                <div aria-hidden style={{ position:"absolute", bottom:-16, right:-10, fontSize:80, opacity:0.2, lineHeight:1 }}>{cat.emoji}</div>
-                <div style={{ fontSize:28, marginBottom:14 }}>{cat.emoji}</div>
-                <div style={{ fontSize:15, fontWeight:700, color:"#fff", marginBottom:4, textShadow:"0 1px 4px rgba(0,0,0,0.15)" }}>{cat.label}</div>
-                <div style={{ fontSize:12, color:"rgba(255,255,255,0.75)" }}>Découvrir →</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── AUTOUR DE VOUS ── */}
-      <section className="rdv-section" style={{ padding:"0 40px 80px" }}>
+      <section className="rdv-section" style={{ padding:"80px 40px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:40 }}>
             <div>
@@ -329,7 +290,7 @@ export default function HomePage() {
               Rejoignez RDVOUS
             </h3>
             <p style={{ fontSize:14, color:"#8a7a6a", margin:0, lineHeight:1.6, maxWidth:380 }}>
-              Agenda, emails automatiques, fidélité clients — tout ce dont vous avez besoin pour gérer et développer votre activité.
+              Agenda, emails automatiques, fidélité clients, tout ce dont vous avez besoin pour gérer et développer votre activité.
             </p>
           </div>
           <Link href="/pro" style={{ flexShrink:0, padding:"14px 32px", background:"#1a1614", color:"#fff", borderRadius:12, fontSize:14, fontWeight:600, textDecoration:"none" }}>

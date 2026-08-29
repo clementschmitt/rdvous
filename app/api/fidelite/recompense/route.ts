@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: client.email,
       toName: client.prenom,
-      subject: `🎉 Vous avez gagné ${montant}€ de cagnotte — ${salon?.nom || "rdvous"}`,
+      subject: `🎉 Vous avez gagné ${montant}€ de cagnotte, ${salon?.nom || "rdvous"}`,
       html: templateCagnotte({ prenom: client.prenom, salonNom: salon?.nom || "", montant, solde: client.cagnotte }),
       fromName: salon?.nom || "rdvous",
     });

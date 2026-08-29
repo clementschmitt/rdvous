@@ -53,7 +53,7 @@ export function templateConfirmation({ prenom, salonNom, dateStr, heureStr, pres
   const body = contenu
     ? interpolate(contenu, { prenom, date: dateStr, heure: heureStr, prestations: prestationsStr, salon: salonNom, tarif: tarifStr })
     : `Bonjour ${prenom}, votre rendez-vous du ${dateStr} à ${heureStr} est confirmé. À bientôt !`;
-  const lignes = prestations.map(p => `<li>${p.nom} — ${p.duree_minutes}min — ${p.sur_devis ? "Sur devis" : `${p.tarif}€`}</li>`).join("");
+  const lignes = prestations.map(p => `<li>${p.nom}, ${p.duree_minutes}min, ${p.sur_devis ? "Sur devis" : `${p.tarif}€`}</li>`).join("");
   return `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
       <div style="background:#f9f9f9;border-radius:10px;padding:20px;margin-bottom:24px">
@@ -77,7 +77,7 @@ export function templateCagnotte({ prenom, salonNom, montant, solde }: {
       <div style="background:#fefce8;border-radius:10px;padding:20px;margin-bottom:24px;border-left:4px solid #eab308;text-align:center">
         <div style="font-size:36px;margin-bottom:8px">🎉</div>
         <div style="font-size:20px;font-weight:700;color:#1a1a1a">Vous avez gagné ${montant}€ !</div>
-        <div style="font-size:14px;color:#666;margin-top:4px">Récompense fidélité — ${salonNom}</div>
+        <div style="font-size:14px;color:#666;margin-top:4px">Récompense fidélité, ${salonNom}</div>
       </div>
       <p style="font-size:14px;line-height:1.6">Bonjour ${prenom},</p>
       <p style="font-size:14px;line-height:1.6">Merci pour votre fidélité ! Vous venez de débloquer une récompense de <strong>${montant}€</strong>.</p>
@@ -99,7 +99,7 @@ export function templateNouveauRdv({ clientPrenom, clientNom, clientTel, clientE
   prestations: { nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean }[];
   adresseDomicile?: string | null;
 }) {
-  const lignes = prestations.map(p => `<li>${p.nom} — ${p.duree_minutes}min — ${p.sur_devis ? "Sur devis" : `${p.tarif}€`}</li>`).join("");
+  const lignes = prestations.map(p => `<li>${p.nom}, ${p.duree_minutes}min, ${p.sur_devis ? "Sur devis" : `${p.tarif}€`}</li>`).join("");
   const domicile = adresseDomicile ? `<p style="font-size:13px;color:#666;margin-top:12px">📍 À domicile : ${adresseDomicile}</p>` : "";
   return `
     <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;color:#222">
