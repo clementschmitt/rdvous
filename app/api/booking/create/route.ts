@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateConfirmation, templateNouveauRdv } from "@/lib/email";
 import { sendSMS, smsConfirmation, analyserSms } from "@/lib/sms";
 import { bookingLimiter, getIP } from "@/lib/ratelimit";
+import { envoyerPush } from "@/lib/push";
 import { normalizePhone, normalizeEmail } from "@/lib/normalize";
 
 export async function POST(req: NextRequest) {
@@ -125,6 +126,17 @@ export async function POST(req: NextRequest) {
         replyTo: settings?.email_expediteur || undefined,
       });
     }
+
+    // Notification sur le téléphone de la cliente si elle a installé l'application.
+    // Gratuite, immédiate, et elle n'empêche ni l'email ni le SMS : à la
+    // confirmation on veut la ceinture et les bretelles, c'est le moment où une
+    // cliente doute le plus de la bonne prise en compte de sa réservation.
+    await envoyerPush(
+      clientData?.email,
+      `Rendez-vous confirmé, ${salonData?.nom || "rdvous"}`,
+      `${dateStr} à ${heureStr}`,
+      "/mon-compte",
+    );
 
     // SMS de confirmation au client
     if (settings?.sms_active && settings?.sms_confirmation_active !== false && telephone) {

@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   // Conflit sur le jeton : un appareil qui change de compte doit basculer,
   // pas créer une seconde ligne qui enverrait la notification à l'ancienne.
   const { error } = await admin.from("appareils").upsert(
-    { user_id: user.id, token, plateforme, derniere_maj: new Date().toISOString() },
+    { user_id: user.id, email: user.email, token, plateforme, derniere_maj: new Date().toISOString() },
     { onConflict: "token" },
   );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

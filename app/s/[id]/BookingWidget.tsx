@@ -236,7 +236,8 @@ export default function BookingWidget({
     setStep("contact");
   }
 
-  // Décompte affiché à la cliente, et retour au calendrier si le temps est écoulé.
+  // Décompte affiché à la cliente. Volontairement sans prolongation automatique :
+  // un compte à rebours qui remonterait tout seul serait incompréhensible.
   useEffect(() => {
     if (!verrouFin) { setVerrouRestant(null); return; }
     const tick = () => {

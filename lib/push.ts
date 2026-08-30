@@ -62,19 +62,22 @@ async function jetonAcces(): Promise<string | null> {
  * échouer la réservation ou le cron qui l'a déclenchée.
  */
 export async function envoyerPush(
-  userId: string,
+  email: string | null | undefined,
   titre: string,
   corps: string,
   lien?: string,
 ): Promise<ResultatPush> {
   const vide: ResultatPush = { envoyes: 0, echecs: 0, sansAppareil: true };
   try {
+    if (!email) return vide;
     const projet = process.env.FCM_PROJECT_ID;
     const jeton = await jetonAcces();
     if (!projet || !jeton) return vide;
 
     const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { data: appareils } = await admin.from("appareils").select("id, token").eq("user_id", userId);
+    // Rattachement par email, comme /api/mon-compte : une cliente réserve sans
+    // compte, c'est son adresse qui fait le lien avec son espace et ses appareils.
+    const { data: appareils } = await admin.from("appareils").select("id, token").ilike("email", email);
     if (!appareils || appareils.length === 0) return vide;
 
     let envoyes = 0, echecs = 0;
@@ -110,12 +113,13 @@ export async function envoyerPush(
   }
 }
 
-/** L'utilisateur a-t-il au moins un appareil joignable ? Sert à ne pas payer un
+/** La cliente a-t-elle au moins un appareil joignable ? Sert à ne pas payer un
  *  SMS quand une notification gratuite suffit. */
-export async function aUnAppareil(userId: string): Promise<boolean> {
+export async function aUnAppareil(email: string | null | undefined): Promise<boolean> {
   try {
+    if (!email) return false;
     const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
-    const { count } = await admin.from("appareils").select("id", { count: "exact", head: true }).eq("user_id", userId);
+    const { count } = await admin.from("appareils").select("id", { count: "exact", head: true }).ilike("email", email);
     return (count ?? 0) > 0;
   } catch {
     return false;

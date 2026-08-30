@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateRappel } from "@/lib/email";
 import { sendSMS, smsRappel, analyserSms } from "@/lib/sms";
+import { envoyerPush } from "@/lib/push";
 
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("authorization")?.replace("Bearer ", "");
@@ -29,6 +30,9 @@ export async function GET(req: NextRequest) {
   let sent = 0;
   let emailsEnvoyes = 0;
   let smsEnvoyes = 0;
+  let pushEnvoyes = 0;
+  // Rappels poussés gratuitement là où un SMS aurait été facturé au salon.
+  let smsEconomises = 0;
   let echecs = 0;
   // Passe à true dès qu'un envoi SMS échoue : c'est presque toujours un solde
   // Brevo épuisé, et réessayer consommerait un crédit du salon à chaque RDV
@@ -69,9 +73,26 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // Notification sur le téléphone, tentée avant le SMS. Un rappel poussé est
+    // gratuit là où un segment SMS coûte 0,054 € au salon : quand elle arrive,
+    // le SMS n'a plus lieu d'être et on préserve le forfait.
+    let pushRecu = false;
+    try {
+      const resPush = await envoyerPush(
+        client.email,
+        `Rappel, ${salon?.nom || "rdvous"}`,
+        `Votre rendez-vous ${dateStr} à ${heureStr}`,
+        "/mon-compte",
+      );
+      if (resPush.envoyes > 0) { pushRecu = true; pushEnvoyes += resPush.envoyes; }
+    } catch (e) {
+      console.error("Notification de rappel échouée pour le RDV", rdv.id, e);
+    }
+
     // RDV créé aujourd'hui = confirmation déjà envoyée le jour même → pas de rappel SMS (doublon + crédit gaspillé).
     const creeAujourdhui = typeof rdv.created_at === "string" && rdv.created_at.slice(0, 10) === aujourdhuiStr;
-    if (smsEnabled && client.telephone && !creeAujourdhui && !smsIndisponible) {
+    if (smsEnabled && client.telephone && !creeAujourdhui && pushRecu) smsEconomises++;
+    if (smsEnabled && client.telephone && !creeAujourdhui && !smsIndisponible && !pushRecu) {
       // Le contenu est construit avant le décompte : on débite autant de crédits
       // que le message consomme réellement de segments chez l'opérateur.
       const texteSms = smsRappel({ prenom: client.prenom, salonNom: salon?.nom || "", dateStr, heureStr, contenu: salonCfg?.sms_message_rappel });
@@ -106,5 +127,5 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ ok: true, sent, emails: emailsEnvoyes, sms: smsEnvoyes, echecs, sms_interrompus: smsIndisponible });
+  return NextResponse.json({ ok: true, sent, emails: emailsEnvoyes, push: pushEnvoyes, sms: smsEnvoyes, sms_economises: smsEconomises, echecs, sms_interrompus: smsIndisponible });
 }
