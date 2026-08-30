@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type RDV = { id: string; date_heure: string; statut: string; duree_minutes: number; clients: { prenom: string; nom: string } | null; rendez_vous_prestations: { prestations: { nom: string; duree_minutes: number } | null }[] };
-type Evenement = { id: string; titre: string; date_heure: string; duree_minutes: number; recurrence: string | null; recurrence_fin: string | null };
+type Evenement = { id: string; titre: string; date_heure: string; duree_minutes: number; recurrence: string | null; recurrence_fin: string | null; dates_exclues?: string[] | null };
 
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -70,11 +70,11 @@ export default function AgendaPage() {
         .gte("date_heure", startStr).lte("date_heure", endStr)
         .neq("statut", "annule").order("date_heure"),
       supabase.from("agenda_evenements")
-        .select("id, titre, date_heure, duree_minutes, recurrence, recurrence_fin")
+        .select("id, titre, date_heure, duree_minutes, recurrence, recurrence_fin, dates_exclues")
         .eq("salon_id", salon.id).is("recurrence", null)
         .gte("date_heure", startStr).lte("date_heure", endStr),
       supabase.from("agenda_evenements")
-        .select("id, titre, date_heure, duree_minutes, recurrence, recurrence_fin")
+        .select("id, titre, date_heure, duree_minutes, recurrence, recurrence_fin, dates_exclues")
         .eq("salon_id", salon.id).eq("recurrence", "hebdomadaire")
         .lte("date_heure", endStr),
     ]);
@@ -830,6 +830,8 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                 if (info.day.getDay() !== new Date(evRaw.date_heure).getDay()) continue;
                 if (ds < evRaw.date_heure.slice(0, 10)) continue;
                 if (evRaw.recurrence_fin && ds > evRaw.recurrence_fin) continue;
+                // Occurrence supprimée à l'unité depuis la fiche du bloc.
+                if ((evRaw.dates_exclues || []).includes(ds)) continue;
                 ev = { ...evRaw, date_heure: `${ds}T${evRaw.date_heure.slice(11, 16)}:00` };
               } else continue;
 
@@ -913,7 +915,7 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
                   return (
                     <div key={`ev-${ev.id}-${ds}`}
                       onPointerDown={e => e.stopPropagation()}
-                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/bloc/${ev.id}`); }}
+                      onClick={e => { e.stopPropagation(); router.push(`/dashboard/agenda/bloc/${ev.id}?date=${ds}`); }}
                       style={{ position: "absolute", top, left: numCols === 1 ? 3 : `calc(${(col / numCols) * 100}% + 3px)`, right: numCols === 1 ? 3 : `calc(${((numCols - col - 1) / numCols) * 100}% + 2px)`, height, background: "#f5f5f5", borderLeft: "3px solid #aaa", borderRadius: "0 5px 5px 0", padding: "3px 6px", cursor: "pointer", overflow: "hidden", zIndex: 4, opacity: 0.9 }}>
                       <div style={{ fontSize: 10, fontWeight: 700, color: "#888", lineHeight: 1.3 }}>{isStartDay ? formatHeure(ev.date_heure) : "→"}</div>
                       {height > 26 && <div style={{ fontSize: 11, fontWeight: 600, color: "#555", lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.titre}</div>}

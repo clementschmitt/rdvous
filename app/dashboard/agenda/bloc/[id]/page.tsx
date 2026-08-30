@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useSalon } from "@/lib/salon-context";
 import { METIERS } from "@/lib/metiers";
 import { createSupabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const CRENEAUX = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${["00", "15", "30", "45"][i % 4]}`);
@@ -13,6 +13,9 @@ function toMin(hhmm: string) { const [h, m] = hhmm.split(":").map(Number); retur
 export default function EditBlocPage({ params }: { params: Promise<{ id: string }> }) {
   const salon = useSalon();
   const router = useRouter();
+  // Date de l'occurrence cliquée dans l'agenda. Sans elle on ne saurait pas
+  // laquelle des occurrences d'une série la professionnelle veut retirer.
+  const dateOccurrence = useSearchParams().get("date");
 
   const [id, setId] = useState("");
   const [titre, setTitre] = useState("");
@@ -25,6 +28,7 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [choixSuppression, setChoixSuppression] = useState(false);
   const [error, setError] = useState("");
   const [notFound, setNotFound] = useState(false);
 
@@ -90,11 +94,46 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
     router.push("/dashboard/agenda");
   }
 
-  async function handleDelete() {
-    if (!confirm("Supprimer ce bloc ?")) return;
+  function demanderSuppression() {
+    // Un bloc unique n'a rien à arbitrer, on garde la confirmation simple.
+    if (recurrence !== "hebdomadaire" || !dateOccurrence) {
+      if (!confirm("Supprimer ce bloc ?")) return;
+      supprimer("tous");
+      return;
+    }
+    setChoixSuppression(true);
+  }
+
+  async function supprimer(portee: "occurrence" | "suivants" | "tous") {
+    setChoixSuppression(false);
     setDeleting(true);
     const supabase = createSupabase();
-    await supabase.from("agenda_evenements").delete().eq("id", id);
+
+    if (portee === "occurrence" && dateOccurrence) {
+      // On mémorise la date écartée plutôt que de matérialiser toutes les
+      // occurrences en base. Le créneau redevient réservable côté public.
+      const { data } = await supabase.from("agenda_evenements").select("dates_exclues").eq("id", id).single();
+      const dejaExclues: string[] = data?.dates_exclues || [];
+      if (!dejaExclues.includes(dateOccurrence)) {
+        await supabase.from("agenda_evenements")
+          .update({ dates_exclues: [...dejaExclues, dateOccurrence] })
+          .eq("id", id);
+      }
+    } else if (portee === "suivants" && dateOccurrence) {
+      // Supprimer à partir de la première occurrence revient à supprimer la série.
+      if (dateOccurrence <= date) {
+        await supabase.from("agenda_evenements").delete().eq("id", id);
+      } else {
+        const veille = new Date(dateOccurrence + "T12:00:00");
+        veille.setDate(veille.getDate() - 1);
+        await supabase.from("agenda_evenements")
+          .update({ recurrence_fin: veille.toISOString().slice(0, 10) })
+          .eq("id", id);
+      }
+    } else {
+      await supabase.from("agenda_evenements").delete().eq("id", id);
+    }
+
     router.push("/dashboard/agenda");
   }
 
@@ -104,8 +143,42 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
 
   const m = METIERS[salon.metier];
 
+  const dateLisible = dateOccurrence
+    ? new Date(dateOccurrence + "T12:00:00").toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
+    : "";
+
   return (
     <div style={{ padding: 32, maxWidth: 600, margin: "0 auto" }}>
+      {choixSuppression && (
+        <div onClick={() => setChoixSuppression(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 14, padding: 24, maxWidth: 380, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1a1a", marginBottom: 6 }}>Supprimer « {titre} »</div>
+            <div style={{ fontSize: 13, color: "#777", lineHeight: 1.6, marginBottom: 20 }}>
+              Ce bloc se répète toutes les semaines. Que souhaitez-vous supprimer ?
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button type="button" onClick={() => supprimer("occurrence")} style={choixStyle}>
+                <span style={{ fontWeight: 600 }}>Ce bloc uniquement</span>
+                <span style={{ fontSize: 12, color: "#888" }}>Seulement le {dateLisible}</span>
+              </button>
+              <button type="button" onClick={() => supprimer("suivants")} style={choixStyle}>
+                <span style={{ fontWeight: 600 }}>Ce bloc et les suivants</span>
+                <span style={{ fontSize: 12, color: "#888" }}>Les occurrences passées sont conservées</span>
+              </button>
+              <button type="button" onClick={() => supprimer("tous")} style={{ ...choixStyle, borderColor: "#fecaca", color: "#dc2626" }}>
+                <span style={{ fontWeight: 600 }}>Tous les blocs</span>
+                <span style={{ fontSize: 12, color: "#c47" }}>Toute la série, y compris le passé</span>
+              </button>
+              <button type="button" onClick={() => setChoixSuppression(false)}
+                style={{ marginTop: 4, padding: "11px", background: "#f0f0f0", color: "#333", border: "none", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{ marginBottom: 24 }}>
         <Link href="/dashboard/agenda" style={{ color: "#999", textDecoration: "none", fontSize: 13 }}>← Agenda</Link>
       </div>
@@ -173,7 +246,7 @@ export default function EditBlocPage({ params }: { params: Promise<{ id: string 
         {error && <p style={{ color: "#c0392b", fontSize: 13, margin: 0 }}>{error}</p>}
 
         <div style={{ display: "flex", gap: 12 }}>
-          <button type="button" onClick={handleDelete} disabled={deleting}
+          <button type="button" onClick={demanderSuppression} disabled={deleting}
             style={{ padding: "11px 16px", background: "#fff", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: deleting ? "not-allowed" : "pointer", opacity: deleting ? 0.7 : 1 }}>
             {deleting ? "…" : "Supprimer"}
           </button>
@@ -200,4 +273,11 @@ function Section({ titre, children }: { titre: string; children: React.ReactNode
 }
 
 const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5 };
+const choixStyle: React.CSSProperties = {
+  display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2,
+  padding: "12px 14px", background: "#fff", color: "#1a1a1a",
+  border: "1.5px solid #e0e0e0", borderRadius: 9, fontSize: 14,
+  cursor: "pointer", textAlign: "left", fontFamily: "inherit", width: "100%",
+};
+
 const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 12px", border: "1px solid #e0e0e0", borderRadius: 7, fontSize: 13, boxSizing: "border-box" };

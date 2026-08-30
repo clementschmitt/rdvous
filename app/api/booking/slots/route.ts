@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
     admin.from("disponibilites_exceptions").select("ferme, plages").eq("salon_id", salon_id).eq("date", date).maybeSingle(),
     admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour, planning_ouverture_heure, date_limite_planning").eq("salon_id", salon_id).single(),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
-    admin.from("agenda_evenements").select("date_heure, duree_minutes").eq("salon_id", salon_id).gte("date_heure", `${dateMinus30Str}T00:00:00`).lte("date_heure", `${date}T23:59:59`),
+    // Les séries récurrentes n'ont pas de borne haute : leur ligne porte la date
+    // de la première occurrence, qui peut être très ancienne.
+    admin.from("agenda_evenements").select("date_heure, duree_minutes, recurrence, recurrence_fin, dates_exclues").eq("salon_id", salon_id).or(`and(recurrence.is.null,date_heure.gte.${dateMinus30Str}T00:00:00,date_heure.lte.${date}T23:59:59),and(recurrence.not.is.null,date_heure.lte.${date}T23:59:59)`),
     admin.from("creneaux_bloques").select("date_heure, duree_minutes, cle_session").eq("salon_id", salon_id).gte("expire_le", new Date().toISOString()).gte("date_heure", `${date}T00:00:00`).lte("date_heure", `${date}T23:59:59`),
   ]);
 
@@ -87,9 +89,25 @@ export async function GET(req: NextRequest) {
     return { debut, fin: debut + dureeRdv };
   });
 
-  // Blocs personnels : calculer la plage occupée sur ce jour précis
+  // Blocs personnels : calculer la plage occupée sur ce jour précis.
+  // La récurrence hebdomadaire était ignorée ici, si bien qu'un bloc « tous les
+  // jeudis » ne protégeait que son premier jeudi et laissait réserver ensuite.
+  type BlocRow = { date_heure: string; duree_minutes: number | null; recurrence: string | null; recurrence_fin: string | null; dates_exclues: string[] | null };
   const dateMs = new Date(date + "T00:00:00").getTime();
-  for (const bloc of (blocs || [])) {
+  const jourDemande = new Date(date + "T12:00:00").getDay();
+
+  for (const bloc of ((blocs || []) as BlocRow[])) {
+    if (bloc.recurrence === "hebdomadaire") {
+      if (new Date(bloc.date_heure).getDay() !== jourDemande) continue;
+      if (date < bloc.date_heure.slice(0, 10)) continue;
+      if (bloc.recurrence_fin && date > bloc.recurrence_fin) continue;
+      // Occurrence supprimée à l'unité par la professionnelle : le créneau redevient réservable.
+      if ((bloc.dates_exclues || []).includes(date)) continue;
+      const debut = toMinutes(bloc.date_heure.slice(11, 16));
+      occupes.push({ debut, fin: Math.min(24 * 60, debut + (bloc.duree_minutes || 0)) });
+      continue;
+    }
+
     const blocStartMs = new Date(bloc.date_heure).getTime();
     const blocEndMs = blocStartMs + (bloc.duree_minutes || 0) * 60000;
     if (blocEndMs <= dateMs || blocStartMs >= dateMs + 86400000) continue; // ne chevauche pas ce jour
