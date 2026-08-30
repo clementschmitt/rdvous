@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     if (!success) return NextResponse.json({ error: "Trop de tentatives. Réessayez dans une heure." }, { status: 429 });
   }
 
-  const { salon_id, prestation_ids, date, heure, prenom, nom, email: emailRaw, telephone, adresse_domicile } = await req.json();
+  const { salon_id, prestation_ids, date, heure, prenom, nom, email: emailRaw, telephone, adresse_domicile, cle_session } = await req.json();
   const email = normalizeEmail(emailRaw) || emailRaw;
   const telephoneNorm = normalizePhone(telephone);
 
@@ -91,6 +91,9 @@ export async function POST(req: NextRequest) {
   }
 
   const rdv = { id: rdvId as string };
+
+  // Le rendez-vous existe, le verrou n'a plus lieu d'être.
+  if (cle_session) await admin.from("creneaux_bloques").delete().eq("cle_session", cle_session);
 
   await admin.from("rendez_vous_prestations").insert(ids.map(prestation_id => ({ rendez_vous_id: rdv.id, prestation_id })));
 

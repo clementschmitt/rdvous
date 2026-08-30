@@ -14,6 +14,14 @@ export const bookingLimiter = new Ratelimit({
   prefix: "rl:booking",
 });
 
+// 60 poses de verrou par IP par heure : une cliente en pose quelques-unes en
+// changeant d'avis, mais ça empêche de geler un agenda entier en boucle.
+export const holdLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(60, "1 h"),
+  prefix: "rl:hold",
+});
+
 // 10 tentatives d'inscription par IP par heure
 export const signupLimiter = new Ratelimit({
   redis,

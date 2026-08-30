@@ -61,9 +61,14 @@ export default function BookingWidget({
   const [weekOffset, setWeekOffset] = useState(0);
   const [slotsMap, setSlotsMap] = useState<Record<string, string[]>>({});
   const [blockedMap, setBlockedMap] = useState<Record<string, string[]>>({});
+  const [verrouMap, setVerrouMap] = useState<Record<string, string[]>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [choix, setChoix] = useState<Slot | null>(null);
+  // Verrou temporaire : le créneau choisi est retiré des disponibilités des
+  // autres visiteuses le temps que la cliente saisisse ses coordonnées.
+  const [verrouRestant, setVerrouRestant] = useState<number | null>(null);
+  const [verrouFin, setVerrouFin] = useState<number | null>(null);
   const [prenom, setPrenom] = useState("");
   const [nom, setNom] = useState("");
   const [email, setEmail] = useState("");
@@ -188,17 +193,91 @@ export default function BookingWidget({
     setSelected(s => s.find(x => x.id === p.id) ? s.filter(x => x.id !== p.id) : [...s, p]);
   }
 
+  /** Identifie l'onglet sans compte : la réservation publique est anonyme. */
+  function cleSession(): string {
+    if (typeof window === "undefined") return "";
+    let cle = sessionStorage.getItem("rdvous_cle_session");
+    if (!cle) {
+      cle = crypto.randomUUID();
+      sessionStorage.setItem("rdvous_cle_session", cle);
+    }
+    return cle;
+  }
+
+  async function libererVerrou() {
+    const cle = cleSession();
+    if (!cle) return;
+    setVerrouFin(null); setVerrouRestant(null);
+    await fetch("/api/booking/hold", {
+      method: "DELETE", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cle_session: cle }),
+    }).catch(() => {});
+  }
+
+  /** Pose le verrou puis ouvre le formulaire. En cas de conflit, on rafraîchit. */
+  async function continuerVersContact() {
+    if (!choix) return;
+    setError("");
+    const res = await fetch("/api/booking/hold", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salonId, date: choix.date, heure: choix.heure, duree_minutes: dureeTotal, cle_session: cleSession() }),
+    }).catch(() => null);
+    const json = res ? await res.json().catch(() => null) : null;
+    if (res && res.status === 409) {
+      // Quelqu'un a été plus rapide : on remonte des créneaux à jour plutôt que
+      // de laisser la cliente devant un message d'erreur avec un planning périmé.
+      setError(json?.error || "Ce créneau vient d'être pris, voici les disponibilités à jour.");
+      await loadWeekSlots();
+      return;
+    }
+    // Verrou indisponible pour une autre raison : on continue sans lui. Un
+    // système de réservation ne doit jamais s'arrêter parce qu'un confort a échoué.
+    if (json?.ok) setVerrouFin(new Date(json.expire_le).getTime());
+    setStep("contact");
+  }
+
+  // Décompte affiché à la cliente, et retour au calendrier si le temps est écoulé.
+  useEffect(() => {
+    if (!verrouFin) { setVerrouRestant(null); return; }
+    const tick = () => {
+      const reste = Math.max(0, Math.round((verrouFin - Date.now()) / 1000));
+      setVerrouRestant(reste);
+      if (reste === 0) {
+        setVerrouFin(null);
+        setStep("select");
+        setError("Le temps imparti est écoulé, le créneau a été remis à disposition.");
+        loadWeekSlots();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [verrouFin]);
+
+  // Onglet fermé en cours de saisie : on rend le créneau sans attendre l'expiration.
+  useEffect(() => {
+    function relacher() {
+      const cle = typeof window !== "undefined" ? sessionStorage.getItem("rdvous_cle_session") : null;
+      if (!cle) return;
+      navigator.sendBeacon?.("/api/booking/hold-release", new Blob([JSON.stringify({ cle_session: cle })], { type: "application/json" }));
+    }
+    window.addEventListener("pagehide", relacher);
+    return () => window.removeEventListener("pagehide", relacher);
+  }, []);
+
   async function loadWeekSlots() {
     setLoadingSlots(true); setChoix(null);
     const results = await Promise.all(weekDays.map(d => {
       const iso = toISO(d);
-      return fetch(`/api/booking/slots?salon_id=${salonId}&date=${iso}&duree=${dureeTotal}`)
-        .then(r => r.json()).then(j => ({ date: iso, slots: (j.slots || []) as string[], blocked: (j.blocked || []) as string[] }));
+      return fetch(`/api/booking/slots?salon_id=${salonId}&date=${iso}&duree=${dureeTotal}&cle=${encodeURIComponent(cleSession())}`)
+        .then(r => r.json()).then(j => ({ date: iso, slots: (j.slots || []) as string[], blocked: (j.blocked || []) as string[], verrouilles: (j.verrouilles || []) as string[] }));
     }));
     const map: Record<string, string[]> = {};
     const bmap: Record<string, string[]> = {};
-    results.forEach(r => { map[r.date] = r.slots; bmap[r.date] = r.blocked; });
+    const vmap: Record<string, string[]> = {};
+    results.forEach(r => { map[r.date] = r.slots; bmap[r.date] = r.blocked; vmap[r.date] = r.verrouilles; });
     setBlockedMap(bmap);
+    setVerrouMap(vmap);
     setSlotsMap(map); setLoadingSlots(false);
     const first = results.find(r => r.date >= today && r.slots.length > 0);
     setSelectedDay(first ? first.date : null);
@@ -215,11 +294,18 @@ export default function BookingWidget({
     setError(""); setSubmitting(true);
     const res = await fetch("/api/booking/create", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ salon_id: salonId, prestation_ids: selected.map(p => p.id), date: choix.date, heure: choix.heure, prenom, nom, email, telephone, adresse_domicile: wantsDomicile ? adresseDomicile : null, website: website }),
+      body: JSON.stringify({ salon_id: salonId, prestation_ids: selected.map(p => p.id), date: choix.date, heure: choix.heure, prenom, nom, email, telephone, adresse_domicile: wantsDomicile ? adresseDomicile : null, website: website, cle_session: cleSession() }),
     });
     const json = await res.json();
     setSubmitting(false);
-    if (!json.ok) { setError(json.error || "Erreur, veuillez réessayer."); return; }
+    if (!json.ok) {
+      setError(json.error || "Erreur, veuillez réessayer.");
+      // Créneau perdu malgré le verrou (expiration, réservation au comptoir) :
+      // on ramène la cliente sur un planning à jour au lieu de la laisser bloquée.
+      if (res.status === 409) { setVerrouFin(null); setStep("select"); await loadWeekSlots(); }
+      return;
+    }
+    setVerrouFin(null);
     setStep("done");
   }
 
@@ -391,11 +477,16 @@ export default function BookingWidget({
 
   if (step === "contact") return (
     <div>
-      <button onClick={() => setStep("select")} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 13, padding: 0, marginBottom: 16 }}>← Modifier le créneau</button>
+      <button onClick={async () => { await libererVerrou(); setStep("select"); loadWeekSlots(); }} style={{ background: "none", border: "none", color: "#999", cursor: "pointer", fontSize: 13, padding: 0, marginBottom: 16 }}>← Modifier le créneau</button>
       <div style={{ background: "#f5f5f5", borderRadius: 8, padding: "10px 14px", marginBottom: 20, fontSize: 13, color: "#555" }}>
         <strong style={{ color: couleur }}>{selected.map(p => p.nom).join(" + ")}</strong> · {choix?.date.split("-").reverse().join("/")} à <strong>{choix?.heure}</strong>
         {hasSurDevis && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "#888", background: "#e8e8e8", padding: "2px 8px", borderRadius: 10 }}>Prix à définir</span>}
       </div>
+      {verrouRestant !== null && (
+        <div style={{ background: couleur + "12", border: `1px solid ${couleur}33`, borderRadius: 8, padding: "9px 14px", marginBottom: 16, fontSize: 12.5, color: "#555" }}>
+          Ce créneau vous est réservé encore <strong style={{ color: couleur }}>{Math.floor(verrouRestant / 60)}:{String(verrouRestant % 60).padStart(2, "0")}</strong>
+        </div>
+      )}
       {deplacement === "possible" && (
         <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1.5px solid ${wantsDomicile ? couleur : "#e0e0e0"}`, borderRadius: 8, background: wantsDomicile ? couleur + "10" : "#fff", cursor: "pointer", fontSize: 13, marginBottom: 4 }}>
           <input type="checkbox" checked={wantsDomicile} onChange={e => setWantsDomicile(e.target.checked)} style={{ accentColor: couleur }} />
@@ -518,6 +609,12 @@ export default function BookingWidget({
                     {s}
                   </div>
                 ))}
+                {(verrouMap[selectedDay] || []).map(s => (
+                  <div key={`verrou-${s}`} title="Quelqu'un est en train de réserver ce créneau, il se libère dans quelques minutes s'il n'est pas confirmé"
+                    style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1.5px dashed #d8d8d8", borderRadius: 7, background: "#fafafa", color: "#c4c4c4", cursor: "not-allowed", userSelect: "none" }}>
+                    {s}
+                  </div>
+                ))}
                 {slotsMap[selectedDay].map(s => {
                   const isSel = choix?.date === selectedDay && choix?.heure === s;
                   return (
@@ -528,6 +625,11 @@ export default function BookingWidget({
                   );
                 })}
               </div>
+              {(verrouMap[selectedDay] || []).length > 0 && (
+                <div style={{ fontSize: 11, color: "#bbb", marginTop: 6, width: "100%" }}>
+                  Les créneaux en pointillés sont en cours de réservation par quelqu'un d'autre, ils se libèrent dans quelques minutes s'ils ne sont pas confirmés.
+                </div>
+              )}
               {(blockedMap[selectedDay] || []).length > 0 && (
                 <div style={{ fontSize: 11, color: "#bbb", marginTop: 6, width: "100%" }}>
                   Les créneaux grisés ne sont plus disponibles à la réservation en ligne, contactez-nous directement.
@@ -541,7 +643,7 @@ export default function BookingWidget({
         </>
       )}
       {choix && (
-        <button onClick={() => setStep("contact")}
+        <button onClick={continuerVersContact}
           style={{ marginTop: 16, width: "100%", padding: "13px", background: couleur, color: "#fff", border: "none", borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
           Continuer → {choix.date.split("-").reverse().join("/")} à {choix.heure}
         </button>

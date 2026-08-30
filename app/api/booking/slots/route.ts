@@ -6,6 +6,9 @@ export async function GET(req: NextRequest) {
   const salon_id = searchParams.get("salon_id");
   const date = searchParams.get("date"); // YYYY-MM-DD
   const duree = parseInt(searchParams.get("duree") || "60");
+  // Clé de session de la visiteuse : son propre verrou ne doit pas lui masquer
+  // le créneau qu'elle est justement en train de réserver.
+  const cleSession = searchParams.get("cle") || "";
 
   if (!salon_id || !date) return NextResponse.json({ slots: [] });
 
@@ -18,7 +21,7 @@ export async function GET(req: NextRequest) {
   dateMinus30.setDate(dateMinus30.getDate() - 30);
   const dateMinus30Str = dateMinus30.toISOString().slice(0, 10);
 
-  const [{ data: templatePlages }, { data: rdvs }, { data: exception }, { data: settings }, { data: conges }, { data: blocs }] = await Promise.all([
+  const [{ data: templatePlages }, { data: rdvs }, { data: exception }, { data: settings }, { data: conges }, { data: blocs }, { data: verrousRaw }] = await Promise.all([
     admin.from("disponibilites").select("heure_debut, heure_fin").eq("salon_id", salon_id).eq("jour_semaine", jourSemaine),
 
     admin.from("rendez_vous")
@@ -31,6 +34,7 @@ export async function GET(req: NextRequest) {
     admin.from("app_settings").select("delai_min_reservation_heures, planning_horizon_jours, planning_ouverture_mode, planning_ouverture_jour, planning_ouverture_heure, date_limite_planning").eq("salon_id", salon_id).single(),
     admin.from("conges").select("id").eq("salon_id", salon_id).lte("date_debut", date).gte("date_fin", date).limit(1),
     admin.from("agenda_evenements").select("date_heure, duree_minutes").eq("salon_id", salon_id).gte("date_heure", `${dateMinus30Str}T00:00:00`).lte("date_heure", `${date}T23:59:59`),
+    admin.from("creneaux_bloques").select("date_heure, duree_minutes, cle_session").eq("salon_id", salon_id).gte("expire_le", new Date().toISOString()).gte("date_heure", `${date}T00:00:00`).lte("date_heure", `${date}T23:59:59`),
   ]);
 
   // Horizon de planification : date au-delà de la limite
@@ -94,12 +98,26 @@ export async function GET(req: NextRequest) {
     occupes.push({ debut: debutSurJour, fin: finSurJour });
   }
 
+  // Verrous temporaires posés par d'autres visiteuses. Ils ne sont pas ajoutés
+  // aux créneaux occupés : on veut les afficher grisés comme "en cours de
+  // réservation" plutôt que de les faire disparaître du planning.
+  const verrous = ((verrousRaw || []) as { date_heure: string; duree_minutes: number; cle_session: string }[])
+    .filter(v => v.cle_session !== cleSession)
+    .map(v => {
+      const debut = toMinutes(v.date_heure.slice(11, 16));
+      return { debut, fin: debut + (v.duree_minutes || 0) };
+    });
+
   const delaiHeures = settings?.delai_min_reservation_heures ?? 0;
   const maintenant = new Date();
   const limiteMs = maintenant.getTime() + delaiHeures * 3600000;
 
   const slots: string[] = [];
   const blocked: string[] = [];
+  // Créneaux tenus quelques minutes par une autre visiteuse. Distincts de
+  // `blocked`, dont le message invite à appeler le salon, ce qui serait
+  // absurde pour un créneau qui se libère tout seul dans cinq minutes.
+  const verrouilles: string[] = [];
   for (const plage of plages) {
     const debut = toMinutes(plage.heure_debut.slice(0, 5));
     const fin = toMinutes(plage.heure_fin.slice(0, 5));
@@ -107,6 +125,7 @@ export async function GET(req: NextRequest) {
       const slotFin = t + duree;
       const libre = !occupes.some(o => o.debut < slotFin && o.fin > t);
       if (!libre) continue;
+      if (verrous.some(v => v.debut < slotFin && v.fin > t)) { verrouilles.push(fromMinutes(t)); continue; }
       if (delaiHeures > 0) {
         const slotDatetime = new Date(`${date}T${fromMinutes(t)}:00`);
         if (slotDatetime.getTime() < limiteMs) { blocked.push(fromMinutes(t)); continue; }
@@ -115,7 +134,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ slots, blocked });
+  return NextResponse.json({ slots, blocked, verrouilles });
 }
 
 function toMinutes(hhmm: string) {
