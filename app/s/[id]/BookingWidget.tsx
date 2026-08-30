@@ -23,7 +23,7 @@ function getMondayOfWeek(offset: number) {
 const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 export default function BookingWidget({
-  salonId, prestations, categories = [], dispos = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, planningOuvertureMode = "horizon", planningOuvertureJour = 23, salonTel, modeReservation = "menu", planningDateLimite,
+  salonId, prestations, categories = [], dispos = [], couleur, deplacement, delaiMinHeures = 0, planningHorizonJours = 0, planningOuvertureMode = "horizon", planningOuvertureJour = 23, planningOuvertureHeure = 0, salonTel, modeReservation = "menu", planningDateLimite,
 }: {
   salonId: string;
   prestations: Prestation[];
@@ -35,6 +35,7 @@ export default function BookingWidget({
   planningHorizonJours?: number;
   planningOuvertureMode?: string;
   planningOuvertureJour?: number;
+  planningOuvertureHeure?: number;
   salonTel?: string;
   modeReservation?: "menu" | "guide";
   planningDateLimite?: string;
@@ -106,11 +107,16 @@ export default function BookingWidget({
   const today = toISO(new Date());
   let maxDate: string | null = null;
   if (planningOuvertureMode === "date_fixe") {
-    const today = new Date();
-    const currentDay = today.getDate();
-    let targetYear = today.getFullYear();
-    let targetMonth = today.getMonth();
-    if (currentDay >= planningOuvertureJour) {
+    // Même calcul que /api/booking/slots, sinon le calendrier propose des jours
+    // pour lesquels l'API ne renvoie aucun créneau. On raisonne en heure de Paris
+    // et on tient compte de l'heure d'ouverture, pas seulement du jour.
+    const nowFrance = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+    const currentDay = nowFrance.getDate();
+    const currentHour = nowFrance.getHours();
+    let targetYear = nowFrance.getFullYear();
+    let targetMonth = nowFrance.getMonth();
+    const ouvert = currentDay > planningOuvertureJour || (currentDay === planningOuvertureJour && currentHour >= planningOuvertureHeure);
+    if (ouvert) {
       targetMonth += 1;
       if (targetMonth > 11) { targetMonth = 0; targetYear++; }
     }
@@ -118,8 +124,11 @@ export default function BookingWidget({
   } else if (planningHorizonJours > 0) {
     maxDate = toISO(addDays(new Date(), planningHorizonJours));
   }
-  // Appliquer la date limite comme plafond supplémentaire
-  if (planningDateLimite) {
+  // La date limite n'appartient qu'au mode horizon glissant, l'API l'ignore en
+  // mode date fixe. L'appliquer ici plafonnait le calendrier avec une valeur
+  // laissée par un réglage précédent, invisible puisque le champ est masqué
+  // dans les paramètres quand le mode date fixe est actif.
+  if (planningDateLimite && planningOuvertureMode !== "date_fixe") {
     const limiteStr = planningDateLimite;
     if (!maxDate || limiteStr < maxDate) maxDate = limiteStr;
   }

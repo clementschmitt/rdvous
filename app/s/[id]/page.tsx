@@ -39,6 +39,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const planningHorizonJours = (s?.planning_horizon_jours as number | undefined) || 0;
   const planningOuvertureMode = (s?.planning_ouverture_mode as string | undefined) || "horizon";
   const planningOuvertureJour = (s?.planning_ouverture_jour as number | undefined) || 23;
+  const planningOuvertureHeure = (s?.planning_ouverture_heure as number | undefined) ?? 0;
   const messagePrestations = (s?.message_prestations as string | undefined) || "";
   const modeReservation = ((s?.mode_reservation as string | undefined) === "guide" ? "guide" : "menu") as "menu" | "guide";
   const planningDateLimite = (s?.date_limite_planning as string | undefined) || null;
@@ -61,6 +62,7 @@ const avis = (avisData || []) as { note: number; commentaire: string | null; cre
     planningHorizonJours,
     planningOuvertureMode,
     planningOuvertureJour,
+    planningOuvertureHeure,
     modeReservation,
     planningDateLimite,
   };
