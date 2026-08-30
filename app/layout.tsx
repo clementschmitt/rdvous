@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { AccentColorProvider } from "@/lib/accent-color";
+import PushNotifications from "@/app/components/PushNotifications";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -36,6 +37,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${cormorant.className} ${inter.className}`} style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
         <AccentColorProvider>{children}</AccentColorProvider>
+        {/* Se désactive tout seul hors application native, d'où le montage global
+            plutôt que dans /app : la coquille navigue aussi vers /mon-compte et
+            vers les fiches salon. */}
+        <PushNotifications />
         <script dangerouslySetInnerHTML={{ __html: `if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }` }} />
       </body>
     </html>

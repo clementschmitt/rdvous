@@ -44,3 +44,6 @@ next-env.d.ts
 
 # fichiers de travail
 .tmp/
+
+# Firebase, identifie le projet, hors depot
+android/app/google-services.json
