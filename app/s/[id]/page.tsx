@@ -19,7 +19,7 @@ export async function getSalon(idOrSlug: string, bySlug = false) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
   const { data: salon } = await admin
     .from("salons")
-    .select("id, nom, metier, ville, adresse, description, telephone, visible_recherche, photos, slug, deplacement")
+    .select("id, nom, metier, ville, adresse, description, telephone, visible_recherche, photos, slug, deplacement, secteur")
     .eq(bySlug ? "slug" : "id", idOrSlug)
     .single();
   if (!salon || salon.visible_recherche === false) return null;
@@ -98,6 +98,8 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
   const couleurClaire = m?.couleurClaire || couleur + "22";
   const photos: string[] = salon.photos || [];
   const deplacement: string = salon.deplacement || "non";
+  // Ce qui situe l'établissement : sa ville, ou sa zone d'intervention s'il se déplace.
+  const situation: string | null = salon.ville || salon.secteur || null;
   const mapsUrl = salon.adresse && salon.ville
     ? `https://maps.google.com/?q=${encodeURIComponent(`${salon.adresse}, ${salon.ville}`)}`
     : salon.ville ? `https://maps.google.com/?q=${encodeURIComponent(salon.ville)}` : null;
@@ -141,7 +143,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
             <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
               <div className="vitrine-hero-text">
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.8)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{m?.label || salon.metier}{situation ? ` · ${situation}` : ""}</span>
                   {deplacement === "possible" && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(255,255,255,0.2)", color: "#fff", backdropFilter: "blur(4px)" }}>🚗 Domicile possible</span>}
                   {deplacement === "uniquement" && <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: "rgba(255,255,255,0.2)", color: "#fff", backdropFilter: "blur(4px)" }}>🚗 Domicile uniquement</span>}
                 </div>
@@ -154,7 +156,7 @@ export default async function PublicSalonPage({ params }: { params: Promise<{ id
         <div style={{ height: 220, background: `linear-gradient(135deg, ${couleur} 0%, ${couleur}cc 100%)`, position: "relative", display: "flex", alignItems: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35) 100%)" }} />
           <div style={{ padding: "28px 32px", width: "100%", maxWidth: 1200, margin: "0 auto", position: "relative" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{m?.label || salon.metier}{salon.ville ? ` · ${salon.ville}` : ""}</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.7)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{m?.label || salon.metier}{situation ? ` · ${situation}` : ""}</div>
             <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 34, fontWeight: 500, color: "#fff", margin: 0, lineHeight: 1.2, textShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>{salon.nom}</h1>
             {(deplacement === "possible" || deplacement === "uniquement") && (
               <div style={{ marginTop: 8 }}>

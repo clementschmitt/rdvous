@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
   const body = await req.json();
-  const { salon_id, slug: rawSlug, photos, deplacement, visible_recherche } = body;
+  const { salon_id, slug: rawSlug, photos, deplacement, visible_recherche, secteur } = body;
 
   const isAdmin = user.email === ADMIN_EMAIL;
   if (!isAdmin) {
@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
 
   if (photos !== undefined) updates.photos = photos;
   if (deplacement !== undefined) updates.deplacement = deplacement;
+  // Chaîne vide traitée comme "non renseigné", sinon la fiche afficherait un vide.
+  if (secteur !== undefined) updates.secteur = String(secteur).trim() || null;
   if (visible_recherche !== undefined) updates.visible_recherche = visible_recherche;
 
   const { error } = await admin.from("salons").update(updates).eq("id", salon_id);

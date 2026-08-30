@@ -109,6 +109,9 @@ export default function ParametresPage() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [deplacement, setDeplacement] = useState<"non" | "possible" | "uniquement">("non");
   const [deplacementSaving, setDeplacementSaving] = useState(false);
+  const [secteur, setSecteur] = useState("");
+  const [secteurSaving, setSecteurSaving] = useState(false);
+  const [secteurSaved, setSecteurSaved] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
 
   const [pwdLoading, setPwdLoading] = useState(false);
@@ -162,11 +165,12 @@ export default function ParametresPage() {
     setConges(((cRes.data || []) as { id: string; date_debut: string; date_fin: string; libelle: string }[]).map(c => ({ id: c.id, date_debut: c.date_debut, date_fin: c.date_fin, libelle: c.libelle || "" })));
     setExceptions(((eRes.data || []) as { id: string; date: string; ferme: boolean; plages: Plage[] }[]));
 
-    const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement, visible_recherche, stripe_subscription_id").eq("id", salon!.id).single();
+    const { data: salonData } = await supabase.from("salons").select("slug, photos, deplacement, visible_recherche, secteur, stripe_subscription_id").eq("id", salon!.id).single();
     if (salonData) {
       setSlug(salonData.slug || "");
       setPhotos(salonData.photos || []);
       setDeplacement(salonData.deplacement || "non");
+      setSecteur(salonData.secteur || "");
       setVisibleRecherche(salonData.visible_recherche ?? true);
       setSubscriptionId(salonData.stripe_subscription_id || null);
     }
@@ -455,6 +459,20 @@ export default function ParametresPage() {
       body: JSON.stringify({ salon_id: salon!.id, deplacement: val }),
     });
     setDeplacementSaving(false);
+  }
+
+  async function saveSecteur() {
+    setSecteurSaving(true);
+    const supabase = createSupabase();
+    const { data: { session } } = await supabase.auth.getSession();
+    await fetch("/api/salon/update", {
+      method: "POST",
+      headers: { authorization: `Bearer ${session?.access_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ salon_id: salon!.id, secteur }),
+    });
+    setSecteurSaving(false);
+    setSecteurSaved(true);
+    setTimeout(() => setSecteurSaved(false), 2000);
   }
 
   async function uploadPhoto(file: File) {
@@ -1330,6 +1348,23 @@ export default function ParametresPage() {
                   </label>
                 ))}
               </div>
+              {(deplacement === "possible" || deplacement === "uniquement") && (
+                <div style={{ marginTop: 14 }}>
+                  <label style={labelStyle}>Secteur d'intervention</label>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input value={secteur} onChange={e => setSecteur(e.target.value)} maxLength={60}
+                      placeholder="Ex : Ouest lyonnais, Lyon et 20 km alentour"
+                      style={{ flex: 1, padding: "10px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 13, fontFamily: "inherit" }} />
+                    <button onClick={saveSecteur} disabled={secteurSaving}
+                      style={{ padding: "10px 16px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: secteurSaving ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                      {secteurSaving ? "…" : secteurSaved ? "Enregistré" : "Enregistrer"}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 11, color: "#999", marginTop: 6 }}>
+                    Affiché sur votre fiche et sur l'accueil, à la place de l'adresse que vous n'avez pas.
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ height: 1, background: "#f0f0f0" }} />

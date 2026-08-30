@@ -9,12 +9,14 @@ type Salon = { id: string; nom: string; metier: string; ville: string | null; ad
 
 const METIER_EMOJI: Record<string, string> = { manucure: "💅", coiffure: "✂️", toilettage: "🐾" };
 
-const MOCK_ETABLISSEMENTS = [
-  { nom: "Institut Lumière",    metier: "Soins visage",  ville: "Paris 11e",    note: 4.9, avis: 124, gradient: "linear-gradient(145deg,#f5c8b8,#e8a090)" },
-  { nom: "Salon Atelier",       metier: "Coiffure",      ville: "Lyon 2e",      note: 4.8, avis:  87, gradient: "linear-gradient(145deg,#f0d8a0,#d8b870)" },
-  { nom: "Bien-être & Co",      metier: "Massage",       ville: "Bordeaux",     note: 5.0, avis:  43, gradient: "linear-gradient(145deg,#b8d4c0,#90b898)" },
-  { nom: "Nail Studio Élise",   metier: "Onglerie",      ville: "Toulouse",     note: 4.7, avis: 211, gradient: "linear-gradient(145deg,#f0c0c8,#d89098)" },
-];
+type Vitrine = { nom: string; slug: string; metier: string; ville: string | null; photo: string | null; note: number | null; nbAvis: number };
+
+// Dégradé de repli si un salon perdait sa photo, pour ne jamais afficher un bloc vide.
+const DEGRADE_METIER: Record<string, string> = {
+  manucure:   "linear-gradient(145deg,#f0c0c8,#d89098)",
+  coiffure:   "linear-gradient(145deg,#f0d8a0,#d8b870)",
+  toilettage: "linear-gradient(145deg,#c8e0c8,#90b890)",
+};
 
 const WHY = [
   { icon: "🗺️", titre: "Près de chez vous",     desc: "Des artisans locaux soigneusement référencés dans votre quartier." },
@@ -23,9 +25,18 @@ const WHY = [
 ];
 
 export default function HomePage() {
+  // Les salons mis en avant viennent d'une route serveur : la note moyenne se
+  // calcule sur la table des avis, fermée à la clé anonyme.
+  useEffect(() => {
+    fetch("/api/salons/vitrine")
+      .then(r => r.json())
+      .then(j => setVitrine(j.salons || []))
+      .catch(() => setVitrine([]));
+  }, []);
   const [nom, setNom]           = useState("");
   const [ville, setVille]       = useState("");
   const [resultats, setResultats] = useState<Salon[]>([]);
+  const [vitrine, setVitrine] = useState<Vitrine[]>([]);
   const [loading, setLoading]   = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -84,13 +95,13 @@ export default function HomePage() {
           .rdv-search-btn { margin: 0 !important; border-radius: 0 0 10px 10px !important; padding: 13px 28px !important; }
           .rdv-ville-row { position: relative !important; padding-right: 50px !important; padding-bottom: 14px !important; }
           .rdv-geo-btn { position: absolute !important; right: 8px !important; top: 50% !important; transform: translateY(-50%) !important; }
-          .rdv-etab-grid { grid-template-columns: 1fr !important; }
+          .rdv-etab-grid { justify-content: center !important; }
           .rdv-why-grid { grid-template-columns: 1fr !important; }
           .rdv-cta-pro-inner { flex-direction: column !important; padding: 32px 24px !important; align-items: flex-start !important; }
           .rdv-footer { padding-left: 20px !important; padding-right: 20px !important; }
         }
         @media (min-width: 641px) and (max-width: 960px) {
-          .rdv-etab-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .rdv-etab-grid { justify-content: center !important; }
         }
       `}</style>
 
@@ -203,43 +214,50 @@ export default function HomePage() {
       </section>
 
       {/* ── AUTOUR DE VOUS ── */}
+      {vitrine.length > 0 && (
       <section className="rdv-section" style={{ padding:"80px 40px" }}>
         <div style={{ maxWidth:1100, margin:"0 auto" }}>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:40 }}>
-            <div>
-              <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,40px)", fontWeight:500, margin:"0 0 8px", color:"#1a1614" }}>
-                Établissements populaires
-              </h2>
-              <p style={{ fontSize:15, color:"#8a7a6a", margin:0 }}>Les adresses qui font la différence.</p>
-            </div>
-            <Link href="#" style={{ fontSize:13, color:"#8a6a3a", fontWeight:600, textDecoration:"none" }}>Tout voir →</Link>
+          <div style={{ marginBottom:40 }}>
+            <h2 style={{ fontFamily:"'Cormorant Garamond',serif", fontSize:"clamp(28px,4vw,40px)", fontWeight:500, margin:"0 0 8px", color:"#1a1614" }}>
+              Établissements populaires
+            </h2>
+            <p style={{ fontSize:15, color:"#8a7a6a", margin:0 }}>Les adresses qui font la différence.</p>
           </div>
-          <div className="rdv-etab-grid" style={{ display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:20 }}>
-            {MOCK_ETABLISSEMENTS.map(e => (
-              <div key={e.nom} style={{ background:"#fff", borderRadius:20, overflow:"hidden", boxShadow:"0 2px 12px rgba(100,80,60,0.08)", border:"1px solid rgba(200,180,160,0.2)", cursor:"pointer", transition:"transform 0.2s, box-shadow 0.2s" }}
-                onMouseEnter={el => { (el.currentTarget as HTMLDivElement).style.transform="translateY(-4px)"; (el.currentTarget as HTMLDivElement).style.boxShadow="0 16px 40px rgba(100,80,60,0.15)"; }}
-                onMouseLeave={el => { (el.currentTarget as HTMLDivElement).style.transform="none"; (el.currentTarget as HTMLDivElement).style.boxShadow="0 2px 12px rgba(100,80,60,0.08)"; }}>
-                {/* Photo simulée */}
-                <div style={{ height:160, background:e.gradient, position:"relative", display:"flex", alignItems:"flex-end", padding:12 }}>
-                  <span style={{ background:"rgba(255,255,255,0.9)", backdropFilter:"blur(6px)", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:600, color:"#1a1614" }}>{e.ville}</span>
+          {/* Cartes dimensionnées plutôt qu'étirées sur quatre colonnes : avec un
+              ou deux salons mis en avant, une grille fixe donnerait des blocs démesurés. */}
+          <div className="rdv-etab-grid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(230px, 262px))", gap:20, justifyContent: vitrine.length < 4 ? "center" : "start" }}>
+            {vitrine.map(e => (
+              <Link key={e.slug} href={`/${e.slug}`} style={{ textDecoration:"none", display:"block", background:"#fff", borderRadius:20, overflow:"hidden", boxShadow:"0 2px 12px rgba(100,80,60,0.08)", border:"1px solid rgba(200,180,160,0.2)", transition:"transform 0.2s, box-shadow 0.2s" }}
+                onMouseEnter={el => { (el.currentTarget as HTMLAnchorElement).style.transform="translateY(-4px)"; (el.currentTarget as HTMLAnchorElement).style.boxShadow="0 16px 40px rgba(100,80,60,0.15)"; }}
+                onMouseLeave={el => { (el.currentTarget as HTMLAnchorElement).style.transform="none"; (el.currentTarget as HTMLAnchorElement).style.boxShadow="0 2px 12px rgba(100,80,60,0.08)"; }}>
+                <div style={{ height:160, background: e.photo ? `center/cover no-repeat url(${e.photo})` : (DEGRADE_METIER[e.metier] || "linear-gradient(145deg,#e8d4b8,#d0b890)"), position:"relative", display:"flex", alignItems:"flex-end", padding:12 }}>
+                  {e.ville && (
+                    <span style={{ background:"rgba(255,255,255,0.9)", backdropFilter:"blur(6px)", borderRadius:8, padding:"3px 10px", fontSize:11, fontWeight:600, color:"#1a1614" }}>{e.ville}</span>
+                  )}
                 </div>
                 <div style={{ padding:"16px 16px 20px" }}>
                   <div style={{ fontSize:15, fontWeight:700, color:"#1a1614", marginBottom:4 }}>{e.nom}</div>
-                  <div style={{ fontSize:12, color:"#8a7a6a", marginBottom:10 }}>{e.metier}</div>
+                  <div style={{ fontSize:12, color:"#8a7a6a", marginBottom:10 }}>{METIERS[e.metier as keyof typeof METIERS]?.label || e.metier}</div>
                   <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"#8a6a3a", fontWeight:600 }}>
-                      ★ {e.note} <span style={{ color:"#b8a898", fontWeight:400 }}>({e.avis})</span>
-                    </div>
-                    <button style={{ fontSize:11, fontWeight:600, color:"#fff", background:"#1a1614", border:"none", borderRadius:8, padding:"5px 12px", cursor:"pointer", fontFamily:"inherit" }}>
+                    {e.note !== null ? (
+                      <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:12, color:"#8a6a3a", fontWeight:600 }}>
+                        ★ {e.note} <span style={{ color:"#b8a898", fontWeight:400 }}>({e.nbAvis})</span>
+                      </div>
+                    ) : (
+                      // Pas encore d'avis : on l'assume plutôt que d'afficher zéro étoile.
+                      <div style={{ fontSize:11, fontWeight:600, color:"#b8a898", letterSpacing:"0.3px" }}>Nouveau</div>
+                    )}
+                    <span style={{ fontSize:11, fontWeight:600, color:"#fff", background:"#1a1614", borderRadius:8, padding:"5px 12px" }}>
                       Réserver
-                    </button>
+                    </span>
                   </div>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
       </section>
+      )}
 
       {/* ── POURQUOI RDVOUS ── */}
       <section className="rdv-section" style={{ background:"#f0ece5", padding:"80px 40px" }}>
