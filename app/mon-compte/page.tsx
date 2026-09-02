@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { T } from "@/lib/theme";
 import { METIERS, type Metier } from "@/lib/metiers";
 import Link from "next/link";
-import AppNavConditional from "@/app/components/AppNavConditional";
+import AppHeader from "@/app/components/AppHeader";
+import { useAccueilHref } from "@/lib/accueil";
 import { useAccentColor } from "@/lib/accent-color";
 
 type Rdv = {
@@ -81,21 +82,14 @@ function yahooUrl(rdv: Rdv): string {
   return `https://calendar.yahoo.com/?v=60&title=${encodeURIComponent(title)}&st=${dateStr}T${startTime}&et=${dateStr}T${endTime}`;
 }
 
-function downloadIcs(rdv: Rdv): void {
-  const { dateStr, startTime, endTime, title } = calendarData(rdv);
-  const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//rdvous//FR",
-    "BEGIN:VEVENT",
-    `DTSTART:${dateStr}T${startTime}`,
-    `DTEND:${dateStr}T${endTime}`,
-    `SUMMARY:${title}`,
-    "END:VEVENT", "END:VCALENDAR",
-  ].join("\r\n");
-  const blob = new Blob([ics], { type: "text/calendar" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = "rdvous.ics"; a.click();
-  URL.revokeObjectURL(url);
+
+/**
+ * Ouvre le fichier calendrier servi par le serveur. Sur mobile le système
+ * propose alors l'application de calendrier de l'utilisatrice, et contrairement
+ * au blob ci-dessus ça fonctionne dans le webview de l'application.
+ */
+function ouvrirIcs(rdv: Rdv): void {
+  window.open(`/api/rdv/ics?id=${rdv.id}`, "_blank");
 }
 
 function rebookPath(rdv: Rdv): string {
@@ -145,6 +139,7 @@ export default function MonComptePage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const accueilHref = useAccueilHref();
 
   const [avisForm, setAvisForm] = useState<Record<string, { note: number; commentaire: string }>>({});
   const [avisLoading, setAvisLoading] = useState<Record<string, boolean>>({});
@@ -195,7 +190,8 @@ export default function MonComptePage() {
   async function handleLogout() {
     const supabase = createSupabase();
     await supabase.auth.signOut();
-    router.push("/");
+    // Se déconnecter ne doit pas faire sortir de l'application.
+    router.push(accueilHref);
   }
 
 
@@ -350,6 +346,18 @@ export default function MonComptePage() {
       document.addEventListener("click", close);
       return () => document.removeEventListener("click", close);
     }, [open]);
+    // Sur un téléphone, cinq services de calendrier de bureau n'ont aucun sens :
+    // le système sait déjà quelle application ouvrir avec un fichier .ics.
+    if (isMobile) {
+      return (
+        <button onClick={e => { e.stopPropagation(); ouvrirIcs(rdv); }}
+          style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#1a73e8", background: "#fff", border: "1px solid #c5dbf7", borderRadius: 9, padding: "7px 14px", cursor: "pointer" }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Ajouter au calendrier
+        </button>
+      );
+    }
+
     return (
       <div style={{ position: "relative" }}>
         <button ref={btnRef} onClick={e => { e.stopPropagation(); setCalendarMenuOpen(open ? null : rdv.id); }}
@@ -373,7 +381,7 @@ export default function MonComptePage() {
                 {label}
               </a>
             ))}
-            <button onClick={() => { downloadIcs(rdv); setCalendarMenuOpen(null); }}
+            <button onClick={() => { ouvrirIcs(rdv); setCalendarMenuOpen(null); }}
               style={{ display: "block", width: "100%", padding: "10px 16px", fontSize: 13, color: "#2c1810", background: "none", border: "none", textAlign: "left", cursor: "pointer" }}
               onMouseEnter={e => (e.currentTarget.style.background = "#f9f5f1")}
               onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
@@ -468,8 +476,12 @@ export default function MonComptePage() {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      {/* Header */}
-      <div style={{ background: accentColor, padding: isMobile ? "20px 20px 22px" : "28px 40px 32px" }}>
+      {/* Sur mobile, la barre partagée de la coquille : l'espace client et
+          l'accueil doivent avoir exactement le même cadre. Le bandeau large est
+          conservé sur bureau, où la mise en page est différente. */}
+      <AppHeader retour retourAccueil action="parametres" />
+      {!isMobile && (
+      <div style={{ background: accentColor, padding: "28px 40px 32px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ width: 56, height: 1.5, background: "rgba(255,255,255,0.5)", marginBottom: 5 }} />
@@ -490,6 +502,7 @@ export default function MonComptePage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Top tabs, mobile uniquement */}
       {isMobile && (
@@ -599,7 +612,7 @@ export default function MonComptePage() {
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📅</div>
                 <div style={{ fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 6 }}>Aucun rendez-vous à venir</div>
                 <div style={{ fontSize: 13, color: T.muted, marginBottom: 16 }}>Prenez rendez-vous chez vos salons préférés.</div>
-                <Link href="/" style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                <Link href={accueilHref} style={{ display: "inline-block", background: T.text, color: "#fff", borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                   Trouver un salon
                 </Link>
               </div>
@@ -749,7 +762,6 @@ export default function MonComptePage() {
 
       </div>
 
-      <AppNavConditional />
 
       {/* Lightbox */}
       {lightboxUrl && (

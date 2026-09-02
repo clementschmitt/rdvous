@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getSalon } from "../page";
 import SiteHeader from "@/app/components/SiteHeader";
+import AppHeader from "@/app/components/AppHeader";
+import HorsApp from "@/app/components/HorsApp";
 import BookingWidget from "../BookingWidget";
 import { METIERS } from "@/lib/metiers";
 import Link from "next/link";
@@ -25,12 +27,18 @@ export default async function ReserverPage({ params }: { params: Promise<{ id: s
         }
       `}</style>
 
-      <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} />
+      <SiteHeader links={[{ label: "Accueil", href: "/" }, { label: "Espace pro", href: "/pro" }]} masquerDansApp />
+      <AppHeader retour capacitorSeulement action="compte" />
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "76px 16px 48px" }}>
-        <Link href={salon.slug ? `/${salon.slug}` : `/s/${salon.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#999", textDecoration: "none", marginBottom: 20, fontWeight: 500 }}>
-          ← {salon.nom}
-        </Link>
+      {/* SiteHeader porte désormais sa propre réserve d'espace, il ne reste ici
+          que la respiration au-dessus du fil d'Ariane. */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px 48px" }}>
+        {/* Dans l'application, le bouton retour de la barre fait déjà ce travail. */}
+        <HorsApp>
+          <Link href={salon.slug ? `/${salon.slug}` : `/s/${salon.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#999", textDecoration: "none", marginBottom: 20, fontWeight: 500 }}>
+            ← {salon.nom}
+          </Link>
+        </HorsApp>
 
         <div className="reserver-card" style={{ background: "#fff", borderRadius: 14, border: "1px solid #ebebeb", overflow: "hidden" }}>
           <div style={{ background: couleur, padding: "22px 28px" }}>

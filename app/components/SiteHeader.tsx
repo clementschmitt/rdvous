@@ -2,17 +2,23 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createSupabase } from "@/lib/supabase";
+import { useDansApp } from "@/lib/contexte-app";
 
 type NavItem = { label: string; href: string };
 
-export default function SiteHeader({ links = [], cta, account = true, context = "public" }: { links?: NavItem[]; cta?: NavItem; account?: boolean; context?: "public" | "pro" }) {
+/**
+ * `masquerDansApp` n'est à activer que sur les pages qui rendent AppHeader à la
+ * place. Sans ce garde-fou, la vitrine et la page pro se retrouvaient sans aucun
+ * en-tête en mode application : le composant s'effaçait sans remplaçant.
+ */
+export default function SiteHeader({ links = [], cta, account = true, context = "public", masquerDansApp = false }: { links?: NavItem[]; cta?: NavItem; account?: boolean; context?: "public" | "pro"; masquerDansApp?: boolean }) {
   const [loggedIn, setLoggedIn] = useState(false);
   const [isPro, setIsPro] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isAppMode, setIsAppMode] = useState(false);
+  // Source de vérité partagée avec AppHeader : l'un s'efface là où l'autre s'affiche.
+  const isAppMode = useDansApp() && masquerDansApp;
 
   useEffect(() => {
-    setIsAppMode(!!(window as any).Capacitor?.isNativePlatform?.());
     createSupabase().auth.getSession().then(({ data }) => {
       const user = data.session?.user;
       setLoggedIn(!!user);
@@ -34,6 +40,10 @@ export default function SiteHeader({ links = [], cta, account = true, context = 
 
   return (
     <>
+      {/* Réserve d'espace de la barre fixe, portée par le composant lui-même :
+          les pages n'ont plus à compenser, et rien ne subsiste quand la barre
+          disparaît en mode application. */}
+      <div style={{ height: 56 }} aria-hidden />
       <div style={{ height: 56, position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "#fff", boxShadow: "0 1px 0 #ebebeb" }}>
         <style>{`@media (max-width: 640px) { .sh-link { display: none !important; } .sh-burger { display: flex !important; } } @media (min-width: 641px) { .sh-burger { display: none !important; } }`}</style>
         <div style={{ maxWidth: 1200, margin: "0 auto", height: "100%", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

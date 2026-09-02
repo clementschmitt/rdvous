@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
   const [rdvsRes, favorisRes] = await Promise.all([
     admin
       .from("rendez_vous")
-      .select("id, date_heure, statut, salon_id, tarif, duree_minutes, photo_reference_url, salons(nom, slug, metier), rendez_vous_prestations(prestations(nom, tarif, sur_devis))")
+      .select("id, date_heure, statut, salon_id, tarif, duree_minutes, photo_reference_url, salons(nom, slug, metier, adresse, ville, photos), rendez_vous_prestations(prestations(nom, tarif, sur_devis, duree_minutes))")
       .in("client_id", clientIds)
       .order("date_heure", { ascending: false })
       .limit(30),

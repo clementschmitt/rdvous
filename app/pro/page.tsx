@@ -209,7 +209,7 @@ function FAQItem({ q, r }: { q: string; r: string }) {
 /* ── PAGE ── */
 export default function ProPage() {
   return (
-    <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip", paddingTop:56, boxSizing:"border-box" }}>
+    <div style={{ minHeight:"100vh", background:C.cream, fontFamily:"'Inter',system-ui,sans-serif", color:C.text, overflowX:"clip", boxSizing:"border-box" }}>
       <style>{`
         .pro-hamburger { display: none; }
         @media (max-width: 640px) {

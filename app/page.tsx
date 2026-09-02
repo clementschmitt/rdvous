@@ -82,7 +82,7 @@ export default function HomePage() {
   }
 
   return (
-    <div style={{ minHeight:"100vh", background:"#faf8f5", fontFamily:"'Inter',system-ui,sans-serif", color:"#1a1614", overflowX:"clip", paddingTop:56, boxSizing:"border-box" }}>
+    <div style={{ minHeight:"100vh", background:"#faf8f5", fontFamily:"'Inter',system-ui,sans-serif", color:"#1a1614", overflowX:"clip", boxSizing:"border-box" }}>
       <style>{`
         .rdv-hamburger { display: none; }
         @media (max-width: 640px) {

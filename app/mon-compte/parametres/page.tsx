@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { T } from "@/lib/theme";
 import { useAccentColor, ACCENT_COLORS } from "@/lib/accent-color";
+import AppHeader from "@/app/components/AppHeader";
+import HorsApp from "@/app/components/HorsApp";
+import { useAccueilHref } from "@/lib/accueil";
 
 export default function ParametresPage() {
   const router = useRouter();
@@ -13,6 +16,7 @@ export default function ParametresPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const { color: accentColor, setColor: setAccentColor } = useAccentColor();
+  const accueilHref = useAccueilHref();
 
   useEffect(() => {
     (async () => {
@@ -30,7 +34,8 @@ export default function ParametresPage() {
   async function handleLogout() {
     const supabase = createSupabase();
     await supabase.auth.signOut();
-    router.push("/");
+    // Se déconnecter ne doit pas faire sortir de l'application.
+    router.push(accueilHref);
   }
 
   async function handleReset() {
@@ -47,12 +52,16 @@ export default function ParametresPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <AppHeader retour retourAccueil />
       <div style={{ maxWidth: 480, margin: "0 auto", padding: "40px 24px 64px" }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 36 }}>
-          <Link href="/mon-compte" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", border: `1px solid ${T.border}`, color: T.text, textDecoration: "none", fontSize: 18, flexShrink: 0 }}>
-            ←
-          </Link>
+          {/* Dans l'application, le retour de la barre remplace cette flèche. */}
+          <HorsApp>
+            <Link href="/mon-compte" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: "50%", border: `1px solid ${T.border}`, color: T.text, textDecoration: "none", fontSize: 18, flexShrink: 0 }}>
+              ←
+            </Link>
+          </HorsApp>
           <h1 style={{ fontFamily: T.heading, fontSize: 26, fontWeight: 600, color: T.text, margin: 0, letterSpacing: "-0.3px" }}>Paramètres</h1>
         </div>
 

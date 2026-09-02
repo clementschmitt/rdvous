@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createSupabase } from "@/lib/supabase";
 import Link from "next/link";
 import { T } from "@/lib/theme";
+import AppHeader from "@/app/components/AppHeader";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
@@ -21,7 +22,9 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+    <div style={{ minHeight: "100vh", background: T.bg }}>
+      <AppHeader retour retourAccueil />
+      <div style={{ minHeight: "calc(100vh - 70px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <h1 style={{ fontFamily: T.heading, fontSize: 38, fontWeight: 600, color: T.text, marginBottom: 8, letterSpacing: "-0.5px" }}>rdvous</h1>
@@ -53,6 +56,7 @@ export default function ResetPasswordPage() {
         <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: T.muted }}>
           <Link href="/login" style={{ color: T.text, fontWeight: 600 }}>← Retour à la connexion</Link>
         </p>
+      </div>
       </div>
     </div>
   );

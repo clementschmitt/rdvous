@@ -4,6 +4,7 @@ import { createSupabase } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { T } from "@/lib/theme";
+import AppHeader from "@/app/components/AppHeader";
 import { Suspense } from "react";
 
 function SignupContent() {
@@ -40,7 +41,9 @@ function SignupContent() {
   }
 
   if (emailSent) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+    <div style={{ minHeight: "100vh", background: T.bg }}>
+      <AppHeader retour retourAccueil />
+      <div style={{ minHeight: "calc(100vh - 70px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px", textAlign: "center" }}>
         <h1 style={{ fontFamily: T.heading, fontSize: 38, fontWeight: 600, color: T.text, marginBottom: 8, letterSpacing: "-0.5px" }}>rdvous</h1>
         <div style={{ background: T.white, borderRadius: T.radius, padding: 36, boxShadow: T.shadowMd, border: `1px solid ${T.border}`, marginTop: 40 }}>
@@ -52,11 +55,14 @@ function SignupContent() {
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: T.bg }}>
+    <div style={{ minHeight: "100vh", background: T.bg }}>
+      <AppHeader retour retourAccueil />
+      <div style={{ minHeight: "calc(100vh - 70px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 400, padding: "0 24px" }}>
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <h1 style={{ fontFamily: T.heading, fontSize: 38, fontWeight: 600, color: T.text, marginBottom: 8, letterSpacing: "-0.5px" }}>rdvous</h1>
@@ -98,6 +104,7 @@ function SignupContent() {
           Déjà un compte ?{" "}
           <Link href="/login" style={{ color: T.text, fontWeight: 600 }}>Se connecter</Link>
         </p>
+      </div>
       </div>
     </div>
   );
