@@ -64,8 +64,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === "invoice.payment_succeeded") {
-    const invoice = event.data.object as Stripe.Invoice & { subscription?: string | null };
-    const sub = invoice.subscription;
+    // Depuis l'API 2026-04-22, l'abonnement n'est plus à la racine de la facture
+    // mais dans parent.subscription_details. On lit les deux pour rester compatible.
+    const invoice = event.data.object as Stripe.Invoice & {
+      subscription?: string | null;
+      parent?: { subscription_details?: { subscription?: string | null } } | null;
+    };
+    const sub = invoice.subscription ?? invoice.parent?.subscription_details?.subscription ?? null;
     if (sub && invoice.billing_reason === "subscription_cycle") {
       // Renouvellement mensuel : les crédits sont REMIS au quota du plan, sans report
       // du mois précédent. Un reliquat non consommé est perdu.
