@@ -157,12 +157,17 @@ export async function POST(req: NextRequest) {
         if (disponible < segments) {
           console.warn("SMS: crédits insuffisants pour", segments, "segment(s) pour", salon_id);
         } else {
-          await sendSMS({
+          // Rien n'est débité si le numéro est inexploitable : aucun SMS n'est parti.
+          const envoye = await sendSMS({
             to: telephone,
             content: texteSms,
             sender: settings?.sms_expediteur || salonData?.nom || undefined,
           });
-          await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id, p_amount: segments });
+          if (envoye) {
+            await admin.rpc("decrement_sms_credits", { p_salon_id: salon_id, p_amount: segments });
+          } else {
+            console.warn("SMS: confirmation non envoyée, numéro inexploitable pour le salon", salon_id);
+          }
         }
       } catch (smsErr) {
         console.error("SMS confirmation failed:", smsErr);

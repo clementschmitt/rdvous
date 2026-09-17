@@ -72,15 +72,26 @@ function normalizePhone(tel: string): string | null {
   return null;
 }
 
+/**
+ * Envoie un SMS et dit s'il est réellement parti.
+ *
+ * Renvoie `false` quand le numéro est inexploitable : rien n'a été envoyé, et
+ * l'appelant ne doit donc rien débiter. Un numéro mal saisi faisait auparavant
+ * sortir la fonction sans bruit, ce que les appelants prenaient pour un succès :
+ * le salon perdait un crédit et la cliente ne recevait jamais son rappel.
+ *
+ * Un refus de l'opérateur reste une exception : c'est presque toujours notre
+ * propre solde Brevo épuisé, et l'appelant doit alors interrompre ses envois.
+ */
 export async function sendSMS({ to, content, sender }: {
   to: string;
   content: string;
   sender?: string;
-}): Promise<void> {
+}): Promise<boolean> {
   const recipient = normalizePhone(to);
   if (!recipient) {
     console.error("SMS: numéro invalide", to);
-    return;
+    return false;
   }
   const senderName = (sender || "rdvous").replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "rdvous";
   // Normalisation systématique : c'est le seul endroit qui garantit que tous les
@@ -99,6 +110,7 @@ export async function sendSMS({ to, content, sender }: {
     console.error("Brevo SMS error:", res.status, errText);
     throw new Error(`Brevo SMS ${res.status}: ${errText}`);
   }
+  return true;
 }
 
 export function smsConfirmation({ prenom, salonNom, dateStr, heureStr, contenu }: {

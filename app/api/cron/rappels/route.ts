@@ -33,6 +33,9 @@ export async function GET(req: NextRequest) {
   let pushEnvoyes = 0;
   // Rappels poussés gratuitement là où un SMS aurait été facturé au salon.
   let smsEconomises = 0;
+  // Numéros que l'opérateur ne peut pas joindre : la cliente ne reçoit rien et le
+  // salon n'est pas débité. Compté à part des échecs, qui eux signalent une panne.
+  let numerosInvalides = 0;
   let echecs = 0;
   // Passe à true dès qu'un envoi SMS échoue : c'est presque toujours un solde
   // Brevo épuisé, et réessayer consommerait un crédit du salon à chaque RDV
@@ -110,13 +113,21 @@ export async function GET(req: NextRequest) {
 
       if (disponible >= segments) {
         try {
-          await sendSMS({
+          // Un numéro inexploitable n'est pas une panne d'envoi : on ne débite pas,
+          // on ne coupe pas les rappels suivants, mais on le compte pour que le
+          // silence devienne visible dans la réponse du cron.
+          const envoye = await sendSMS({
             to: client.telephone,
             content: texteSms,
             sender: salonCfg?.sms_expediteur || salon?.nom || undefined,
           });
-          await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id, p_amount: segments });
-          smsEnvoyes += segments;
+          if (envoye) {
+            await admin.rpc("decrement_sms_credits", { p_salon_id: rdv.salon_id, p_amount: segments });
+            smsEnvoyes += segments;
+          } else {
+            console.warn("Rappel non envoyé, numéro inexploitable pour le RDV", rdv.id);
+            numerosInvalides++;
+          }
         } catch (e) {
           console.error("SMS de rappel échoué, SMS coupés pour ce passage:", e);
           smsIndisponible = true;
@@ -127,5 +138,5 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ ok: true, sent, emails: emailsEnvoyes, push: pushEnvoyes, sms: smsEnvoyes, sms_economises: smsEconomises, echecs, sms_interrompus: smsIndisponible });
+  return NextResponse.json({ ok: true, sent, emails: emailsEnvoyes, push: pushEnvoyes, sms: smsEnvoyes, sms_economises: smsEconomises, numeros_invalides: numerosInvalides, echecs, sms_interrompus: smsIndisponible });
 }
