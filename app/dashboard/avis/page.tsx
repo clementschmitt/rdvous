@@ -29,6 +29,7 @@ export default function AvisDashboardPage() {
   const salon = useSalon();
   const [avis, setAvis] = useState<Avis[]>([]);
   const [loading, setLoading] = useState(true);
+  const [voirMasques, setVoirMasques] = useState(false);
 
   useEffect(() => {
     if (!salon) return;
@@ -58,13 +59,20 @@ export default function AvisDashboardPage() {
   const m = METIERS[salon.metier];
 
   const avecNote = avis.filter(a => a.note !== null);
-  const moyenne = avecNote.length > 0
-    ? avecNote.reduce((s, a) => s + (a.note || 0), 0) / avecNote.length
+
+  // Les avis masqués sont retirés de la vitrine et de la note publique : la
+  // moyenne affichée ici compte donc les mêmes avis, sinon le tableau de bord
+  // annoncerait une note différente de celle que voient les clientes.
+  const visibles = avecNote.filter(a => a.statut !== "masque");
+  const masques = avecNote.filter(a => a.statut === "masque");
+
+  const moyenne = visibles.length > 0
+    ? visibles.reduce((s, a) => s + (a.note || 0), 0) / visibles.length
     : null;
 
   const dist = [5, 4, 3, 2, 1].map(n => ({
     note: n,
-    count: avecNote.filter(a => a.note === n).length,
+    count: visibles.filter(a => a.note === n).length,
   }));
 
   return (
@@ -84,9 +92,9 @@ export default function AvisDashboardPage() {
           {/* Résumé */}
           <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #ebebeb", padding: "20px 24px", marginBottom: 20, display: "flex", gap: 32, alignItems: "center", flexWrap: "wrap" }}>
             <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 44, fontWeight: 800, color: "#1a1a1a", lineHeight: 1 }}>{moyenne!.toFixed(1).replace(".", ",")}</div>
-              <Etoiles note={Math.round(moyenne!)} size={18} />
-              <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>{avecNote.length} avis</div>
+              <div style={{ fontSize: 44, fontWeight: 800, color: "#1a1a1a", lineHeight: 1 }}>{moyenne !== null ? moyenne.toFixed(1).replace(".", ",") : "—"}</div>
+              <Etoiles note={Math.round(moyenne || 0)} size={18} />
+              <div style={{ fontSize: 12, color: "#aaa", marginTop: 4 }}>{visibles.length} avis publiés</div>
             </div>
             <div style={{ flex: 1, minWidth: 160 }}>
               {dist.map(d => (
@@ -102,9 +110,11 @@ export default function AvisDashboardPage() {
             </div>
           </div>
 
-          {/* Liste */}
+          {/* Liste des avis publiés. Les masqués sont repliés plus bas : une
+              professionnelle n'a pas à relire chaque jour un avis qu'elle a
+              choisi de retirer. */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {avis.map(a => {
+            {visibles.map(a => {
               const rdv = a.rendez_vous as unknown as { date_heure: string; clients: { prenom: string; nom: string } | null } | null;
               const client = rdv?.clients;
               const dateRdv = rdv?.date_heure ? new Date(rdv.date_heure).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—";
@@ -133,6 +143,51 @@ export default function AvisDashboardPage() {
               );
             })}
           </div>
+
+          {masques.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <button
+                onClick={() => setVoirMasques(v => !v)}
+                style={{ background: "none", border: "1px solid #ebebeb", borderRadius: 8, padding: "9px 16px", fontSize: 13, color: "#888", cursor: "pointer" }}>
+                {voirMasques ? "Masquer" : "Afficher"} les avis retirés ({masques.length})
+              </button>
+
+              {voirMasques && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+                  <p style={{ fontSize: 12.5, color: "#aaa", margin: 0 }}>
+                    Ces avis n'apparaissent ni sur votre page publique ni dans votre note. Vous pouvez les republier à tout moment.
+                  </p>
+                  {masques.map(a => {
+                    const rdv = a.rendez_vous as unknown as { date_heure: string; clients: { prenom: string; nom: string } | null } | null;
+                    const client = rdv?.clients;
+                    const dateRdv = rdv?.date_heure ? new Date(rdv.date_heure).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "—";
+                    return (
+                      <div key={a.id} style={{ background: "#fafafa", borderRadius: 10, border: "1px solid #ebebeb", padding: "16px 20px", opacity: 0.7 }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                              <Etoiles note={a.note!} />
+                              <span style={{ fontSize: 12, color: "#bbb" }}>· {dateRdv}</span>
+                              {client && <span style={{ fontSize: 13, fontWeight: 600, color: "#555" }}>{client.prenom} {client.nom}</span>}
+                            </div>
+                            {a.commentaire && (
+                              <p style={{ margin: 0, fontSize: 14, color: "#444", lineHeight: 1.6 }}>{a.commentaire}</p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => toggleStatut(a)}
+                            title="Republier cet avis"
+                            style={{ flexShrink: 0, background: "none", border: "1px solid #e0e0e0", borderRadius: 7, padding: "5px 12px", fontSize: 11, cursor: "pointer", color: "#aaa", whiteSpace: "nowrap" }}>
+                            Republier
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
     </div>
