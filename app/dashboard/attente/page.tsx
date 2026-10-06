@@ -42,7 +42,14 @@ export default function ListeAttentePage() {
   const [planHeure, setPlanHeure] = useState("");
   const [planError, setPlanError] = useState("");
   const [savingPlan, setSavingPlan] = useState(false);
-  const CRENEAUX = Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`);
+  const [conflit, setConflit] = useState(false);
+
+  // 08:00 à 22:45 par quart d'heure. La demi-heure ne suffit pas : une pose ou
+  // une retouche se cale souvent à 9h15 ou à 14h45.
+  const CRENEAUX = Array.from({ length: 60 }, (_, i) => {
+    const total = 8 * 60 + i * 15;
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  });
 
   async function load() {
     if (!salon) return;
@@ -71,9 +78,13 @@ export default function ListeAttentePage() {
     setPlanError("");
   }
 
-  async function planifierRdv() {
+  // `forcer` autorise un rendez-vous qui chevauche un créneau déjà pris. C'est
+  // interdit à la réservation publique, où le chevauchement est toujours une
+  // erreur, mais la professionnelle sait ce qu'elle fait : temps de séchage,
+  // deux clientes en parallèle, rattrapage d'un retard.
+  async function planifierRdv(forcer = false) {
     if (!planningEntry || !planDate || !planHeure || !salon) return;
-    setSavingPlan(true); setPlanError("");
+    setSavingPlan(true); setPlanError(""); setConflit(false);
     const supabase = createSupabase();
 
     // Trouver ou créer le client
@@ -89,27 +100,51 @@ export default function ListeAttentePage() {
 
     // Créer le RDV, via create_rdv_safe pour bloquer les créneaux déjà occupés
     const duree = planningEntry.prestation_ids.reduce((s, pid) => s + (prestDurees[pid] || 0), 0) || 60;
-    const { data: rdvId, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
-      p_salon_id: salon.id,
-      p_client_id: clientId,
-      p_date_heure: `${planDate}T${planHeure}:00`,
-      p_duree_minutes: duree,
-      p_statut: "planifie",
-      p_cancel_token: crypto.randomUUID(),
-      p_adresse_domicile: null,
-      p_notes: null,
-      p_tarif: null,
-      p_montant_cagnotte_utilise: null,
-      p_source: "salon",
-    });
-    if (rdvErr || !rdvId) {
-      setPlanError(
-        rdvErr?.message?.includes("CONFLIT_CRENEAU")
-          ? "Ce créneau chevauche un rendez-vous existant. Choisissez une autre heure."
-          : "Erreur lors de la création du rendez-vous."
-      );
-      setSavingPlan(false);
-      return;
+    let rdvId: string | null = null;
+
+    if (forcer) {
+      // Insertion directe, sans le garde-fou : le chevauchement est assumé.
+      const { data, error } = await supabase.from("rendez_vous").insert({
+        salon_id: salon.id,
+        client_id: clientId,
+        date_heure: `${planDate}T${planHeure}:00`,
+        duree_minutes: duree,
+        statut: "planifie",
+        cancel_token: crypto.randomUUID(),
+        source: "salon",
+      }).select("id").single();
+      if (error || !data) {
+        setPlanError("Erreur lors de la création du rendez-vous.");
+        setSavingPlan(false);
+        return;
+      }
+      rdvId = data.id;
+    } else {
+      const { data, error: rdvErr } = await supabase.rpc("create_rdv_safe", {
+        p_salon_id: salon.id,
+        p_client_id: clientId,
+        p_date_heure: `${planDate}T${planHeure}:00`,
+        p_duree_minutes: duree,
+        p_statut: "planifie",
+        p_cancel_token: crypto.randomUUID(),
+        p_adresse_domicile: null,
+        p_notes: null,
+        p_tarif: null,
+        p_montant_cagnotte_utilise: null,
+        p_source: "salon",
+      });
+      if (rdvErr || !data) {
+        const chevauche = rdvErr?.message?.includes("CONFLIT_CRENEAU") ?? false;
+        setConflit(chevauche);
+        setPlanError(
+          chevauche
+            ? "Ce créneau chevauche un rendez-vous existant."
+            : "Erreur lors de la création du rendez-vous."
+        );
+        setSavingPlan(false);
+        return;
+      }
+      rdvId = data as string;
     }
 
     // Lier les prestations
@@ -282,9 +317,15 @@ export default function ListeAttentePage() {
               </div>
             </div>
             {planError && <div style={{ marginTop: 12, fontSize: 13, color: "#dc2626" }}>{planError}</div>}
+            {conflit && (
+              <button onClick={() => planifierRdv(true)} disabled={savingPlan}
+                style={{ marginTop: 10, width: "100%", padding: "10px", background: "#fff", color: "#c2410c", border: "1px solid #fed7aa", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                Planifier quand même sur ce créneau
+              </button>
+            )}
             <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
               <button onClick={() => setPlanningEntry(null)} style={{ flex: 1, padding: "10px", background: "#f0f0f0", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Annuler</button>
-              <button onClick={planifierRdv} disabled={savingPlan || !planDate || !planHeure}
+              <button onClick={() => planifierRdv()} disabled={savingPlan || !planDate || !planHeure}
                 style={{ flex: 2, padding: "10px", background: m.couleur, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (!planDate || !planHeure || savingPlan) ? 0.5 : 1 }}>
                 {savingPlan ? "Création..." : "Créer le rendez-vous"}
               </button>

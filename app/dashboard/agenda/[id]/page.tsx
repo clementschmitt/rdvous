@@ -322,7 +322,7 @@ export default function RDVDetailPage() {
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   <input type="date" value={newDate} onChange={e => setNewDate(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 14 }} />
                   <select value={newHeure} onChange={e => setNewHeure(e.target.value)} style={{ padding: "8px 10px", border: "1px solid #e0e0e0", borderRadius: 6, fontSize: 14 }}>
-                    {Array.from({ length: 30 }, (_, i) => `${String(8 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 === 0 ? "00" : "30"}`).map(h => <option key={h} value={h}>{h}</option>)}
+                    {Array.from({ length: 60 }, (_, i) => { const t = 8 * 60 + i * 15; return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`; }).map(h => <option key={h} value={h}>{h}</option>)}
                   </select>
                 </div>
                 {rdv?.clients?.email && (
