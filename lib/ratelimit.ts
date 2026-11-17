@@ -22,6 +22,16 @@ export const holdLimiter = new Ratelimit({
   prefix: "rl:hold",
 });
 
+// Consultation des créneaux, une requête par semaine affichée : 300 par IP sur 10 minutes.
+// Volontairement large, les clientes sur réseau mobile partagent souvent une même IP
+// (le 21/10/2026, une IP d'opérateur a envoyé 1 500 requêtes en une heure, sans malveillance).
+// Le but est d'arrêter un script qui boucle, pas une cliente qui hésite.
+export const slotsLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(300, "10 m"),
+  prefix: "rl:slots",
+});
+
 // 10 tentatives d'inscription par IP par heure
 export const signupLimiter = new Ratelimit({
   redis,

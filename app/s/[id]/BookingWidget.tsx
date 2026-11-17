@@ -288,11 +288,24 @@ export default function BookingWidget({
 
   async function loadWeekSlots() {
     setLoadingSlots(true); setChoix(null);
-    const results = await Promise.all(weekDays.map(d => {
+    // Un seul appel pour la semaine entière. Avant le 21/10/2026, un appel par jour affiché :
+    // 7 appels et 49 requêtes en base par semaine, ce qui a saturé la base pendant un rush.
+    type Jour = { slots?: string[]; blocked?: string[]; verrouilles?: string[] };
+    let jours: Record<string, Jour> = {};
+    try {
+      const res = await fetch(`/api/booking/slots?salon_id=${salonId}&debut=${toISO(weekDays[0])}&jours=7&duree=${dureeTotal}&cle=${encodeURIComponent(cleSession())}`);
+      const j = await res.json();
+      if (!res.ok) setError(j.error || "Impossible de charger les disponibilités, réessayez dans un instant.");
+      jours = j.jours || {};
+    } catch (e) {
+      console.error("Chargement des créneaux échoué", e);
+      setError("Impossible de charger les disponibilités, vérifiez votre connexion.");
+    }
+    const results = weekDays.map(d => {
       const iso = toISO(d);
-      return fetch(`/api/booking/slots?salon_id=${salonId}&date=${iso}&duree=${dureeTotal}&cle=${encodeURIComponent(cleSession())}`)
-        .then(r => r.json()).then(j => ({ date: iso, slots: (j.slots || []) as string[], blocked: (j.blocked || []) as string[], verrouilles: (j.verrouilles || []) as string[] }));
-    }));
+      const jour = jours[iso] || {};
+      return { date: iso, slots: jour.slots || [], blocked: jour.blocked || [], verrouilles: jour.verrouilles || [] };
+    });
     const map: Record<string, string[]> = {};
     const bmap: Record<string, string[]> = {};
     const vmap: Record<string, string[]> = {};
