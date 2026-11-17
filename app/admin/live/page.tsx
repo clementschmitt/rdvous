@@ -11,7 +11,8 @@ const REFRESH_INTERVAL = 30;
 type Salon = { id: string; nom: string; metier: string };
 type StatBlock = { total: number; client: number; salon: number };
 type RecentRdv = { id: string; date_heure: string; statut: string; source: string; created_at: string; clients: { prenom: string; nom: string; email: string | null } | null };
-type RdvEvent = { id: string; type: string; old_date_heure: string; new_date_heure: string; client_prenom: string | null; client_nom: string | null; created_at: string };
+// type : « deplacement », ou « annulation_lien » / « annulation_compte » depuis le 17/11/2026 (new_date_heure vide)
+type RdvEvent = { id: string; type: string; old_date_heure: string; new_date_heure: string | null; client_prenom: string | null; client_nom: string | null; created_at: string };
 type GlobalRdv = { id: string; date_heure: string; statut: string; source: string; created_at: string; salons: { nom: string; metier: string } | null; clients: { prenom: string; nom: string; email: string | null; telephone: string | null } | null };
 type AuthUser = { id: string; email: string; created_at: string; user_type: string; confirmed: boolean };
 
@@ -260,17 +261,19 @@ export default function LivePage() {
               {events.length > 0 && (
                 <div style={{ marginTop: 32 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
-                    Déplacements récents ({events.length})
+                    Déplacements et annulations récents ({events.length})
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {events.map(e => (
-                      <div key={e.id} style={{ background: T.white, borderRadius: 12, border: `1px solid ${T.border}`, borderLeft: "3px solid #8b5cf6", padding: "12px 14px" }}>
+                      <div key={e.id} style={{ background: T.white, borderRadius: 12, border: `1px solid ${T.border}`, borderLeft: `3px solid ${e.type.startsWith("annulation") ? "#ef4444" : "#8b5cf6"}`, padding: "12px 14px" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{e.client_prenom} {e.client_nom}</span>
                           <span style={{ fontSize: 11, color: T.muted }}>{timeAgo(e.created_at)}</span>
                         </div>
                         <div style={{ fontSize: 12, color: T.muted }}>
-                          {e.old_date_heure.slice(0, 16).replace("T", " à ")} → {e.new_date_heure.slice(0, 16).replace("T", " à ")}
+                          {e.type.startsWith("annulation")
+                            ? `Annulé ${e.type === "annulation_compte" ? "depuis l'espace client" : "par le lien du mail"} : ${e.old_date_heure.slice(0, 16).replace("T", " à ")}`
+                            : `${e.old_date_heure.slice(0, 16).replace("T", " à ")} → ${(e.new_date_heure || "").slice(0, 16).replace("T", " à ")}`}
                         </div>
                       </div>
                     ))}

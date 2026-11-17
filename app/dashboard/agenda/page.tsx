@@ -1093,7 +1093,9 @@ function VueSemaineTimeline({ salonId, weekDays, rdvs, evenements, couleur, toda
       <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#1a1a1a", color: "#fff", borderRadius: 10, padding: "14px 20px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 4px 20px rgba(0,0,0,0.25)", zIndex: 9999, fontSize: 14 }}>
         <span>RDV déplacé. Prévenir le client ?</span>
         <button onClick={async () => {
-          await fetch("/api/rdv/deplacer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...notifyDrag, notify: true }) });
+          // Le RDV est déjà déplacé : on demande seulement l'envoi du mail (pas de second déplacement ni de doublon au journal).
+          const res = await fetch("/api/rdv/deplacer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...notifyDrag, notify: true, notifier_seulement: true }) });
+          if (!res.ok) window.alert("Le mail à la cliente n'a pas pu être envoyé.");
           setNotifyDrag(null);
         }} style={{ background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Oui</button>
         <button onClick={() => setNotifyDrag(null)} style={{ background: "transparent", color: "#aaa", border: "1px solid #444", borderRadius: 6, padding: "6px 14px", fontSize: 13, cursor: "pointer" }}>Non</button>

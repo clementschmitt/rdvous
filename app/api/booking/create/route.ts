@@ -5,6 +5,7 @@ import { sendSMS, smsConfirmation, analyserSms } from "@/lib/sms";
 import { bookingLimiter, getIP } from "@/lib/ratelimit";
 import { envoyerPush } from "@/lib/push";
 import { normalizePhone, normalizeEmail } from "@/lib/normalize";
+import { adresseDeLaPro, adresseValide } from "@/lib/adresse-pro";
 
 export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV !== "development") {
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
         subject: settings?.email_confirmation_objet || `Confirmation de votre rendez-vous, ${salonData?.nom || "rdvous"}`,
         html: templateConfirmation({ prenom: clientData.prenom, salonNom: salonData?.nom || "", dateStr, heureStr, prestations: prestationsData, contenu: settings?.message_confirmation || undefined, cancelToken }),
         fromName: settings?.email_expediteur_nom || salonData?.nom || "rdvous",
-        replyTo: settings?.email_expediteur || undefined,
+        replyTo: adresseValide(settings?.email_expediteur) || undefined,
       });
     }
 
@@ -178,14 +179,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Notification nouveau RDV à l'artisan
-    let artisanEmail = settings?.email_reception?.trim() || settings?.email_expediteur?.trim() || null;
-    if (!artisanEmail) {
-      const { data: su } = await admin.from("salon_users").select("user_id").eq("salon_id", salon_id).limit(1).single();
-      if (su?.user_id) {
-        const { data: { user: authUser } } = await admin.auth.admin.getUserById(su.user_id);
-        artisanEmail = authUser?.email || null;
-      }
-    }
+    const artisanEmail = await adresseDeLaPro(admin, salon_id, settings);
     if (artisanEmail && fullRdv) {
       await sendEmail({
         to: artisanEmail,
@@ -201,7 +195,8 @@ export async function POST(req: NextRequest) {
     // qui croît linéairement avec le nombre de salons. La page /admin/live donne
     // déjà cette information en temps réel.
   } catch (e) {
-    console.error("Confirmation email failed:", e);
+    // Ce bloc couvre la confirmation à la cliente ET l'alerte à la professionnelle
+    console.error("Réservation : envoi des notifications échoué :", e);
   }
 
   return NextResponse.json({ ok: true, rdv_id: rdv.id });

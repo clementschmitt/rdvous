@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
 import { bookingLimiter, getIP } from "@/lib/ratelimit";
+import { adresseDeLaPro, adresseValide } from "@/lib/adresse-pro";
 
 export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV !== "development") {
@@ -63,19 +64,12 @@ export async function POST(req: NextRequest) {
         <p style="font-size:13px;color:#888;margin-top:24px">À bientôt !</p>
       </div>`,
       fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
-      replyTo: settings?.email_expediteur || undefined,
+      replyTo: adresseValide(settings?.email_expediteur) || undefined,
     });
 
     // Notification au salon : sans elle, personne ne sait qu'un client attend.
     // Même résolution de destinataire que pour les notifications de réservation.
-    let artisanEmail = settings?.email_reception?.trim() || settings?.email_expediteur?.trim() || null;
-    if (!artisanEmail) {
-      const { data: su } = await admin.from("salon_users").select("user_id").eq("salon_id", salon_id).limit(1).single();
-      if (su?.user_id) {
-        const { data: { user: authUser } } = await admin.auth.admin.getUserById(su.user_id);
-        artisanEmail = authUser?.email || null;
-      }
-    }
+    const artisanEmail = await adresseDeLaPro(admin, salon_id, settings);
 
     if (artisanEmail) {
       const { data: prestas } = ids.length

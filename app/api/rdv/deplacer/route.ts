@@ -3,7 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { sendEmail, templateDeplacement } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
-  const { rdv_id, old_date_heure, new_date, new_heure, notify, force } = await req.json();
+  // notifier_seulement : le rendez-vous est déjà déplacé (glisser-déposer), on envoie seulement le mail à la cliente.
+  // Avant le 17/11/2026, ce second appel redéplaçait le RDV, doublait la ligne du journal et, sans « force »,
+  // était refusé sur un chevauchement assumé : la cliente n'était alors jamais prévenue.
+  const { rdv_id, old_date_heure, new_date, new_heure, notify, force, notifier_seulement } = await req.json();
   if (!rdv_id || !new_date || !new_heure) return NextResponse.json({ error: "Paramètres manquants" }, { status: 400 });
 
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
@@ -16,8 +19,13 @@ export async function POST(req: NextRequest) {
 
   if (!rdv) return NextResponse.json({ error: "RDV introuvable" }, { status: 404 });
 
+  // Déjà à cette heure : second clic, ou nouvel essai après une erreur. On n'écrit rien une seconde fois
+  // (vu le 17/11/2026 : deux lignes identiques au journal à 4 secondes d'écart).
+  const dejaDeplace = rdv.date_heure.slice(0, 16) === `${new_date}T${new_heure}`;
+  const ecrire = !notifier_seulement && !dejaDeplace;
+
   // Vérification de conflit : le créneau cible ne doit chevaucher aucun autre RDV du salon
-  if (!force) {
+  if (!force && ecrire) {
     const debut = minutes(new_heure);
     const fin = debut + dureeDe(rdv.duree_minutes, rdv.rendez_vous_prestations as unknown as PrestaLien[]);
 
@@ -35,8 +43,10 @@ export async function POST(req: NextRequest) {
       const aFin = aDebut + dureeDe(autre.duree_minutes, autre.rendez_vous_prestations);
       if (aDebut < fin && aFin > debut) {
         const nom = `${autre.clients?.prenom || ""} ${autre.clients?.nom || ""}`.trim() || "un autre client";
+        // Le débordement est chiffré pour qu'on ne confirme pas sans lire (cas du 13/11/2026 : 15 min sur une cliente).
+        const debordement = Math.min(fin, aFin) - Math.max(debut, aDebut);
         return NextResponse.json(
-          { error: `Ce créneau chevauche le rendez-vous de ${nom} à ${autre.date_heure.slice(11, 16)}.`, code: "CONFLIT_CRENEAU" },
+          { error: `Ce créneau déborde de ${debordement} min sur le rendez-vous de ${nom} à ${autre.date_heure.slice(11, 16)}.`, code: "CONFLIT_CRENEAU" },
           { status: 409 }
         );
       }
@@ -47,18 +57,26 @@ export async function POST(req: NextRequest) {
   const ancienDateStr = new Date(ancienSource).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const ancienHeureStr = ancienSource.slice(11, 16);
 
-  await admin.from("rendez_vous").update({ date_heure: `${new_date}T${new_heure}:00` }).eq("id", rdv_id);
-
   const client = rdv.clients as unknown as { prenom: string; nom: string; email: string | null } | null;
-  await admin.from("rdv_events").insert({
-    salon_id: rdv.salon_id,
-    rdv_id,
-    type: "deplacement",
-    old_date_heure: ancienSource,
-    new_date_heure: `${new_date}T${new_heure}:00`,
-    client_prenom: client?.prenom || null,
-    client_nom: client?.nom || null,
-  });
+
+  if (ecrire) {
+    const { error: majErr } = await admin.from("rendez_vous").update({ date_heure: `${new_date}T${new_heure}:00` }).eq("id", rdv_id);
+    if (majErr) {
+      console.error("Déplacement : écriture en base échouée", majErr);
+      return NextResponse.json({ error: "Le déplacement n'a pas pu être enregistré." }, { status: 500 });
+    }
+
+    const { error: journalErr } = await admin.from("rdv_events").insert({
+      salon_id: rdv.salon_id,
+      rdv_id,
+      type: "deplacement",
+      old_date_heure: ancienSource,
+      new_date_heure: `${new_date}T${new_heure}:00`,
+      client_prenom: client?.prenom || null,
+      client_nom: client?.nom || null,
+    });
+    if (journalErr) console.error("Déplacement : journal non écrit", journalErr);
+  }
 
   if (notify) {
     const salon = rdv.salons as unknown as { nom: string } | null;
@@ -74,6 +92,9 @@ export async function POST(req: NextRequest) {
         .eq("salon_id", rdv.salon_id)
         .single();
 
+      // Le rendez-vous est déjà déplacé à ce stade : un mail qui échoue ne doit pas faire croire le
+      // contraire à la pro, sinon elle réessaie et le déplacement s'écrit deux fois.
+      try {
       await sendEmail({
         to: client.email,
         toName: client.prenom,
@@ -90,6 +111,10 @@ export async function POST(req: NextRequest) {
         fromName: settings?.email_expediteur_nom || salon?.nom || "rdvous",
         replyTo: settings?.email_expediteur || undefined,
       });
+      } catch (e) {
+        console.error("Déplacement : mail à la cliente échoué", e);
+        return NextResponse.json({ ok: true, mail_envoye: false });
+      }
     }
   }
 

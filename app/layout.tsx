@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import "./globals.css";
 import { AccentColorProvider } from "@/lib/accent-color";
@@ -41,7 +42,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             plutôt que dans /app : la coquille navigue aussi vers /mon-compte et
             vers les fiches salon. */}
         <PushNotifications />
-        <script dangerouslySetInnerHTML={{ __html: `if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }` }} />
+        {/* next/script plutôt qu'une balise <script> brute : React 19 signale ces dernières en développement. */}
+        <Script id="sw-register" strategy="afterInteractive">{`if ('serviceWorker' in navigator) { navigator.serviceWorker.register('/sw.js'); }`}</Script>
       </body>
     </html>
   );

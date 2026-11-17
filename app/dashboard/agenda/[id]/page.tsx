@@ -148,9 +148,52 @@ export default function RDVDetailPage() {
     });
   }
 
+  // Cherche un autre rendez-vous du jour que ce rendez-vous chevaucherait avec la durée donnée.
+  // Les heures sont comparées telles qu'enregistrées (heure locale stockée dans date_heure), comme /api/rdv/deplacer.
+  async function trouverChevauchement(dateHeure: string, dureeMinutes: number) {
+    const versMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+    const jour = dateHeure.slice(0, 10);
+    const debut = versMinutes(dateHeure.slice(11, 16));
+    const fin = debut + dureeMinutes;
+    const { data: autres } = await createSupabase()
+      .from("rendez_vous")
+      .select("id, date_heure, duree_minutes, clients(prenom, nom)")
+      .eq("salon_id", salon!.id)
+      .neq("id", id)
+      .neq("statut", "annule")
+      .gte("date_heure", `${jour}T00:00:00`)
+      .lte("date_heure", `${jour}T23:59:59`);
+    for (const a of (autres || []) as unknown as { date_heure: string; duree_minutes: number | null; clients: { prenom: string; nom: string } | null }[]) {
+      const aDebut = versMinutes(a.date_heure.slice(11, 16));
+      const aFin = aDebut + (a.duree_minutes || 60);
+      if (aDebut < fin && aFin > debut) {
+        return {
+          nom: `${a.clients?.prenom || ""} ${a.clients?.nom || ""}`.trim() || "un autre client",
+          heure: a.date_heure.slice(11, 16),
+          minutes: Math.min(fin, aFin) - Math.max(debut, aDebut),
+        };
+      }
+    }
+    return null;
+  }
+
   async function savePrestations() {
     if (!rdv) return;
     setSaving(true);
+
+    // Allonger un rendez-vous peut le faire déborder sur le suivant : on prévient avant d'enregistrer.
+    // Le 13/11/2026, une prestation ajoutée après une réservation en ligne a créé un double rendez-vous sans alerte.
+    const nouvelleDuree = allPrestations.filter(p => selectedIds.has(p.id)).reduce((s, p) => s + p.duree_minutes, 0);
+    if (rdv.statut !== "annule" && nouvelleDuree > 0) {
+      const conflit = await trouverChevauchement(rdv.date_heure, nouvelleDuree);
+      if (conflit && !window.confirm(
+        `Avec ces prestations (${nouvelleDuree} min), ce rendez-vous déborde de ${conflit.minutes} min sur celui de ${conflit.nom} à ${conflit.heure}. Enregistrer quand même ?`
+      )) {
+        setSaving(false);
+        return;
+      }
+    }
+
     const supabase = createSupabase();
     await supabase.from("rendez_vous_prestations").delete().eq("rendez_vous_id", id);
     if (selectedIds.size > 0) {
@@ -253,11 +296,24 @@ export default function RDVDetailPage() {
 
   async function saveDateHeure() {
     setSaving(true);
-    await fetch("/api/rdv/deplacer", {
+    const envoyer = (force: boolean) => fetch("/api/rdv/deplacer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rdv_id: id, old_date_heure: rdv?.date_heure, new_date: newDate, new_heure: newHeure, notify: notifyClient && !!rdv?.clients?.email }),
+      body: JSON.stringify({ rdv_id: id, old_date_heure: rdv?.date_heure, new_date: newDate, new_heure: newHeure, notify: notifyClient && !!rdv?.clients?.email, force }),
     });
+    // Le serveur refuse un créneau qui chevauche (409) : avant le 17/11/2026, ce refus était ignoré,
+    // la page se rechargeait sans rien dire et le rendez-vous restait à son ancienne heure.
+    let res = await envoyer(false);
+    if (res.status === 409) {
+      const { error } = await res.json();
+      if (!window.confirm(`${error} Déplacer quand même ?`)) { setSaving(false); return; }
+      res = await envoyer(true);
+    }
+    if (!res.ok) {
+      window.alert("Le déplacement n'a pas pu être enregistré. Réessayez.");
+      setSaving(false);
+      return;
+    }
     setEditingDateHeure(false);
     load();
     setSaving(false);

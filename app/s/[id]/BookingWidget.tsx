@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { formatPrix } from "@/lib/prix";
 import { createSupabase } from "@/lib/supabase";
+import { suggererEmail } from "@/lib/suggestion-email";
 
 type Prestation = { id: string; nom: string; duree_minutes: number; tarif: number; sur_devis?: boolean; categorie_id?: string | null; description?: string | null };
 type Category = { id: string; nom: string; selection_type: "unique" | "multiple" | "libre" };
@@ -49,12 +50,31 @@ export default function BookingWidget({
   const CRENEAUX = Array.from({ length: endSlot - startSlot + 1 }, (_, i) => { const total = startSlot + i; return `${String(Math.floor(total / 2)).padStart(2, "0")}:${total % 2 === 0 ? "00" : "30"}`; });
   const [step, setStep] = useState<"select" | "contact" | "done" | "waitlist" | "waitlist_done">("select");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Email du compte connecté, pré-rempli mais modifiable (on peut réserver pour une autre personne).
+  // /mon-compte retrouve les rendez-vous par l'email de la fiche cliente : une autre adresse, ou une
+  // faute de frappe (vu le 17/11/2026 : « @mail.com »), fait sortir le rendez-vous de l'espace client.
+  const [emailCompte, setEmailCompte] = useState<string | null>(null);
 
   useEffect(() => {
     createSupabase().auth.getSession().then(({ data: { session } }) => {
       setIsLoggedIn(!!session);
+      const e = session?.user?.email || null;
+      setEmailCompte(e);
+      if (e) setEmail(e);
+      if (!session) return;
+      // Prénom, nom et téléphone habituels, repris de sa fiche cliente. Seuls les champs encore
+      // vides sont remplis, pour ne jamais écraser ce qu'elle aurait déjà commencé à taper.
+      fetch(`/api/mon-compte/profil?salon_id=${encodeURIComponent(salonId)}`, { headers: { authorization: `Bearer ${session.access_token}` } })
+        .then(r => (r.ok ? r.json() : null))
+        .then(p => {
+          if (!p) return;
+          if (p.prenom) setPrenom(v => v || p.prenom);
+          if (p.nom) setNom(v => v || p.nom);
+          if (p.telephone) setTelephone(v => v || p.telephone);
+        })
+        .catch(err => console.error("Pré-remplissage du profil échoué", err));
     });
-  }, []);
+  }, [salonId]);
   const [selected, setSelected] = useState<Prestation[]>([]);
   const [openStepId, setOpenStepId] = useState<string | null>(null);
   const [confirmedSteps, setConfirmedSteps] = useState<Set<string>>(new Set());
@@ -359,6 +379,11 @@ export default function BookingWidget({
 
   const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 12px", border: "1px solid #e0e0e0", borderRadius: 8, fontSize: 14, boxSizing: "border-box" };
   const labelStyle: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 5 };
+  // Faute de frappe probable sur le domaine (« @mail.com » pour « @gmail.com ») : on propose, sans bloquer.
+  const suggestionEmail = suggererEmail(email);
+  // Connectée mais avec une autre adresse : réservation pour une autre personne, ou faute de frappe.
+  // Les deux sont permises, mais /mon-compte ne verra pas ce rendez-vous : on le dit.
+  const autreAdresse = !!emailCompte && !!email.trim() && email.trim().toLowerCase() !== emailCompte.toLowerCase();
 
   if (step === "done") return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -465,7 +490,25 @@ export default function BookingWidget({
           <div><label style={labelStyle}>Prénom *</label><input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={inputStyle} /></div>
           <div><label style={labelStyle}>Nom *</label><input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" style={inputStyle} /></div>
         </div>
-        <div><label style={labelStyle}>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marie@email.com" style={inputStyle} /></div>
+        <div><label style={labelStyle}>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marie@email.com" style={inputStyle} />
+          {autreAdresse && !suggestionEmail && (
+            <div style={{ fontSize: 12, color: "#b45309", marginTop: 4, lineHeight: 1.5 }}>
+              Ce rendez-vous n&apos;apparaîtra pas dans votre espace client.{" "}
+              <button type="button" onClick={() => setEmail(emailCompte!)}
+                style={{ background: "none", border: "none", padding: 0, color: "#b45309", fontWeight: 700, textDecoration: "underline", cursor: "pointer", fontSize: 12 }}>
+                Utiliser mon adresse
+              </button>
+            </div>
+          )}
+          {suggestionEmail && (
+            <div style={{ fontSize: 12, color: "#b45309", marginTop: 4 }}>
+              Vouliez-vous dire{" "}
+              <button type="button" onClick={() => setEmail(suggestionEmail)}
+                style={{ background: "none", border: "none", padding: 0, color: "#b45309", fontWeight: 700, textDecoration: "underline", cursor: "pointer", fontSize: 12 }}>
+                {suggestionEmail}
+              </button>{" "}?
+            </div>
+          )}</div>
         <div><label style={labelStyle}>Téléphone *</label><input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="06 00 00 00 00" style={inputStyle} /></div>
       </div>
       {wlError && <div style={{ marginTop: 12, fontSize: 13, color: "#e74c3c" }}>{wlError}</div>}
@@ -504,7 +547,25 @@ export default function BookingWidget({
           <div><label style={labelStyle}>Prénom *</label><input value={prenom} onChange={e => setPrenom(e.target.value)} placeholder="Marie" style={inputStyle} /></div>
           <div><label style={labelStyle}>Nom *</label><input value={nom} onChange={e => setNom(e.target.value)} placeholder="Dupont" style={inputStyle} /></div>
         </div>
-        <div><label style={labelStyle}>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marie@email.com" style={inputStyle} /></div>
+        <div><label style={labelStyle}>Email *</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="marie@email.com" style={inputStyle} />
+          {autreAdresse && !suggestionEmail && (
+            <div style={{ fontSize: 12, color: "#b45309", marginTop: 4, lineHeight: 1.5 }}>
+              Ce rendez-vous n&apos;apparaîtra pas dans votre espace client.{" "}
+              <button type="button" onClick={() => setEmail(emailCompte!)}
+                style={{ background: "none", border: "none", padding: 0, color: "#b45309", fontWeight: 700, textDecoration: "underline", cursor: "pointer", fontSize: 12 }}>
+                Utiliser mon adresse
+              </button>
+            </div>
+          )}
+          {suggestionEmail && (
+            <div style={{ fontSize: 12, color: "#b45309", marginTop: 4 }}>
+              Vouliez-vous dire{" "}
+              <button type="button" onClick={() => setEmail(suggestionEmail)}
+                style={{ background: "none", border: "none", padding: 0, color: "#b45309", fontWeight: 700, textDecoration: "underline", cursor: "pointer", fontSize: 12 }}>
+                {suggestionEmail}
+              </button>{" "}?
+            </div>
+          )}</div>
         <div><label style={labelStyle}>Téléphone *</label><input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} placeholder="06 00 00 00 00" style={inputStyle} /></div>
         {wantsDomicile && <div><label style={labelStyle}>Votre adresse *</label><input value={adresseDomicile} onChange={e => setAdresseDomicile(e.target.value)} placeholder="12 rue des Lilas, 75011 Paris" style={inputStyle} /></div>}
       </div>

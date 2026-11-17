@@ -314,7 +314,13 @@ export default function MonComptePage() {
   const ActionConfirm = ({ rdv }: { rdv: Rdv }) => (
     <div style={{ marginTop: 12, padding: "12px 14px", background: "rgba(0,0,0,0.03)", borderRadius: 12 }}>
       <div style={{ fontSize: 13, color: T.text, marginBottom: 10, lineHeight: 1.5 }}>
-        {confirm?.action === "annuler" ? "Confirmer l'annulation de ce rendez-vous ?" : "Ce rendez-vous sera annulé et on vous emmène chez le salon pour en reprendre un nouveau."}
+        {/* Date, heure et salon affichés : le 27/10/2026, une cliente a annulé la mauvaise carte faute de les voir. */}
+        {confirm?.action === "annuler" ? "Confirmer l'annulation de votre rendez-vous" : "Votre rendez-vous"}{" "}
+        <strong>
+          {rdv.salons?.nom ? `chez ${rdv.salons.nom}, ` : ""}
+          {new Date(rdv.date_heure).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })} à {rdv.date_heure.slice(11, 16)}
+        </strong>
+        {confirm?.action === "annuler" ? " ?" : " sera annulé et on vous emmène chez le salon pour en reprendre un nouveau."}
       </div>
       {actionError && <div style={{ fontSize: 12, color: "#e74c3c", marginBottom: 10 }}>{actionError}</div>}
       <div style={{ display: "flex", gap: 8 }}>
